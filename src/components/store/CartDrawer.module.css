@@ -1,0 +1,269 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(61, 43, 43, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-overlay);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(100vw, 420px);
+  background: var(--color-cream);
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(196, 120, 138, 0.2);
+}
+
+/* === HEADER === */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid rgba(196,120,138,0.15);
+  background: var(--color-white);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-primary);
+}
+
+.headerTitle h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.closeBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(196,120,138,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-dark-soft);
+  transition: all var(--transition-fast);
+}
+
+.closeBtn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+/* === BODY === */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--color-secondary);
+}
+
+.empty p {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--color-dark);
+}
+
+.empty span {
+  font-size: var(--text-sm);
+  color: var(--color-dark-soft);
+}
+
+/* === ITEMS === */
+.itemList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(196,120,138,0.1);
+}
+
+.itemImage {
+  width: 72px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-cream-dark);
+}
+
+.itemImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-secondary);
+}
+
+.itemInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.itemName {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemSize {
+  font-size: var(--text-xs);
+  color: var(--color-dark-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.itemPrice {
+  font-weight: 700;
+  color: var(--color-gold);
+  font-size: var(--text-base);
+}
+
+.qtyControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.qtyBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid rgba(196,120,138,0.3);
+  background: var(--color-cream);
+  color: var(--color-dark);
+  font-size: var(--text-base);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.qtyBtn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.qty {
+  font-weight: 700;
+  font-size: var(--text-base);
+  min-width: 24px;
+  text-align: center;
+}
+
+.removeBtn {
+  color: #c0a0a8;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.removeBtn:hover {
+  color: #dc2626;
+}
+
+/* === FOOTER === */
+.footer {
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid rgba(196,120,138,0.15);
+  background: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.totalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 500;
+  color: var(--color-dark-soft);
+}
+
+.totalAmount {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-gold);
+}
+
+.whatsappBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  color: white;
+  font-weight: 600;
+  font-size: var(--text-base);
+  letter-spacing: 0.03em;
+  box-shadow: 0 4px 16px rgba(37,211,102,0.35);
+  transition: all var(--transition-base);
+}
+
+.clearBtn {
+  font-size: var(--text-xs);
+  color: #c0a0a8;
+  text-align: center;
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+
+.clearBtn:hover {
+  color: #dc2626;
+}
