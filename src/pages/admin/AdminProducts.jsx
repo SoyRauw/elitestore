@@ -133,11 +133,9 @@ export default function AdminProducts() {
                 <Package size={40} style={{color:'var(--color-secondary)'}} />
                 <p>No hay productos. <button onClick={() => setShowForm(true)} style={{color:'var(--color-primary)',textDecoration:'underline'}}>Agrega el primero</button></p>
               </div>
-  )
-}
+            )}
           </div>
-  )
-}
+        )}
       
 
       <AnimatePresence>
@@ -326,8 +324,7 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
                 <div style={{ width: 60, height: 60, borderRadius: 8, background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                   <Camera size={24} />
                 </div>
-  )
-}
+              )}
               <input type="file" accept="image/*" onChange={handleImageChange} className="input" style={{ flex: 1, padding: '0.4rem' }} />
             </div>
           </div>
