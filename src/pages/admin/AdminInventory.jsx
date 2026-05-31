@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import styles from './AdminInventory.module.css'
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL']
+const SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL']
 
 export default function AdminInventory() {
   const { signOut } = useAuth()

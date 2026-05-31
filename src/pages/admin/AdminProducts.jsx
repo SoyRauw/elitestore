@@ -5,13 +5,14 @@ import { useAuth } from '../../hooks/useAuth'
 import { Html5QrcodeScanner } from 'html5-qrcode'
 import {
   Package, Plus, Edit2, Trash2, LogOut, BarChart2, Tag,
-  Camera, X, ShoppingBag, Save, AlertTriangle, FolderTree
+  Camera, X, ShoppingBag, Save, AlertTriangle, FolderTree,
+  ImagePlus, Star
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import styles from './AdminProducts.module.css'
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL']
+const SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL']
 
 export default function AdminProducts() {
   const { signOut } = useAuth()
@@ -182,7 +183,7 @@ export default function AdminProducts() {
 
 function ProductFormModal({ product, categories, scannedId, onClose, onSaved, onOpenScanner, onScannedIdChange }) {
   // Convert product_sizes array to an object map for the form
-  const initialSizes = { XS:0, S:0, M:0, L:0, XL:0 }
+  const initialSizes = { XS:0, S:0, M:0, L:0, XL:0, '2XL':0 }
   if (product && product.product_sizes) {
     product.product_sizes.forEach(ps => { initialSizes[ps.size] = ps.stock })
   }
@@ -198,17 +199,34 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
     active: product?.active !== false,
     images: product?.images || [],
   })
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(product?.images?.[0] || '')
+  // Multi-image state
+  const [pendingFiles, setPendingFiles] = useState([]) // { file, preview, id }
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [uploadProgress, setUploadProgress] = useState(0)
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file))
-    }
+  const handleImageFiles = (e) => {
+    const files = Array.from(e.target.files)
+    const newEntries = files.map(file => ({
+      id: Math.random().toString(36).slice(2),
+      file,
+      preview: URL.createObjectURL(file),
+      isNew: true,
+    }))
+    setPendingFiles(prev => [...prev, ...newEntries])
+    e.target.value = '' // allow re-selecting same file
+  }
+
+  const removeExistingImage = (url) => {
+    setForm(f => ({ ...f, images: f.images.filter(u => u !== url) }))
+  }
+
+  const removePendingFile = (id) => {
+    setPendingFiles(prev => prev.filter(p => p.id !== id))
+  }
+
+  const moveImageToFirst = (url) => {
+    setForm(f => ({ ...f, images: [url, ...f.images.filter(u => u !== url)] }))
   }
 
   useEffect(() => {
@@ -222,25 +240,29 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
     setSaving(true)
     setError('')
     try {
-      let imageUrls = form.images
+      let imageUrls = [...form.images]
 
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop()
-        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`
-        
-        const { error: uploadError } = await supabase.storage
-          .from('product-images')
-          .upload(fileName, imageFile)
+      // Upload all pending new images
+      if (pendingFiles.length > 0) {
+        setUploadProgress(0)
+        for (let i = 0; i < pendingFiles.length; i++) {
+          const entry = pendingFiles[i]
+          const fileExt = entry.file.name.split('.').pop()
+          const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
 
-        if (uploadError) {
-          throw new Error('Error al subir la imagen: ' + uploadError.message)
+          const { error: uploadError } = await supabase.storage
+            .from('product-images')
+            .upload(fileName, entry.file)
+
+          if (uploadError) throw new Error('Error al subir imagen: ' + uploadError.message)
+
+          const { data: publicUrlData } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(fileName)
+
+          imageUrls.push(publicUrlData.publicUrl)
+          setUploadProgress(Math.round(((i + 1) / pendingFiles.length) * 100))
         }
-
-        const { data: publicUrlData } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(fileName)
-          
-        imageUrls = [publicUrlData.publicUrl]
       }
 
       const payload = {
@@ -315,18 +337,63 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
             <textarea className={`input ${styles.textarea}`} value={form.description} onChange={(e) => setForm({...form,description:e.target.value})} placeholder="Descripción..." rows={3} />
           </div>
 
+          {/* ===== MULTI-IMAGE MANAGER ===== */}
           <div className={styles.field}>
-            <label className="label">Imagen Principal</label>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              {imagePreview ? (
-                <img src={imagePreview} alt="Preview" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
-              ) : (
-                <div style={{ width: 60, height: 60, borderRadius: 8, background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                  <Camera size={24} />
-                </div>
-              )}
-              <input type="file" accept="image/*" onChange={handleImageChange} className="input" style={{ flex: 1, padding: '0.4rem' }} />
-            </div>
+            <label className="label">Imágenes del producto</label>
+
+            {/* Existing saved images */}
+            {form.images.length > 0 && (
+              <div className={styles.imgGrid}>
+                {form.images.map((url, i) => (
+                  <div key={url} className={`${styles.imgThumbWrap} ${i === 0 ? styles.imgMain : ''}`}>
+                    <img src={url} alt={`img ${i+1}`} className={styles.imgThumb} />
+                    {i === 0 && <span className={styles.mainBadge}><Star size={10}/> Principal</span>}
+                    <div className={styles.imgActions}>
+                      {i !== 0 && (
+                        <button type="button" className={styles.imgActionBtn} onClick={() => moveImageToFirst(url)} title="Hacer principal">
+                          <Star size={12}/>
+                        </button>
+                      )}
+                      <button type="button" className={`${styles.imgActionBtn} ${styles.imgDeleteBtn}`} onClick={() => removeExistingImage(url)} title="Eliminar">
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pending new images (not yet uploaded) */}
+            {pendingFiles.length > 0 && (
+              <div className={styles.imgGrid} style={{ marginTop: '0.5rem' }}>
+                {pendingFiles.map((entry) => (
+                  <div key={entry.id} className={styles.imgThumbWrap}>
+                    <img src={entry.preview} alt="nueva" className={styles.imgThumb} />
+                    <span className={styles.newBadge}>Nueva</span>
+                    <div className={styles.imgActions}>
+                      <button type="button" className={`${styles.imgActionBtn} ${styles.imgDeleteBtn}`} onClick={() => removePendingFile(entry.id)} title="Quitar">
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload button */}
+            <label className={styles.uploadArea}>
+              <ImagePlus size={20} />
+              <span>Agregar fotos</span>
+              <span style={{ fontSize: '11px', opacity: 0.6 }}>PNG, JPG — múltiples a la vez</span>
+              <input type="file" accept="image/*" multiple onChange={handleImageFiles} style={{ display: 'none' }} />
+            </label>
+
+            {/* Progress bar */}
+            {saving && uploadProgress > 0 && uploadProgress < 100 && (
+              <div className={styles.progressBar}>
+                <div className={styles.progressFill} style={{ width: `${uploadProgress}%` }} />
+              </div>
+            )}
           </div>
 
           <div className={styles.formRow}>

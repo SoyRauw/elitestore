@@ -138,6 +138,50 @@
   box-shadow: var(--shadow-lg);
 }
 
+/* === IMAGE COUNT BADGE === */
+.imgCountBadge {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.03em;
+  backdrop-filter: blur(4px);
+}
+
+/* === VIEW OVERLAY === */
+.viewOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(61,35,42,0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.viewOverlay span {
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.55);
+  padding: 6px 18px;
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(4px);
+}
+
+.imageWrap:hover .viewOverlay {
+  opacity: 1;
+}
+
 /* === IMAGE === */
 .imageWrap {
   position: relative;
