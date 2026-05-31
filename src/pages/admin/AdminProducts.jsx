@@ -22,6 +22,7 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editProduct, setEditProduct] = useState(null)
+  const [loadingEdit, setLoadingEdit] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [scannedId, setScannedId] = useState('')
@@ -39,8 +40,17 @@ export default function AdminProducts() {
 
   useEffect(() => { fetchData() }, [])
 
-  const handleEdit = (product) => {
-    setEditProduct(product)
+  // Fetch product fresh from DB before opening edit modal
+  // This guarantees the 'images' array is always complete and up to date
+  const handleEdit = async (product) => {
+    setLoadingEdit(product.id)
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, categories(name), product_sizes(size, stock)')
+      .eq('id', product.id)
+      .single()
+    setLoadingEdit(false)
+    setEditProduct(error ? product : data)
     setShowForm(true)
   }
 
@@ -116,8 +126,16 @@ export default function AdminProducts() {
                       </td>
                       <td>
                         <div className={styles.actions}>
-                          <button className={styles.editBtn} onClick={() => handleEdit(p)} aria-label="Editar">
-                            <Edit2 size={15} />
+                          <button
+                            className={styles.editBtn}
+                            onClick={() => handleEdit(p)}
+                            aria-label="Editar"
+                            disabled={loadingEdit === p.id}
+                          >
+                            {loadingEdit === p.id
+                              ? <div className={styles.spinnerSm} />
+                              : <Edit2 size={15} />
+                            }
                           </button>
                           <button className={styles.deleteBtn} onClick={() => setDeleteConfirm(p.id)} aria-label="Eliminar">
                             <Trash2 size={15} />
@@ -197,7 +215,7 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
     sizes: initialSizes,
     featured: product?.featured || false,
     active: product?.active !== false,
-    images: product?.images || [],
+    images: Array.isArray(product?.images) ? product.images : [],
   })
   // Multi-image state
   const [pendingFiles, setPendingFiles] = useState([]) // { file, preview, id }
