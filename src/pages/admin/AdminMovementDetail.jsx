@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, RotateCcw } from 'lucide-react'
+import { ArrowLeft, CheckCircle, RotateCcw, Copy, XCircle } from 'lucide-react'
 import styles from './AdminMovementDetail.module.css'
 
 export default function AdminMovementDetail() {
@@ -46,6 +46,46 @@ export default function AdminMovementDetail() {
     fetchDetail()
   }
 
+  const copyForWhatsApp = () => {
+    const isVenta = movement.movement_type === 'venta'
+    let text = `*Resumen de ${isVenta ? 'Venta' : 'Consignación'} - Elitestore*\n`
+    text += `Factura: #${movement.id.split('-')[0]}\n`
+    if (movement.customer_name) text += `Cliente: ${movement.customer_name}\n`
+    text += `Fecha: ${new Date(movement.created_at).toLocaleDateString()}\n\n`
+    
+    text += `*Productos:*\n`
+    items.forEach(item => {
+      text += `- ${item.quantity}x ${item.products?.name} (Talla: ${item.size}) - $${item.quantity * item.unit_price}\n`
+    })
+    
+    text += `\n*Total: $${movement.total_amount}*\n`
+    if (movement.notes) text += `\nNotas: ${movement.notes}\n`
+    text += `\n¡Gracias por preferirnos!`
+
+    navigator.clipboard.writeText(text)
+      .then(() => alert('¡Texto copiado al portapapeles! Listo para pegar en WhatsApp.'))
+      .catch(err => alert('Error al copiar el texto.'))
+  }
+
+  const cancelMovement = async () => {
+    if(!confirm('¿Estás seguro de que deseas ANULAR esta factura? Los productos volverán al inventario y el estado cambiará a "anulado".')) return
+    
+    // 1. Update movement status
+    await supabase.from('movements').update({ status: 'anulado', updated_at: new Date().toISOString() }).eq('id', id)
+    
+    // 2. Return stock (only if it wasn't already returned via 'devuelto')
+    if (movement.status !== 'devuelto' && movement.status !== 'anulado') {
+      for (const item of items) {
+        const { data: sizeData } = await supabase.from('product_sizes').select('stock').eq('product_id', item.product_id).eq('size', item.size).single()
+        if (sizeData) {
+          await supabase.from('product_sizes').update({ stock: sizeData.stock + item.quantity }).eq('product_id', item.product_id).eq('size', item.size)
+        }
+      }
+    }
+    
+    fetchDetail()
+  }
+
   if (loading) return <div className={styles.page}>Cargando...</div>
   if (!movement) return <div className={styles.page}>Movimiento no encontrado</div>
 
@@ -57,7 +97,11 @@ export default function AdminMovementDetail() {
         <span className={`badge ${movement.movement_type === 'venta' ? 'badge-primary' : 'badge-secondary'}`}>
           {movement.movement_type.toUpperCase()}
         </span>
-        <span className={`badge ${movement.status === 'pagado' || movement.status === 'vendido' ? 'badge-success' : movement.status === 'devuelto' ? 'badge-danger' : 'badge-secondary'}`}>
+        <span className={`badge ${
+          movement.status === 'pagado' || movement.status === 'vendido' ? 'badge-success' : 
+          movement.status === 'devuelto' || movement.status === 'anulado' ? 'badge-danger' : 
+          'badge-secondary'
+        }`}>
           {movement.status.toUpperCase()}
         </span>
       </div>
@@ -106,7 +150,7 @@ export default function AdminMovementDetail() {
         {movement.movement_type === 'consignacion' && movement.status === 'activo' && (
           <div className={styles.actionsCard}>
             <h3>Acciones de Consignación</h3>
-            <div style={{display:'flex', gap:'1rem', marginTop:'1rem'}}>
+            <div style={{display:'flex', gap:'1rem', marginTop:'1rem', flexWrap: 'wrap'}}>
               <button className="btn btn-primary" onClick={markAsSold}>
                 <CheckCircle size={16}/> Marcar como Vendido
               </button>
@@ -116,6 +160,21 @@ export default function AdminMovementDetail() {
             </div>
           </div>
         )}
+
+        <div className={styles.actionsCard} style={{marginTop: '2rem'}}>
+          <h3>Opciones de Factura</h3>
+          <div style={{display:'flex', gap:'1rem', marginTop:'1rem', flexWrap: 'wrap'}}>
+            <button className="btn btn-outline" onClick={copyForWhatsApp}>
+              <Copy size={16}/> Copiar para WhatsApp
+            </button>
+            
+            {movement.status !== 'anulado' && movement.status !== 'devuelto' && (
+              <button className="btn btn-outline" onClick={cancelMovement} style={{color:'#dc2626', borderColor:'#dc2626'}}>
+                <XCircle size={16}/> Anular Factura
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

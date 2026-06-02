@@ -69,7 +69,7 @@ export default function AdminMovements() {
                     <td>
                       <span className={`badge ${
                         m.status === 'pagado' || m.status === 'vendido' ? 'badge-success' : 
-                        m.status === 'devuelto' ? 'badge-danger' : 
+                        m.status === 'devuelto' || m.status === 'anulado' ? 'badge-danger' : 
                         'badge-secondary'
                       }`}>
                         {m.status}
