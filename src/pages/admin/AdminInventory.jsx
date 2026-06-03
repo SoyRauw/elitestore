@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { Package, LogOut, BarChart2, Tag, ShoppingBag, Save, FolderTree } from 'lucide-react'
+import { Package, LogOut, BarChart2, Tag, ShoppingBag, Save, FolderTree, ChevronDown, ChevronUp } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import styles from './AdminInventory.module.css'
@@ -17,12 +17,14 @@ export default function AdminInventory() {
   const [saving, setSaving] = useState({})
   const [saved, setSaved] = useState({})
   
-  // local state of sizes being edited: { productId: { XS: 5, S: 2 } }
   const [draftSizes, setDraftSizes] = useState({})
+  const [expanded, setExpanded] = useState({})
+  
+  const toggleExpand = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase.from('products').select('id, name, price, images, product_sizes(size, stock)').order('name')
+      const { data } = await supabase.from('products').select('id, name, price, wholesale_price, images, product_sizes(size, stock)').order('name')
       if (data) {
         setProducts(data)
         const drafts = {}
@@ -94,49 +96,56 @@ export default function AdminInventory() {
               const isOut = total === 0
               return (
                 <motion.div key={product.id} className={styles.productCard} initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:i*0.06}}>
-                  <div className={styles.productHeader}>
-                    <div className={styles.productInfo}>
+                  <div className={styles.productHeader} onClick={() => toggleExpand(product.id)} style={{ cursor: 'pointer' }}>
+                    <div className={styles.productMain}>
                       <div className={styles.productThumb}>
                         {product.images?.[0] ? <img src={product.images[0]} alt={product.name}/> : <ShoppingBag size={16}/>}
                       </div>
-                      <div>
+                      <div className={styles.productDetailsInfo}>
                         <div className={styles.productName}>{product.name}</div>
                         <div className={styles.productId}>#{product.id}</div>
+                        <div className={styles.productPrices}>
+                          <span className={styles.priceRetail}>Detal: ${product.price}</span>
+                          {product.wholesale_price && <span className={styles.priceWholesale}>Mayor: ${product.wholesale_price}</span>}
+                        </div>
                       </div>
                     </div>
-                    <div className={styles.productMeta}>
+                    <div className={styles.productActionsRow}>
                       <span className={`${styles.stockTotal} ${isOut?styles.stockOut:isLow?styles.stockLow:styles.stockOk}`}>
                         {isOut ? '⚠ Sin stock' : isLow ? `⚡ ${total} und.` : `✓ ${total} und.`}
                       </span>
-                      <span className={styles.productPrice}>${product.price}</span>
+                      {expanded[product.id] ? <ChevronUp size={20} className={styles.expandIcon}/> : <ChevronDown size={20} className={styles.expandIcon}/>}
                     </div>
                   </div>
 
-                  <div className={styles.sizesTable}>
-                    {SIZES.map((size) => {
-                      const qty = draftSizes[product.id]?.[size] ?? 0
-                      const isLowSize = qty > 0 && qty < 3
-                      return (
-                        <div key={size} className={styles.sizeRow}>
-                          <span className={styles.sizeLabel}>{size}</span>
-                          <div className={styles.sizeBar}>
-                            <div className={`${styles.sizeBarFill} ${qty===0?styles.barOut:isLowSize?styles.barLow:styles.barOk}`} style={{width: `${Math.min(100, qty * 10)}%`}} />
-                          </div>
-                          <input type="number" min={0} className={styles.sizeQtyInput} value={qty} onChange={(e) => updateSizeDraft(product.id, size, e.target.value)} />
-                        </div>
-  )
-})}
-                  </div>
+                  {expanded[product.id] && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className={styles.productDetails}>
+                      <div className={styles.sizesTable}>
+                        {SIZES.map((size) => {
+                          const qty = draftSizes[product.id]?.[size] ?? 0
+                          const isLowSize = qty > 0 && qty < 3
+                          return (
+                            <div key={size} className={styles.sizeRow}>
+                              <span className={styles.sizeLabel}>{size}</span>
+                              <div className={styles.sizeBar}>
+                                <div className={`${styles.sizeBarFill} ${qty===0?styles.barOut:isLowSize?styles.barLow:styles.barOk}`} style={{width: `${Math.min(100, qty * 10)}%`}} />
+                              </div>
+                              <input type="number" min={0} className={styles.sizeQtyInput} value={qty} onChange={(e) => updateSizeDraft(product.id, size, e.target.value)} onClick={(e) => e.stopPropagation()} />
+                            </div>
+                          )
+                        })}
+                      </div>
 
-                  <button className={`${styles.saveBtn} ${saved[product.id]?styles.saveBtnSaved:''}`} onClick={()=>saveProductInventory(product.id)} disabled={saving[product.id]}>
-                    {saving[product.id] ? <div className={styles.spinner}/> : saved[product.id] ? '✓ Guardado' : <><Save size={14}/> Guardar cambios</>}
-                  </button>
+                      <button className={`${styles.saveBtn} ${saved[product.id]?styles.saveBtnSaved:''}`} onClick={(e)=>{e.stopPropagation();saveProductInventory(product.id)}} disabled={saving[product.id]}>
+                        {saving[product.id] ? <div className={styles.spinner}/> : saved[product.id] ? '✓ Guardado' : <><Save size={14}/> Guardar cambios</>}
+                      </button>
+                    </motion.div>
+                  )}
                 </motion.div>
               )
             })}
           </div>
-  )
-}
+        )}
       
     </AdminLayout>
   )

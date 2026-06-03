@@ -129,17 +129,17 @@ export default function AdminMovementDetail() {
             </thead>
             <tbody>
               {items.map(item => (
-                <tr key={item.id}>
-                  <td>{item.products?.name} (#{item.product_id})</td>
-                  <td>{item.size}</td>
-                  <td>{item.quantity}</td>
-                  <td>${item.unit_price}</td>
-                  <td>${item.quantity * item.unit_price}</td>
+                <tr key={item.id} className={styles.tableRow}>
+                  <td data-label="Producto">{item.products?.name} (#{item.product_id})</td>
+                  <td data-label="Talla">{item.size}</td>
+                  <td data-label="Cant.">{item.quantity}</td>
+                  <td data-label="Precio Un.">${item.unit_price}</td>
+                  <td data-label="Subtotal">${item.quantity * item.unit_price}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr>
+              <tr className={styles.tfootRow}>
                 <td colSpan="4" style={{textAlign:'right', fontWeight:700}}>TOTAL:</td>
                 <td style={{fontWeight:700, color:'var(--color-gold)'}}>${movement.total_amount}</td>
               </tr>

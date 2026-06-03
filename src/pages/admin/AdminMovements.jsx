@@ -59,14 +59,14 @@ export default function AdminMovements() {
               <tbody>
                 {movements.map(m => (
                   <motion.tr key={m.id} className={styles.tableRow} initial={{opacity:0}} animate={{opacity:1}}>
-                    <td>{new Date(m.created_at).toLocaleDateString()}</td>
-                    <td>
+                    <td data-label="Fecha">{new Date(m.created_at).toLocaleDateString()}</td>
+                    <td data-label="Tipo">
                       <span className={`badge ${m.movement_type === 'venta' ? 'badge-primary' : 'badge-secondary'}`}>
                         {m.movement_type}
                       </span>
                     </td>
-                    <td>{m.customer_name || 'Sin nombre'}</td>
-                    <td>
+                    <td data-label="Cliente">{m.customer_name || 'Sin nombre'}</td>
+                    <td data-label="Estado">
                       <span className={`badge ${
                         m.status === 'pagado' || m.status === 'vendido' ? 'badge-success' : 
                         m.status === 'devuelto' || m.status === 'anulado' ? 'badge-danger' : 
@@ -75,8 +75,8 @@ export default function AdminMovements() {
                         {m.status}
                       </span>
                     </td>
-                    <td style={{fontWeight:600, color:'var(--color-gold)'}}>${m.total_amount}</td>
-                    <td>
+                    <td data-label="Total" style={{fontWeight:600, color:'var(--color-gold)'}}>${m.total_amount}</td>
+                    <td data-label="Acciones">
                       <Link to={`/admin/movements/${m.id}`} className={styles.editBtn}>
                         <Eye size={15}/>
                       </Link>

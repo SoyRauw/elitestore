@@ -3,14 +3,26 @@
 .header h1 { font-family:var(--font-display); font-size:var(--text-2xl); color:var(--color-dark); }
 .backBtn { width:40px; height:40px; border-radius:var(--radius-full); background:white; display:flex; align-items:center; justify-content:center; color:var(--color-dark); box-shadow:var(--shadow-sm); }
 
-.content { display:grid; grid-template-columns:1fr 350px; gap:var(--space-6); align-items:start; }
-@media(max-width:900px){ .content { grid-template-columns:1fr; } }
+.content { display:flex; gap:var(--space-6); align-items:flex-start; flex-direction:row; }
+.productsSection { flex: 1; min-width: 0; }
+.formSection { width: 350px; flex-shrink: 0; }
+@media(max-width:900px){ 
+  .content { flex-direction:column-reverse; } 
+  .formSection { width: 100%; position: static; }
+}
 
 .productsSection { background:white; padding:var(--space-6); border-radius:var(--radius-xl); box-shadow:var(--shadow-sm); }
 .productsSection h2 { font-size:var(--text-lg); margin-bottom:var(--space-4); }
 .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:var(--space-4); }
+@media(max-width:600px){
+  .grid { grid-template-columns:repeat(2, 1fr); gap:var(--space-2); }
+  .productCard { padding:var(--space-3); }
+  .sizeBtn { padding: 4px; font-size: 11px; }
+}
 
-.productCard { border:1px solid rgba(196,120,138,0.2); padding:var(--space-4); border-radius:var(--radius-lg); display:flex; flex-direction:column; gap:var(--space-2); }
+.productCard { border:1px solid rgba(196,120,138,0.2); padding:var(--space-3); border-radius:var(--radius-lg); display:flex; flex-direction:column; gap:var(--space-2); }
+.productImageThumb { width: 100%; height: 120px; border-radius: var(--radius-md); overflow: hidden; background: var(--color-secondary); display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+.productImageThumb img { width: 100%; height: 100%; object-fit: cover; }
 .sizes { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-2); }
 .sizeBtn { padding:4px 8px; border-radius:var(--radius-md); border:1px solid var(--color-primary); color:var(--color-primary); font-size:12px; display:flex; align-items:center; gap:4px; font-weight:600; transition:all var(--transition-fast); }
 .sizeBtn:hover { background:var(--color-primary); color:white; }

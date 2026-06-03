@@ -283,4 +283,9 @@
   white-space: nowrap;
 }
 
-@media (max-width: 767px) { .statsGrid { grid-template-columns: 1fr; } }
+@media (max-width: 767px) { 
+  .statsGrid { grid-template-columns: 1fr; } 
+  .productRow { flex-wrap: wrap; gap: var(--space-2); }
+  .productInfo { width: 100%; margin-bottom: var(--space-1); }
+  .productName { white-space: normal; }
+}

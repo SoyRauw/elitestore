@@ -101,7 +101,7 @@ export default function AdminProducts() {
                   const isLow = totalStock > 0 && totalStock < 5
                   return (
                     <motion.tr key={p.id} className={styles.tableRow} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <td>
+                      <td data-label="Producto">
                         <div className={styles.productCell}>
                           <div className={styles.productThumb}>
                             {p.images?.[0] ? <img src={p.images[0]} alt={p.name} /> : <ShoppingBag size={14} />}
@@ -112,19 +112,22 @@ export default function AdminProducts() {
                           </div>
                         </div>
                       </td>
-                      <td><span className="badge badge-primary">{p.categories?.name || 'N/A'}</span></td>
-                      <td className={styles.priceCell}>${p.price}</td>
-                      <td>
+                      <td data-label="Categoría"><span className="badge badge-primary">{p.categories?.name || 'N/A'}</span></td>
+                      <td data-label="Precio" className={styles.priceCell}>
+                        ${p.price}
+                        {p.wholesale_price && <div style={{fontSize:'12px', color:'var(--color-dark-soft)', fontWeight:'normal'}}>Mayor: ${p.wholesale_price}</div>}
+                      </td>
+                      <td data-label="Stock Total">
                         <span className={`${styles.stockBadge} ${totalStock === 0 ? styles.stockOut : isLow ? styles.stockLow : styles.stockOk}`}>
                           {totalStock === 0 ? '⚠ Sin stock' : isLow ? `⚡ ${totalStock} uds` : `✓ ${totalStock} uds`}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Estado">
                         <span className={`badge ${p.active ? 'badge-success' : 'badge-danger'}`}>
                           {p.active ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Acciones">
                         <div className={styles.actions}>
                           <button
                             className={styles.editBtn}
@@ -211,6 +214,7 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
     name: product?.name || '',
     description: product?.description || '',
     price: product?.price || '',
+    wholesale_price: product?.wholesale_price || '',
     category_id: product?.category_id || (categories[0]?.id || ''),
     sizes: initialSizes,
     featured: product?.featured || false,
@@ -288,6 +292,7 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
         name: form.name,
         description: form.description,
         price: parseFloat(form.price),
+        wholesale_price: parseFloat(form.wholesale_price) || 0,
         category_id: form.category_id,
         featured: form.featured,
         active: form.active,
@@ -417,7 +422,11 @@ function ProductFormModal({ product, categories, scannedId, onClose, onSaved, on
           <div className={styles.formRow}>
             <div className={styles.field}>
               <label className="label">Precio ($)</label>
-              <input type="number" step="0.01" className="input" value={form.price} onChange={(e) => setForm({...form,price:e.target.value})} placeholder="350.00" required />
+              <input type="number" step="0.01" className="input" value={form.price} onChange={(e) => setForm({...form,price:e.target.value})} placeholder="35.00" required />
+            </div>
+            <div className={styles.field}>
+              <label className="label">Precio al Mayor ($)</label>
+              <input type="number" step="0.01" className="input" value={form.wholesale_price} onChange={(e) => setForm({...form,wholesale_price:e.target.value})} placeholder="25.00" />
             </div>
             <div className={styles.field}>
               <label className="label">Categoría</label>
