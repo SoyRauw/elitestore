@@ -1,0 +1,205 @@
+.receipt {
+  background: white;
+  border: 1px dashed rgba(0,0,0,0.2);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+  color: #1f2937;
+  max-width: 360px;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.brand {
+  text-align: center;
+  border-bottom: 1px dashed rgba(0,0,0,0.2);
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.brandName {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.brandSubtitle {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+.meta {
+  margin-bottom: 0.75rem;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.metaRow span {
+  color: #6b7280;
+}
+
+.section {
+  border-top: 1px dashed rgba(0,0,0,0.15);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.sectionTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #9ca3af;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.customerName {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.customerMeta {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+.item {
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+
+.item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.itemMain {
+  display: flex;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.itemQty {
+  font-weight: 700;
+  min-width: 1.5rem;
+}
+
+.itemName {
+  font-weight: 500;
+}
+
+.itemVariantLabel {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+.itemPrice {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.itemPrice strong {
+  font-size: 0.9rem;
+}
+
+.totals {
+  border-top: 1px dashed rgba(0,0,0,0.2);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.discountRow {
+  color: #16a34a;
+  font-size: 0.95rem;
+}
+
+.couponName {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin-left: 0.35rem;
+}
+
+.totalFinal {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 2px dashed rgba(0,0,0,0.2);
+}
+
+.paymentRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.paymentRef {
+  width: 100%;
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin-top: 0.1rem;
+}
+
+.totalPaidRow,
+.changeRow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  font-size: 0.85rem;
+}
+
+.changeRow {
+  color: #166534;
+}
+
+.notes {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: pre-wrap;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(0,0,0,0.2);
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+@media print {
+  .receipt {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    max-width: 100%;
+  }
+}

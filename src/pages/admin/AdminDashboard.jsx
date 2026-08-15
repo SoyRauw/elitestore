@@ -3,40 +3,39 @@ import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
-  Package, AlertTriangle, TrendingUp, Tag, LogOut, Plus,
-  ShoppingBag, BarChart2, FolderTree
+  Package, AlertTriangle, TrendingUp, Plus,
+  ShoppingBag, BarChart2
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import styles from './AdminDashboard.module.css'
 
 export default function AdminDashboard() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [stats, setStats] = useState(null)
   const [recentProducts, setRecentProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { data: products } = await supabase.from('products').select('*, product_sizes(stock)')
+      const { data: products } = await supabase.from('products').select('*, product_variants(stock)')
       if (!products) { setLoading(false); return }
 
       const totalProducts = products.length
       const totalStock = products.reduce((sum, p) => {
-        if (!p.product_sizes) return sum
-        return sum + p.product_sizes.reduce((s, ps) => s + (ps.stock || 0), 0)
+        if (!p.product_variants) return sum
+        return sum + p.product_variants.reduce((s, v) => s + (v.stock || 0), 0)
       }, 0)
-      
+
       const lowStock = products.filter((p) => {
-        if (!p.product_sizes) return false
-        const total = p.product_sizes.reduce((s, ps) => s + (ps.stock || 0), 0)
+        if (!p.product_variants) return false
+        const total = p.product_variants.reduce((s, v) => s + (v.stock || 0), 0)
         return total < 5 && total > 0
       }).length
-      
+
       const outOfStock = products.filter((p) => {
-        if (!p.product_sizes) return true
-        return p.product_sizes.reduce((s, ps) => s + (ps.stock || 0), 0) === 0
+        if (!p.product_variants) return true
+        return p.product_variants.reduce((s, v) => s + (v.stock || 0), 0) === 0
       }).length
 
       setStats({ totalProducts, totalStock, lowStock, outOfStock })
@@ -45,11 +44,6 @@ export default function AdminDashboard() {
     }
     fetchStats()
   }, [])
-
-  const handleLogout = async () => {
-    await signOut()
-    navigate('/admin')
-  }
 
   const statCards = stats ? [
     { icon: Package,      label: 'Productos',      value: stats.totalProducts, color: 'primary' },

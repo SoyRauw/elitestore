@@ -22,46 +22,6 @@ export default function HeroSection() {
 
   return (
     <section className={styles.hero} ref={ref}>
-      {/* Animated background blobs */}
-      <div className={styles.blobs}>
-        <motion.div
-          className={`${styles.blob} ${styles.blob1}`}
-          animate={{ scale: [1, 1.15, 1], x: [0, 20, 0], y: [0, -20, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div
-          className={`${styles.blob} ${styles.blob2}`}
-          animate={{ scale: [1, 1.1, 1], x: [0, -15, 0], y: [0, 25, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-        />
-        <motion.div
-          className={`${styles.blob} ${styles.blob3}`}
-          animate={{ scale: [1, 1.2, 1], x: [0, 10, 0], y: [0, 15, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-        />
-      </div>
-
-      {/* Floating petals */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className={styles.petal}
-          style={{ left: `${10 + i * 15}%`, top: `${20 + (i % 3) * 20}%` }}
-          animate={{
-            y: [0, -20, 0],
-            rotate: [0, 15, -15, 0],
-            opacity: [0.3, 0.6, 0.3],
-          }}
-          transition={{
-            duration: 4 + i * 0.5,
-            repeat: Infinity,
-            delay: i * 0.4,
-            ease: 'easeInOut',
-          }}
-        >
-          🌸
-        </motion.div>
-      ))}
 
       {/* Content */}
       <motion.div
@@ -77,14 +37,13 @@ export default function HeroSection() {
         </motion.div>
 
         <motion.h1 className={styles.title} variants={itemVariants}>
-          Elegancia que
+          Elegancia en tu
           <br />
-          <span className={styles.titleAccent}>te abraza</span>
+          <span className={styles.titleAccent}>día a día</span>
         </motion.h1>
 
         <motion.p className={styles.subtitle} variants={itemVariants}>
-          Moda exclusiva diseñada para la mujer que se ama a sí misma.
-          Suavidad, estilo y confort en cada prenda.
+          Moda exclusiva, tendencias y accesorios esenciales diseñados para la mujer contemporánea. Encuentra tu look ideal y complementa tu rutina.
         </motion.p>
 
         <motion.div className={styles.actions} variants={itemVariants}>
@@ -101,8 +60,7 @@ export default function HeroSection() {
         <motion.div className={styles.stats} variants={itemVariants}>
           {[
             { value: '100%', label: 'Calidad Premium' },
-            { value: 'XS–XL', label: 'Todas las tallas' },
-            { value: '💕', label: 'Hecho con amor' },
+            { value: 'XS–XXL', label: 'Todas las tallas' },
           ].map((s) => (
             <div key={s.label} className={styles.stat}>
               <span className={styles.statValue}>{s.value}</span>
@@ -113,14 +71,16 @@ export default function HeroSection() {
       </motion.div>
 
       {/* Scroll indicator */}
-      <motion.div
-        className={styles.scrollIndicator}
-        animate={{ y: [0, 8, 0] }}
-        transition={{ duration: 1.5, repeat: Infinity }}
-      >
-        <div className={styles.scrollLine} />
-        <span>scroll</span>
-      </motion.div>
+      <div className={styles.scrollIndicator}>
+        <motion.div
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+        >
+          <div className={styles.scrollLine} />
+          <span>scroll</span>
+        </motion.div>
+      </div>
     </section>
   )
 }

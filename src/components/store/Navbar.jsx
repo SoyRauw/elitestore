@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Menu, X, Sparkles } from 'lucide-react'
+import { ShoppingBag, Menu, X } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
 import CartDrawer from './CartDrawer'
 import styles from './Navbar.module.css'
+import logoImg from '../../assets/logo.png'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -26,12 +27,13 @@ export default function Navbar() {
   const navLinks = [
     { to: '/', label: 'Inicio' },
     { to: '/catalog', label: 'Catálogo' },
+    { to: '/nosotros', label: 'Nosotros' },
   ]
 
   return (
     <>
       <motion.header
-        className={`${styles.navbar} ${scrolled ? styles.scrolled : ''}`}
+        className={`${styles.navbar} ${scrolled ? styles.scrolled : ''} ${menuOpen ? styles.menuOpenState : ''}`}
         initial={{ y: -80 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -39,8 +41,7 @@ export default function Navbar() {
         <div className={styles.inner}>
           {/* Logo */}
           <Link to="/" className={styles.logo}>
-            <Sparkles size={18} className={styles.logoIcon} />
-            <span className={styles.logoText}>Elite Store</span>
+            <img src={logoImg} alt="Elite Store Logo" className={styles.logoImg} />
           </Link>
 
           {/* Desktop Nav */}

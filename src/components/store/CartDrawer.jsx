@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Trash2, ShoppingBag, MessageCircle } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
 import { sendWhatsAppOrder } from '../../lib/whatsapp'
+import { formatVariantLabel } from '../../lib/sku'
 import styles from './CartDrawer.module.css'
 
 const overlayVariants = {
@@ -75,7 +76,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                   <AnimatePresence>
                     {items.map((item) => (
                       <motion.li
-                        key={`${item.id}-${item.size}`}
+                        key={item.id}
                         className={styles.item}
                         layout
                         initial={{ opacity: 0, x: 40 }}
@@ -97,7 +98,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                         {/* Info */}
                         <div className={styles.itemInfo}>
                           <h4 className={styles.itemName}>{item.name}</h4>
-                          <span className={styles.itemSize}>Talla: {item.size}</span>
+                          <span className={styles.itemSize}>{formatVariantLabel(item, item.size_label)}</span>
                           <span className={styles.itemPrice}>
                             ${(item.price * item.quantity).toFixed(2)}
                           </span>
@@ -106,14 +107,14 @@ export default function CartDrawer({ isOpen, onClose }) {
                           <div className={styles.qtyControls}>
                             <button
                               className={styles.qtyBtn}
-                              onClick={() => updateQuantity(item.id, item.size, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
                             >
                               −
                             </button>
                             <span className={styles.qty}>{item.quantity}</span>
                             <button
                               className={styles.qtyBtn}
-                              onClick={() => updateQuantity(item.id, item.size, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
                             >
                               +
                             </button>
@@ -123,7 +124,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                         {/* Remove */}
                         <button
                           className={styles.removeBtn}
-                          onClick={() => removeItem(item.id, item.size)}
+                          onClick={() => removeItem(item.id)}
                           aria-label="Eliminar"
                         >
                           <Trash2 size={16} />

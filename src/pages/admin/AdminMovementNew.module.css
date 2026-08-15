@@ -41,3 +41,11 @@
 
 .field { display:flex; flex-direction:column; gap:var(--space-1); margin-bottom:var(--space-3); }
 .field label { font-size:var(--text-sm); font-weight:600; color:var(--color-dark-soft); }
+
+.variantThumbBtn { padding:6px 8px; border-radius:var(--radius-md); border:1px solid var(--color-primary); color:var(--color-primary); font-size:12px; display:flex; align-items:center; gap:6px; font-weight:600; transition:all var(--transition-fast); background:white; cursor:pointer; }
+.variantThumbBtn:hover { background:var(--color-primary); color:white; }
+.variantThumbSmall { width: 28px; height: 28px; border-radius: 4px; overflow: hidden; background: var(--color-secondary); display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+.variantThumbSmall img { width: 100%; height: 100%; object-fit: cover; }
+
+.cartItemThumb { width: 44px; height: 44px; border-radius: var(--radius-md); overflow: hidden; background: var(--color-secondary); display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; margin-right: var(--space-3); }
+.cartItemThumb img { width: 100%; height: 100%; object-fit: cover; }

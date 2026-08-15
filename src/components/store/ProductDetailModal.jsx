@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ShoppingBag, ChevronLeft, ChevronRight, ZoomIn, Star, Package } from 'lucide-react'
+import { formatVariantLabel, getVariantOptions } from '../../lib/sku'
 import styles from './ProductDetailModal.module.css'
 
 export default function ProductDetailModal({ product, onClose, onAdd, justAdded }) {
@@ -11,12 +12,12 @@ export default function ProductDetailModal({ product, onClose, onAdd, justAdded 
   const images = product?.images?.length > 0 ? product.images : []
   const hasImages = images.length > 0
 
-  const availableSizes = product?.product_sizes
-    ? product.product_sizes.filter(ps => ps.stock > 0).map(ps => ps.size)
-    : []
+  const { variants } = getVariantOptions(product)
 
-  const [selectedSize, setSelectedSize] = useState(availableSizes[0] || null)
-  const isOutOfStock = availableSizes.length === 0
+  const [selectedVariant, setSelectedVariant] = useState(variants[0] || null)
+  const isOutOfStock = variants.length === 0
+
+  const displayPrice = selectedVariant?.price || product.price || 0
 
   const handleKey = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -32,6 +33,12 @@ export default function ProductDetailModal({ product, onClose, onAdd, justAdded 
       document.body.style.overflow = ''
     }
   }, [handleKey])
+
+  useEffect(() => {
+    if (variants.length > 0 && (!selectedVariant || !variants.find(v => v.id === selectedVariant.id))) {
+      setSelectedVariant(variants[0])
+    }
+  }, [variants, selectedVariant])
 
   const handleMouseMove = (e) => {
     if (!zoomed) return
@@ -153,7 +160,7 @@ export default function ProductDetailModal({ product, onClose, onAdd, justAdded 
             </div>
 
             <div className={styles.priceBlock}>
-              <span className={styles.price}>${product.price?.toFixed(2)}</span>
+              <span className={styles.price}>${displayPrice.toFixed(2)}</span>
               <span className={styles.priceSub}>Precio de contado</span>
             </div>
 
@@ -163,21 +170,24 @@ export default function ProductDetailModal({ product, onClose, onAdd, justAdded 
 
             <div className={styles.divider} />
 
-            {/* Size picker */}
+            {/* Variant picker */}
             <div className={styles.sizeSection}>
               <div className={styles.sizeSectionHeader}>
-                <span className={styles.sizeLabel}>Talla</span>
-                {selectedSize && <span className={styles.selectedSizeTag}>{selectedSize}</span>}
+                <span className={styles.sizeLabel}>Seleccionar variante</span>
+                {selectedVariant && (
+                  <span className={styles.selectedSizeTag}>{formatVariantLabel(selectedVariant, product.categories?.size_label)}</span>
+                )}
               </div>
               <div className={styles.sizeGrid}>
-                {availableSizes.map(s => (
+                {variants.map(v => (
                   <button
-                    key={s}
-                    className={`${styles.sizeBtn} ${selectedSize === s ? styles.sizeBtnActive : ''}`}
-                    onClick={() => setSelectedSize(s)}
-                    id={`detail-size-${s}`}
+                    key={v.id}
+                    className={`${styles.sizeBtn} ${selectedVariant?.id === v.id ? styles.sizeBtnActive : ''}`}
+                    onClick={() => setSelectedVariant(v)}
+                    id={`detail-variant-${v.id}`}
+                    title={`Stock: ${v.stock}`}
                   >
-                    {s}
+                    {formatVariantLabel(v, product.categories?.size_label)}
                   </button>
                 ))}
                 {isOutOfStock && (
@@ -188,27 +198,30 @@ export default function ProductDetailModal({ product, onClose, onAdd, justAdded 
               </div>
             </div>
 
-            {/* Stock chips */}
-            {!isOutOfStock && product.product_sizes && (
+            {/* Stock info */}
+            {selectedVariant && (
               <div className={styles.stockInfo}>
-                {product.product_sizes.filter(ps => ps.stock > 0).map(ps => (
-                  <span key={ps.size} className={styles.stockChip}>
-                    {ps.size}: {ps.stock} uds
+                <span className={styles.stockChip}>
+                  Stock disponible: {selectedVariant.stock} uds
+                </span>
+                {selectedVariant.sku && (
+                  <span className={styles.stockChip}>
+                    SKU: {selectedVariant.sku}
                   </span>
-                ))}
+                )}
               </div>
             )}
 
             {/* CTA */}
             <div className={styles.ctaRow}>
               <motion.button
-                className={`${styles.addBtn} ${justAdded ? styles.addBtnSuccess : ''}`}
-                onClick={() => !isOutOfStock && selectedSize && onAdd(product, selectedSize)}
-                disabled={isOutOfStock || !selectedSize}
+                className={`${styles.addBtn} ${justAdded === selectedVariant?.id ? styles.addBtnSuccess : ''}`}
+                onClick={() => !isOutOfStock && selectedVariant && onAdd(product, selectedVariant)}
+                disabled={isOutOfStock || !selectedVariant}
                 whileTap={{ scale: 0.96 }}
                 id="add-to-cart-detail"
               >
-                {justAdded ? (
+                {justAdded === selectedVariant?.id ? (
                   <>✓ ¡Agregado al carrito!</>
                 ) : (
                   <><ShoppingBag size={18} /> Agregar al carrito</>
@@ -216,8 +229,10 @@ export default function ProductDetailModal({ product, onClose, onAdd, justAdded 
               </motion.button>
             </div>
 
-            {!isOutOfStock && !selectedSize && (
-              <p className={styles.selectSizeHint}>⬆ Selecciona una talla para continuar</p>
+            {selectedVariant && (
+              <p className={styles.selectSizeHint}>
+                Has seleccionado: <strong>{formatVariantLabel(selectedVariant, product.categories?.size_label)}</strong>
+              </p>
             )}
 
             <div className={styles.detailsFooter}>

@@ -21,7 +21,7 @@ export default function AdminLogin() {
     try {
       await signIn(email, password)
       navigate('/admin/dashboard')
-    } catch (err) {
+    } catch {
       setError('Credenciales incorrectas. Verifica tu usuario y contraseña.')
     } finally {
       setLoading(false)

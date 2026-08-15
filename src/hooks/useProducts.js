@@ -12,7 +12,7 @@ export const useProducts = ({ category_id, featured, limit } = {}) => {
       try {
         let query = supabase
           .from('products')
-          .select('*, categories(name), product_sizes(size, stock)')
+          .select('*, categories(*), product_variants(*)')
           .eq('active', true)
           .order('created_at', { ascending: false })
 

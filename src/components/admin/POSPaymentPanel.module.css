@@ -1,0 +1,76 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-dark-soft);
+  margin: 0;
+}
+
+.paymentRow {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.methodLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-dark);
+  font-weight: 500;
+}
+
+.input {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.summaryLabel {
+  color: var(--color-dark-soft);
+}
+
+.summaryValue {
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.summaryValueWarning {
+  color: #d97706;
+}
+
+.summaryValueDanger {
+  color: #dc2626;
+}
+
+.summaryValueSuccess {
+  color: #16a34a;
+}
+
+.referenceInput {
+  margin-top: 0.25rem;
+}

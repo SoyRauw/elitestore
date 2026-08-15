@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X } from 'lucide-react'
+import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X, Store, Banknote, Users, Gift, FileText } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import styles from './AdminLayout.module.css'
 
@@ -38,6 +38,11 @@ export default function AdminLayout({ children }) {
           <Link onClick={() => setMenuOpen(false)} to="/admin/products" className={`${styles.navItem} ${location.pathname==='/admin/products'?styles.navActive:''}`}><Package size={18} /> Productos</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/inventory" className={`${styles.navItem} ${location.pathname==='/admin/inventory'?styles.navActive:''}`}><Tag size={18} /> Inventario</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/movements" className={`${styles.navItem} ${location.pathname==='/admin/movements'?styles.navActive:''}`}><ShoppingBag size={18} /> Movimientos</Link>
+          <Link onClick={() => setMenuOpen(false)} to="/admin/pos" className={`${styles.navItem} ${location.pathname==='/admin/pos'?styles.navActive:''}`}><Store size={18} /> POS</Link>
+          <Link onClick={() => setMenuOpen(false)} to="/admin/cash" className={`${styles.navItem} ${location.pathname==='/admin/cash'?styles.navActive:''}`}><Banknote size={18} /> Caja</Link>
+          <Link onClick={() => setMenuOpen(false)} to="/admin/reports" className={`${styles.navItem} ${location.pathname==='/admin/reports'?styles.navActive:''}`}><FileText size={18} /> Reportes</Link>
+          <Link onClick={() => setMenuOpen(false)} to="/admin/customers" className={`${styles.navItem} ${location.pathname==='/admin/customers'?styles.navActive:''}`}><Users size={18} /> Clientes</Link>
+          <Link onClick={() => setMenuOpen(false)} to="/admin/coupons" className={`${styles.navItem} ${location.pathname==='/admin/coupons'?styles.navActive:''}`}><Gift size={18} /> Cupones</Link>
         </nav>
         <button className={styles.logoutBtn} onClick={handleSignOut}>
           <LogOut size={16} /> Salir

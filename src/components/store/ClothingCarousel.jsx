@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { EffectCoverflow, Pagination, Autoplay } from 'swiper/modules'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
+import ProductDetailModal from './ProductDetailModal'
 import 'swiper/css'
 import 'swiper/css/effect-coverflow'
 import 'swiper/css/pagination'
@@ -13,6 +15,17 @@ import styles from './ClothingCarousel.module.css'
 export default function ClothingCarousel() {
   const addItem = useCartStore((s) => s.addItem)
   const { products, loading } = useProducts({ limit: 10 })
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [justAdded, setJustAdded] = useState(false)
+
+  const handleAdd = (product, size) => {
+    addItem(product, size)
+    setJustAdded(true)
+    setTimeout(() => {
+      setJustAdded(false)
+      setSelectedProduct(null)
+    }, 1500)
+  }
 
   return (
     <section className={styles.section}>
@@ -34,6 +47,7 @@ export default function ClothingCarousel() {
           grabCursor
           centeredSlides
           slidesPerView="auto"
+          loop={true}
           coverflowEffect={{
             rotate: 30,
             stretch: 0,
@@ -57,7 +71,7 @@ export default function ClothingCarousel() {
                 {item.featured && <div className={styles.tag}>Destacado</div>}
 
                 {/* Image */}
-                <div className={styles.imageWrap}>
+                <div className={styles.imageWrap} onClick={() => setSelectedProduct(item)} style={{ cursor: 'pointer' }}>
                   {item.images?.[0] ? (
                     <img src={item.images[0]} alt={item.name} className={styles.image} />
                   ) : (
@@ -68,22 +82,22 @@ export default function ClothingCarousel() {
                 </div>
 
                 {/* Info */}
-                <div className={styles.info}>
-                  <h3 className={styles.name}>{item.name}</h3>
-                  <p className={styles.category}>{item.categories?.name || 'Ropa'}</p>
-                  <div className={styles.footer}>
-                    <span className={styles.price}>${item.price.toFixed(2)}</span>
-                    <motion.button
-                      className={styles.addBtn}
-                      onClick={() => addItem(item, 'M')}
-                      whileTap={{ scale: 0.9 }}
-                      aria-label={`Agregar ${item.name} al carrito`}
-                    >
-                      <ShoppingBag size={16} />
-                      Agregar
-                    </motion.button>
-                  </div>
+              <div className={styles.info}>
+                <h3 className={styles.name}>{item.name}</h3>
+                <p className={styles.category}>{item.categories?.name || 'Ropa'}</p>
+                <div className={styles.footer}>
+                  <span className={styles.price}>${item.price?.toFixed(2)}</span>
+                  <motion.button
+                    className={styles.addBtn}
+                    onClick={(e) => { e.stopPropagation(); setSelectedProduct(item); }}
+                    whileTap={{ scale: 0.9 }}
+                    aria-label={`Ver ${item.name} y agregar al carrito`}
+                  >
+                    <ShoppingBag size={16} />
+                    Agregar
+                  </motion.button>
                 </div>
+              </div>
               </motion.div>
             </SwiperSlide>
           ))}
@@ -93,6 +107,17 @@ export default function ClothingCarousel() {
           {loading ? 'Cargando colección...' : 'Aún no hay productos en la tienda.'}
         </div>
       )}
+
+      <AnimatePresence>
+        {selectedProduct && (
+          <ProductDetailModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onAdd={handleAdd}
+            justAdded={justAdded}
+          />
+        )}
+      </AnimatePresence>
     </section>
   )
 }

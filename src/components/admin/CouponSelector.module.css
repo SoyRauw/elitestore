@@ -1,0 +1,284 @@
+.container {
+  background: white;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  transition: background 0.15s;
+}
+
+.header:hover {
+  background: rgba(0,0,0,0.04);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-dark);
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.points {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(196,120,138,0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+}
+
+.body {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.emptyText {
+  font-size: 0.8rem;
+  color: var(--color-dark-soft);
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.sectionLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-dark-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+
+.couponList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.couponBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 0.6rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.couponBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: rgba(196,120,138,0.04);
+}
+
+.couponBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.couponIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 0.4rem;
+  background: var(--bg-secondary);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.couponInfo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.couponInfo strong {
+  font-size: 0.8rem;
+  color: var(--color-dark);
+}
+
+.couponInfo span {
+  font-size: 0.7rem;
+  color: var(--color-dark-soft);
+}
+
+.couponCode {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-family: ui-monospace, monospace;
+}
+
+.couponLock {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 0.25rem 0.4rem;
+  border-radius: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.minWarning {
+  font-size: 0.65rem;
+  color: #dc2626;
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+
+.appliedCoupon {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem;
+  background: rgba(196,120,138,0.08);
+  border: 1px solid var(--color-primary);
+  border-radius: 0.6rem;
+}
+
+.appliedInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.appliedInfo strong {
+  font-size: 0.85rem;
+  color: var(--color-dark);
+}
+
+.appliedInfo span {
+  font-size: 0.75rem;
+  color: var(--color-dark-soft);
+}
+
+.removeBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #fee2e2;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.redeemBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1px dashed var(--color-primary);
+  border-radius: 0.6rem;
+  background: rgba(196,120,138,0.04);
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.redeemBtn:hover:not(:disabled) {
+  background: rgba(196,120,138,0.1);
+}
+
+.redeemBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.redeemList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+
+.redeemOption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 0.6rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.redeemOption:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: rgba(196,120,138,0.04);
+}
+
+.redeemOption:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.redeemInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.redeemInfo strong {
+  font-size: 0.8rem;
+  color: var(--color-dark);
+}
+
+.redeemInfo span {
+  font-size: 0.7rem;
+  color: var(--color-dark-soft);
+}
+
+.redeemCost {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: rgba(196,120,138,0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.redeemCost.insufficient {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 0.75rem;
+  margin: 0;
+  text-align: center;
+}

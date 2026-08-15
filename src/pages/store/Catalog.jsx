@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, Filter, Search } from 'lucide-react'
 import { useProducts, useCategories } from '../../hooks/useProducts'
 import { useCartStore } from '../../store/cartStore'
+import { formatVariantLabel, getVariantOptions } from '../../lib/sku'
 import ProductDetailModal from '../../components/store/ProductDetailModal'
 import styles from './Catalog.module.css'
 
@@ -21,9 +22,9 @@ export default function Catalog() {
     return !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const handleAdd = (product, size) => {
-    addItem(product, size)
-    setCartNotif(product.id)
+  const handleAdd = (product, variant) => {
+    addItem(product, variant)
+    setCartNotif(variant.id)
     setTimeout(() => setCartNotif(null), 2000)
   }
 
@@ -95,7 +96,7 @@ export default function Catalog() {
                 product={product}
                 onAdd={handleAdd}
                 onOpenDetail={handleOpenDetail}
-                justAdded={cartNotif === product.id}
+                justAdded={cartNotif}
                 index={i}
               />
             ))}
@@ -110,7 +111,7 @@ export default function Catalog() {
             product={detailProduct}
             onClose={handleCloseDetail}
             onAdd={handleAdd}
-            justAdded={cartNotif === detailProduct?.id}
+            justAdded={cartNotif}
           />
         )}
       </AnimatePresence>
@@ -122,12 +123,11 @@ function ProductCard({ product, onAdd, onOpenDetail, justAdded, index }) {
   const hasImages = product.images && product.images.length > 0
   const imageCount = product.images?.length || 0
 
-  const availableSizes = product.product_sizes
-    ? product.product_sizes.filter(ps => ps.stock > 0).map(ps => ps.size)
-    : []
+  const { variants } = getVariantOptions(product)
+  const [selectedVariant, setSelectedVariant] = useState(variants[0] || null)
+  const isOutOfStock = variants.length === 0
 
-  const [selectedSize, setSelectedSize] = useState(availableSizes.length > 0 ? availableSizes[0] : null)
-  const isOutOfStock = availableSizes.length === 0
+  const displayPrice = selectedVariant?.price || product.price || 0
 
   return (
     <motion.article
@@ -185,27 +185,28 @@ function ProductCard({ product, onAdd, onOpenDetail, justAdded, index }) {
         {product.description && <p className={styles.cardDesc}>{product.description}</p>}
 
         <div className={styles.sizes}>
-          {availableSizes.map((s) => (
+          {variants.map((variant) => (
             <button
-              key={s}
-              className={`${styles.sizeBtn} ${selectedSize === s ? styles.sizeBtnActive : ''}`}
-              onClick={() => setSelectedSize(s)}
+              key={variant.id}
+              className={`${styles.sizeBtn} ${selectedVariant?.id === variant.id ? styles.sizeBtnActive : ''}`}
+              onClick={() => setSelectedVariant(variant)}
+              title={formatVariantLabel(variant, product.categories?.size_label)}
             >
-              {s}
+              {variant.size || formatVariantLabel(variant, product.categories?.size_label)}
             </button>
           ))}
           {isOutOfStock && <span style={{ fontSize: '13px', color: 'var(--color-dark-soft)' }}>Sin stock</span>}
         </div>
 
         <div className={styles.cardFooter}>
-          <span className={styles.price}>${product.price.toFixed(2)}</span>
+          <span className={styles.price}>${displayPrice.toFixed(2)}</span>
           <motion.button
-            className={`${styles.addToCart} ${justAdded ? styles.added : ''}`}
-            onClick={() => onAdd(product, selectedSize)}
+            className={`${styles.addToCart} ${justAdded === selectedVariant?.id ? styles.added : ''}`}
+            onClick={() => onAdd(product, selectedVariant)}
             whileTap={{ scale: 0.9 }}
-            disabled={isOutOfStock || !selectedSize}
+            disabled={isOutOfStock || !selectedVariant}
           >
-            {justAdded ? '✓ Agregado' : <><ShoppingBag size={15} /> Agregar</>}
+            {justAdded === selectedVariant?.id ? '✓ Agregado' : <><ShoppingBag size={15} /> Agregar</>}
           </motion.button>
         </div>
       </div>

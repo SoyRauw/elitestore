@@ -32,6 +32,9 @@
 .productThumb{width:48px;height:48px;border-radius:var(--radius-md);overflow:hidden;background:var(--color-secondary);display:flex;align-items:center;justify-content:center;color:white;flex-shrink:0;}
 .productThumb img{width:100%;height:100%;object-fit:cover;}
 
+.variantThumbInventory{width:36px;height:36px;border-radius:var(--radius-sm);overflow:hidden;background:var(--color-secondary);display:flex;align-items:center;justify-content:center;color:white;flex-shrink:0;margin-right:var(--space-2);}
+.variantThumbInventory img{width:100%;height:100%;object-fit:cover;}
+
 .productDetailsInfo { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
 .productName{font-weight:600;font-size:var(--text-sm);color:var(--color-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 .productId{font-size:var(--text-xs);color:var(--color-dark-soft);}

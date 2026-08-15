@@ -7,53 +7,7 @@
   justify-content: center;
   padding: 100px var(--space-5) var(--space-16);
   overflow: hidden;
-  background: var(--gradient-hero);
-}
-
-/* === BLOBS === */
-.blobs {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.blob {
-  position: absolute;
-  border-radius: var(--radius-full);
-  filter: blur(60px);
-  opacity: 0.35;
-}
-
-.blob1 {
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, #f7a8b8 0%, transparent 70%);
-  top: -100px;
-  right: -100px;
-}
-
-.blob2 {
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, #e8d4a0 0%, transparent 70%);
-  bottom: 50px;
-  left: -50px;
-}
-
-.blob3 {
-  width: 250px;
-  height: 250px;
-  background: radial-gradient(circle, #d4a0c0 0%, transparent 70%);
-  top: 40%;
-  left: 60%;
-}
-
-/* === PETALS === */
-.petal {
-  position: absolute;
-  font-size: 1.5rem;
-  pointer-events: none;
-  user-select: none;
+  background: transparent;
 }
 
 /* === CONTENT === */
