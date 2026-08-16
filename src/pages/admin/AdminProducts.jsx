@@ -5,10 +5,11 @@ import { Html5QrcodeScanner } from 'html5-qrcode'
 import {
   Package, Plus, Edit2, Trash2,
   Camera, X, ShoppingBag, Save, AlertTriangle,
-  ImagePlus, Star, RefreshCw, Copy
+  ImagePlus, Star, RefreshCw, Copy, Download
 } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { generateProductId, generateProductCode, generateVariantCode } from '../../lib/sku'
+import { exportProductLabels } from '../../lib/labelExport'
 import styles from './AdminProducts.module.css'
 
 
@@ -254,6 +255,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [saved, setSaved] = useState(false)
 
   const category = useMemo(() => {
     return categories.find(c => c.id === form.category_id)
@@ -526,6 +528,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
 
       // Save variants
       const savedVariantSKUs = []
+      const generatedSkus = {}
       for (const v of variants) {
         if (v.isDeleted && !v.isNew) {
           const { error: deleteError } = await supabase.from('product_variants').delete().eq('id', v.id)
@@ -535,7 +538,11 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
         if (v.isDeleted) continue
 
         const usedCodes = [...existingSKUs, ...savedVariantSKUs]
-        const sku = (v.sku?.trim() || generateVariantCode(payload.id, v.size, usedCodes)).toUpperCase()
+        let sku = v.sku?.trim().toUpperCase()
+        if (!sku) {
+          sku = generateVariantCode(payload.id, v.size, usedCodes).toUpperCase()
+          generatedSkus[v.id] = sku
+        }
         if (sku) savedVariantSKUs.push(sku)
 
         const variantPrice = v.price !== '' && v.price != null ? parseFloat(v.price) : parseFloat(form.price) || 0
@@ -574,7 +581,10 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
       }
 
       onSaved()
-      onClose()
+      if (Object.keys(generatedSkus).length > 0) {
+        setVariants(prev => prev.map(v => generatedSkus[v.id] ? { ...v, sku: generatedSkus[v.id] } : v))
+      }
+      setSaved(true)
     } catch (e) {
       console.error('Error guardando producto:', e)
       const message = e?.message || e?.error?.message || 'Error al guardar'
@@ -829,11 +839,30 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
 
           {error && <p className={styles.formError}>{error}</p>}
 
+          {saved && (
+            <div className={styles.successBox}>
+              <p>Producto guardado correctamente.</p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => exportProductLabels({ id: form.id, name: form.name, price: form.price }, variants.filter(v => !v.isDeleted))}
+              >
+                <Download size={16} /> Descargar Excel de etiquetas
+              </button>
+            </div>
+          )}
+
           <div className={styles.formActions}>
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? <div className={styles.spinner}/> : <><Save size={16}/> Guardar</>}
-            </button>
+            {saved ? (
+              <button type="button" className="btn btn-primary" onClick={onClose}>Cerrar</button>
+            ) : (
+              <>
+                <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? <div className={styles.spinner}/> : <><Save size={16}/> Guardar</>}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </motion.div>
