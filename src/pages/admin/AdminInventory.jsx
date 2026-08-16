@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { Package, Save, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react'
+import { Package, Save, ShoppingBag, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
@@ -14,29 +14,32 @@ export default function AdminInventory() {
   const [saved, setSaved] = useState({})
   const [draftStocks, setDraftStocks] = useState({})
   const [expanded, setExpanded] = useState({})
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkError, setBulkError] = useState('')
 
   const toggleExpand = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, wholesale_price, images, category_id, categories(size_label), product_variants(*)')
-        .order('name')
-      if (data) {
-        setProducts(data)
-        const drafts = {}
-        data.forEach(p => {
-          p.product_variants?.forEach(v => {
-            drafts[v.id] = v.stock || 0
-          })
+  const fetchData = async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, price, wholesale_price, images, category_id, categories(size_label), product_variants(*)')
+      .order('name')
+    if (data) {
+      setProducts(data)
+      const drafts = {}
+      data.forEach(p => {
+        p.product_variants?.forEach(v => {
+          drafts[v.id] = v.stock || 0
         })
-        setDraftStocks(drafts)
-      }
-      setLoading(false)
+      })
+      setDraftStocks(drafts)
     }
-    fetch()
-  }, [])
+    setLoading(false)
+    setSelectedIds(new Set())
+  }
+
+  useEffect(() => { fetchData() }, [])
 
   const updateStockDraft = (variantId, value) => {
     setDraftStocks(prev => ({ ...prev, [variantId]: Math.max(0, parseInt(value) || 0) }))
@@ -57,6 +60,71 @@ export default function AdminInventory() {
     return (product.product_variants || []).reduce((sum, v) => sum + (draftStocks[v.id] ?? v.stock ?? 0), 0)
   }
 
+  const checkProductsHaveSales = async (ids) => {
+    const { data } = await supabase
+      .from('movement_items')
+      .select('product_id, products(name)')
+      .in('product_id', ids)
+    const unique = new Map()
+    ;(data || []).forEach(row => {
+      if (!unique.has(row.product_id)) unique.set(row.product_id, row.products?.name || row.product_id)
+    })
+    return Array.from(unique.entries())
+  }
+
+  const checkVariantHasSales = async (variantId) => {
+    const { data } = await supabase
+      .from('movement_items')
+      .select('id')
+      .eq('variant_id', variantId)
+      .limit(1)
+    return (data || []).length > 0
+  }
+
+  const deleteProductsByIds = async (ids) => {
+    const idsArray = Array.from(ids)
+    if (idsArray.length === 0) return
+
+    setBulkError('')
+    const sales = await checkProductsHaveSales(idsArray)
+    if (sales.length > 0) {
+      setBulkError(`No se pueden eliminar porque tienen ventas previas: ${sales.map(([, name]) => name).join(', ')}`)
+      return
+    }
+
+    await supabase.from('product_variants').delete().in('product_id', idsArray)
+    await supabase.from('products').delete().in('id', idsArray)
+    fetchData()
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`¿Estás seguro de eliminar ${selectedIds.size} productos del inventario?`)) return
+    await deleteProductsByIds(selectedIds)
+  }
+
+  const handleDeleteVariant = async (variantId, productId) => {
+    if (!confirm('¿Eliminar esta variante?')) return
+    if (await checkVariantHasSales(variantId)) {
+      alert('No se puede eliminar porque tiene ventas previas')
+      return
+    }
+    await supabase.from('product_variants').delete().eq('id', variantId)
+    const remaining = products.find(p => p.id === productId)?.product_variants?.filter(v => v.id !== variantId) || []
+    if (remaining.length === 0) {
+      await supabase.from('products').delete().eq('id', productId)
+    }
+    fetchData()
+  }
+
+  const toggleSelection = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   return (
     <AdminLayout>
       <div className={styles.topBar}>
@@ -64,7 +132,14 @@ export default function AdminInventory() {
           <h1 className={styles.pageTitle}>Inventario</h1>
           <p className={styles.pageSubtitle}>Stock actual por producto y variante</p>
         </div>
+        {selectedIds.size > 0 && (
+          <button className="btn btn-danger" onClick={handleBulkDelete}>
+            <Trash2 size={16} /> Eliminar {selectedIds.size}
+          </button>
+        )}
       </div>
+
+      {bulkError && <p className={styles.formError}>{bulkError}</p>}
 
       {loading ? (
         <div className={styles.skeletonList}>
@@ -85,8 +160,14 @@ export default function AdminInventory() {
             const variants = product.product_variants || []
             return (
               <motion.div key={product.id} className={styles.productCard} initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:i*0.06}}>
-                <div className={styles.productHeader} onClick={() => toggleExpand(product.id)} style={{ cursor: 'pointer' }}>
-                  <div className={styles.productMain}>
+                <div className={`${styles.productHeader} ${selectedIds.has(product.id) ? styles.productHeaderSelected : ''}`} onClick={() => toggleExpand(product.id)} style={{ cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(product.id)}
+                      onChange={(e) => { e.stopPropagation(); toggleSelection(product.id) }}
+                    />
+                    <div className={styles.productMain}>
                     <div className={styles.productThumb}>
                       {product.images?.[0] ? <img src={product.images[0]} alt={product.name}/> : <ShoppingBag size={16}/>}
                     </div>
@@ -98,6 +179,7 @@ export default function AdminInventory() {
                         {product.wholesale_price > 0 && <span className={styles.priceWholesale}>Mayor: ${product.wholesale_price}</span>}
                       </div>
                     </div>
+                  </div>
                   </div>
                   <div className={styles.productActionsRow}>
                     <span className={`${styles.stockTotal} ${isOut?styles.stockOut:isLow?styles.stockLow:styles.stockOk}`}>
@@ -144,6 +226,14 @@ export default function AdminInventory() {
                               style={{ marginLeft: '0.5rem', padding: '0.4rem 0.6rem', minWidth: 'auto' }}
                             >
                               {saving[variant.id] ? <div className={styles.spinner}/> : saved[variant.id] ? '✓' : <Save size={14}/>}
+                            </button>
+                            <button
+                              className={styles.deleteBtn}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteVariant(variant.id, product.id) }}
+                              title="Eliminar variante"
+                              style={{ marginLeft: '0.35rem', padding: '0.4rem', minWidth: 'auto' }}
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         )

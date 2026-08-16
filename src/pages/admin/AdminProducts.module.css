@@ -24,6 +24,9 @@
 .table th { padding:var(--space-4) var(--space-4); font-size:var(--text-xs); font-weight:700; color:var(--color-dark-soft); text-transform:uppercase; letter-spacing:0.06em; text-align:left; white-space:nowrap; }
 .tableRow { border-bottom:1px solid rgba(196,120,138,0.07); transition:background var(--transition-fast); }
 .tableRow:hover { background:var(--color-cream); }
+.tableRowSelected { background: rgba(196,120,138,0.08) !important; }
+.tableRow input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--color-primary); cursor: pointer; }
+.table th input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--color-primary); cursor: pointer; }
 .tableRow td { padding:var(--space-3) var(--space-4); vertical-align:middle; }
 
 .productCell { display:flex; align-items:center; gap:var(--space-3); }

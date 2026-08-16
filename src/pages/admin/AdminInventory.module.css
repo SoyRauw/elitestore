@@ -27,6 +27,9 @@
 
 .productHeader{display:flex;flex-direction:column;gap:var(--space-3); transition: opacity var(--transition-fast);}
 .productHeader:hover { opacity: 0.8; }
+.productHeaderSelected { background: rgba(196,120,138,0.08); border-radius: var(--radius-md); }
+
+.productHeader input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--color-primary); cursor: pointer; }
 
 .productMain { display:flex; align-items:center; gap:var(--space-3); width: 100%; }
 .productThumb{width:48px;height:48px;border-radius:var(--radius-md);overflow:hidden;background:var(--color-secondary);display:flex;align-items:center;justify-content:center;color:white;flex-shrink:0;}
@@ -71,6 +74,11 @@
 
 .expandIcon { color: var(--color-dark-soft); flex-shrink: 0; }
 .productDetails { display:flex; flex-direction:column; gap:var(--space-4); margin-top:var(--space-2); overflow:hidden;}
+
+.deleteBtn { width:32px; height:32px; border-radius:var(--radius-sm); border:1px solid rgba(239,68,68,0.3); color:#dc2626; display:flex; align-items:center; justify-content:center; transition:all var(--transition-fast); background: white; }
+.deleteBtn:hover { background:#dc2626; color:white; }
+
+.formError { font-size:var(--text-sm); color:#dc2626; background:#fee2e2; padding:var(--space-3) var(--space-4); border-radius:var(--radius-md); border-left:3px solid #dc2626; }
 
 @media (max-width: 767px) {
   .productList { grid-template-columns: 1fr; gap: var(--space-3); }

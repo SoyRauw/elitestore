@@ -43,6 +43,8 @@ export default function AdminProducts() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [scannedId, setScannedId] = useState('')
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkError, setBulkError] = useState('')
 
   const handleScanResult = useCallback((id) => {
     setScannedId(id)
@@ -58,6 +60,7 @@ export default function AdminProducts() {
     setProducts(prodRes.data || [])
     setCategories(catRes.data || [])
     setLoading(false)
+    setSelectedIds(new Set())
   }
 
   useEffect(() => { fetchData() }, [])
@@ -74,10 +77,59 @@ export default function AdminProducts() {
     setShowForm(true)
   }
 
-  const handleDelete = async (id) => {
-    await supabase.from('products').delete().eq('id', id)
+  const checkProductsHaveSales = async (ids) => {
+    const { data } = await supabase
+      .from('movement_items')
+      .select('product_id, products(name)')
+      .in('product_id', ids)
+    const unique = new Map()
+    ;(data || []).forEach(row => {
+      if (!unique.has(row.product_id)) unique.set(row.product_id, row.products?.name || row.product_id)
+    })
+    return Array.from(unique.entries())
+  }
+
+  const deleteProductsByIds = async (ids) => {
+    const idsArray = Array.from(ids)
+    if (idsArray.length === 0) return
+
+    setBulkError('')
+    const sales = await checkProductsHaveSales(idsArray)
+    if (sales.length > 0) {
+      setBulkError(`No se pueden eliminar porque tienen ventas previas: ${sales.map(([, name]) => name).join(', ')}`)
+      return
+    }
+
+    await supabase.from('product_variants').delete().in('product_id', idsArray)
+    await supabase.from('products').delete().in('id', idsArray)
     setDeleteConfirm(null)
     fetchData()
+  }
+
+  const handleDelete = async (id) => {
+    await deleteProductsByIds(new Set([id]))
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`¿Estás seguro de eliminar ${selectedIds.size} productos?`)) return
+    await deleteProductsByIds(selectedIds)
+  }
+
+  const toggleSelection = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (selectedIds.size === products.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(products.map(p => p.id)))
+    }
   }
 
   const handleFormClose = () => {
@@ -93,10 +145,19 @@ export default function AdminProducts() {
           <h1 className={styles.pageTitle}>Productos</h1>
           <p className={styles.pageSubtitle}>{products.length} productos registrados</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setEditProduct(null); setShowForm(true) }}>
-          <Plus size={16} /> Nuevo
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedIds.size > 0 && (
+            <button className="btn btn-danger" onClick={handleBulkDelete}>
+              <Trash2 size={16} /> Eliminar {selectedIds.size}
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={() => { setEditProduct(null); setShowForm(true) }}>
+            <Plus size={16} /> Nuevo
+          </button>
+        </div>
       </div>
+
+      {bulkError && <p className={styles.formError}>{bulkError}</p>}
 
       {loading ? (
         <div className={styles.skeletonList}>
@@ -107,6 +168,9 @@ export default function AdminProducts() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th style={{ width: '40px' }}>
+                  <input type="checkbox" checked={products.length > 0 && selectedIds.size === products.length} onChange={toggleAll} />
+                </th>
                 <th>ID / Producto</th>
                 <th>Categoría</th>
                 <th>Precio Base</th>
@@ -120,8 +184,12 @@ export default function AdminProducts() {
                 const variants = p.product_variants || []
                 const totalStock = variants.reduce((s, v) => s + (v.stock || 0), 0)
                 const isLow = totalStock > 0 && totalStock < 5
+                const isSelected = selectedIds.has(p.id)
                 return (
-                  <motion.tr key={p.id} className={styles.tableRow} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <motion.tr key={p.id} className={`${styles.tableRow} ${isSelected ? styles.tableRowSelected : ''}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <td data-label="Seleccionar">
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelection(p.id)} />
+                    </td>
                     <td data-label="Producto">
                       <div className={styles.productCell}>
                         <div className={styles.productThumb}>
