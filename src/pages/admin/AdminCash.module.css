@@ -155,3 +155,16 @@
   font-size: 0.9rem;
   margin-top: 0.5rem;
 }
+
+.inputError {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+.fieldError {
+  display: block;
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+

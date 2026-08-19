@@ -203,3 +203,31 @@
     max-height: 55vh;
   }
 }
+
+.summaryList {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summaryList li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(196, 120, 138, 0.08);
+  font-size: 0.9rem;
+}
+
+.summaryList li:last-child {
+  border-bottom: none;
+}
+
+.summaryLabel {
+  color: var(--color-dark-soft);
+}
+
+.summaryValue {
+  color: var(--color-dark);
+  font-weight: 600;
+}
+

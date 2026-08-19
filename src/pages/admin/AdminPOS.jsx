@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useCashSession } from '../../hooks/useCashSession'
 import { formatWhatsAppReceipt } from '../../lib/whatsapp'
 import AdminLayout from '../../components/admin/AdminLayout'
+import ConfirmModal from '../../components/admin/ConfirmModal'
 import POSProductSearch from '../../components/admin/POSProductSearch'
 import POSCart from '../../components/admin/POSCart'
 import ReceiptView, { printReceipt } from '../../components/admin/ReceiptView'
@@ -45,6 +46,7 @@ export default function AdminPOS() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [completedSale, setCompletedSale] = useState(null)
+  const [confirmPayOpen, setConfirmPayOpen] = useState(false)
   const [barcodeBuffer, setBarcodeBuffer] = useState('')
   const barcodeInputRef = useRef(null)
   const lastScanRef = useRef({ code: '', time: 0 })
@@ -259,7 +261,7 @@ export default function AdminPOS() {
     }
   }, [session])
 
-  const handlePay = async () => {
+  const handlePay = () => {
     if (!session) {
       setError('No hay caja abierta. Abre una caja primero.')
       return
@@ -272,7 +274,11 @@ export default function AdminPOS() {
       setError(`Faltan $${(total - totalPaid).toFixed(2)} para completar el pago`)
       return
     }
+    setError('')
+    setConfirmPayOpen(true)
+  }
 
+  const executePay = async () => {
     setSubmitting(true)
     setError('')
 
@@ -476,6 +482,7 @@ export default function AdminPOS() {
       setError(e.message || 'Error al procesar la venta')
     } finally {
       setSubmitting(false)
+      setConfirmPayOpen(false)
     }
   }
 
@@ -631,6 +638,23 @@ export default function AdminPOS() {
             </motion.div>
           )}
         </AnimatePresence>
+        <ConfirmModal
+          isOpen={confirmPayOpen}
+          title="¿Completar venta?"
+          onCancel={() => setConfirmPayOpen(false)}
+          onConfirm={executePay}
+          confirmText="Confirmar venta"
+          disabled={submitting}
+        >
+          <ul className={styles.summaryList}>
+            <li><span className={styles.summaryLabel}>Productos</span><span className={styles.summaryValue}>{items.reduce((s, i) => s + i.quantity, 0)} uds</span></li>
+            <li><span className={styles.summaryLabel}>Subtotal</span><span className={styles.summaryValue}>${subtotal.toFixed(2)}</span></li>
+            {discount > 0 && <li><span className={styles.summaryLabel}>Descuento</span><span className={styles.summaryValue}>-${discount.toFixed(2)}</span></li>}
+            <li><span className={styles.summaryLabel}>Total</span><span className={styles.summaryValue}>${total.toFixed(2)}</span></li>
+            <li><span className={styles.summaryLabel}>Recibido</span><span className={styles.summaryValue}>${totalPaid.toFixed(2)}</span></li>
+            <li><span className={styles.summaryLabel}>Cambio</span><span className={styles.summaryValue}>${Math.max(0, difference).toFixed(2)}</span></li>
+          </ul>
+        </ConfirmModal>
       </div>
     </AdminLayout>
   )

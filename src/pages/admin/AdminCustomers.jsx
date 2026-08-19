@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { Plus, Edit2, Trash2, Search, X, User, Phone, Mail, MapPin, Cake, Eye, Gift, Coins, History } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import * as V from '../../lib/validation'
 import styles from './AdminCustomers.module.css'
 
 const emptyForm = {
@@ -23,6 +25,7 @@ export default function AdminCustomers() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [detailCustomer, setDetailCustomer] = useState(null)
   const [customerCoupons, setCustomerCoupons] = useState([])
   const [pointsHistory, setPointsHistory] = useState([])
@@ -78,16 +81,38 @@ export default function AdminCustomers() {
     fetchCustomers()
   }
 
-  const handleSave = async (e) => {
-    e.preventDefault()
-    if (!form.name.trim()) {
-      setError('El nombre es obligatorio')
-      return
-    }
+  const otherCustomers = useMemo(() => customers.filter(c => !editCustomer || c.id !== editCustomer.id), [customers, editCustomer])
 
+  const validationErrors = useMemo(() => {
+    const errs = {}
+    errs.name = V.required(form.name, 'El nombre')
+    if (form.id_number.trim()) {
+      errs.id_number = V.unique(form.id_number, 'La cédula / RIF', otherCustomers.map(c => c.id_number))
+    }
+    if (form.phone.trim()) {
+      // Basic phone characters allowed
+      const phoneRegex = /^[\d\-+()\s]+$/
+      if (!phoneRegex.test(form.phone)) errs.phone = 'El teléfono solo puede contener números, guiones y espacios'
+    }
+    if (form.email.trim()) {
+      errs.email = V.email(form.email)
+    }
+    Object.keys(errs).forEach(k => { if (!errs[k]) delete errs[k] })
+    return errs
+  }, [form, otherCustomers])
+
+  const hasErrors = useMemo(() => Object.keys(validationErrors).length > 0, [validationErrors])
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault()
+    setError('')
+    if (hasErrors) return
+    setConfirmOpen(true)
+  }
+
+  const executeSave = async () => {
     setSaving(true)
     setError('')
-
     try {
       const payload = {
         name: form.name.trim(),
@@ -109,9 +134,18 @@ export default function AdminCustomers() {
       setShowForm(false)
       fetchCustomers()
     } catch (e) {
-      setError(e.message || 'Error al guardar')
+      const message = e?.message || e?.error?.message || 'Error al guardar'
+      const lower = message.toLowerCase()
+      if (lower.includes('customers_id_number_key') || (lower.includes('duplicate key') && lower.includes('id_number'))) {
+        setError('La cédula / RIF ya está registrada.')
+      } else if (lower.includes('row-level security')) {
+        setError(`Error de permisos (RLS): ${message}.`)
+      } else {
+        setError(message)
+      }
     } finally {
       setSaving(false)
+      setConfirmOpen(false)
     }
   }
 
@@ -270,27 +304,31 @@ export default function AdminCustomers() {
                 </button>
               </div>
 
-              <form className={styles.form} onSubmit={handleSave}>
+              <form className={styles.form} onSubmit={handleFormSubmit} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
                 <div className={styles.field}>
                   <label><User size={14} style={{ display: 'inline', marginRight: '0.25rem' }} /> Nombre completo *</label>
-                  <input className={styles.input} value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="María Pérez" required />
+                  <input className={`${styles.input} ${validationErrors.name ? styles.inputError : ''}`} value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="María Pérez" />
+                  {validationErrors.name && <span className={styles.fieldError}>{validationErrors.name}</span>}
                 </div>
 
                 <div className={styles.row}>
                   <div className={styles.field}>
                     <label>Cédula / RIF</label>
-                    <input className={styles.input} value={form.id_number} onChange={(e) => setForm({...form, id_number: e.target.value})} placeholder="V-12345678" />
+                    <input className={`${styles.input} ${validationErrors.id_number ? styles.inputError : ''}`} value={form.id_number} onChange={(e) => setForm({...form, id_number: e.target.value})} placeholder="V-12345678" />
+                    {validationErrors.id_number && <span className={styles.fieldError}>{validationErrors.id_number}</span>}
                   </div>
                   <div className={styles.field}>
                     <label><Phone size={14} style={{ display: 'inline', marginRight: '0.25rem' }} /> Teléfono</label>
-                    <input className={styles.input} value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} placeholder="0414-0000000" />
+                    <input className={`${styles.input} ${validationErrors.phone ? styles.inputError : ''}`} value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} placeholder="0414-0000000" />
+                    {validationErrors.phone && <span className={styles.fieldError}>{validationErrors.phone}</span>}
                   </div>
                 </div>
 
                 <div className={styles.row}>
                   <div className={styles.field}>
                     <label><Mail size={14} style={{ display: 'inline', marginRight: '0.25rem' }} /> Correo</label>
-                    <input className={styles.input} type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} placeholder="cliente@email.com" />
+                    <input className={`${styles.input} ${validationErrors.email ? styles.inputError : ''}`} type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} placeholder="cliente@email.com" />
+                    {validationErrors.email && <span className={styles.fieldError}>{validationErrors.email}</span>}
                   </div>
                   <div className={styles.field}>
                     <label><Cake size={14} style={{ display: 'inline', marginRight: '0.25rem' }} /> Cumpleaños</label>
@@ -307,11 +345,27 @@ export default function AdminCustomers() {
 
                 <div className={styles.formActions}>
                   <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                  <button type="submit" className="btn btn-primary" disabled={saving || hasErrors}>
                     {saving ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               </form>
+
+              <ConfirmModal
+                isOpen={confirmOpen}
+                title={editCustomer ? '¿Guardar cambios?' : '¿Crear cliente?'}
+                onCancel={() => setConfirmOpen(false)}
+                onConfirm={executeSave}
+                confirmText="Confirmar"
+                disabled={saving}
+              >
+                <ul className={styles.summaryList}>
+                  <li><span className={styles.summaryLabel}>Nombre</span><span className={styles.summaryValue}>{form.name || '—'}</span></li>
+                  <li><span className={styles.summaryLabel}>Cédula / RIF</span><span className={styles.summaryValue}>{form.id_number || '—'}</span></li>
+                  <li><span className={styles.summaryLabel}>Teléfono</span><span className={styles.summaryValue}>{form.phone || '—'}</span></li>
+                  <li><span className={styles.summaryLabel}>Correo</span><span className={styles.summaryValue}>{form.email || '—'}</span></li>
+                </ul>
+              </ConfirmModal>
             </motion.div>
           </motion.div>
         )}

@@ -5,6 +5,7 @@ import { ArrowLeft, Trash2, ShoppingBag, ChevronDown, ChevronUp, AlertCircle, Se
 import { useAuth } from '../../hooks/useAuth'
 import { useCashSession } from '../../hooks/useCashSession'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
+import ConfirmModal from '../../components/admin/ConfirmModal'
 import styles from './AdminMovementNew.module.css'
 
 function getTotalQuantityByProduct(items, productId) {
@@ -42,6 +43,7 @@ export default function AdminMovementNew() {
   const [showCustomerSearch, setShowCustomerSearch] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [isFormExpanded, setIsFormExpanded] = useState(true)
 
   useEffect(() => {
@@ -119,7 +121,7 @@ export default function AdminMovementNew() {
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault()
     if (cart.length === 0) {
       setError('Debes agregar al menos un producto')
@@ -129,7 +131,11 @@ export default function AdminMovementNew() {
       setError('No hay caja abierta. Abre un turno en Caja.')
       return
     }
+    setError('')
+    setConfirmOpen(true)
+  }
 
+  const executeSave = async () => {
     setSaving(true)
     setError('')
 
@@ -180,7 +186,9 @@ export default function AdminMovementNew() {
       navigate('/admin/movements')
     } catch (e) {
       setError(e.message || 'Error al guardar')
+    } finally {
       setSaving(false)
+      setConfirmOpen(false)
     }
   }
 
@@ -243,7 +251,7 @@ export default function AdminMovementNew() {
           </div>
         </div>
 
-        <form className={styles.formSection} onSubmit={handleSave}>
+        <form className={styles.formSection} onSubmit={handleSave} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: isFormExpanded ? '1rem' : '0', cursor: 'pointer'}} onClick={() => setIsFormExpanded(!isFormExpanded)}>
             <div style={{display:'flex', alignItems:'center', gap:'0.5rem'}}>
               <h2 style={{margin:0, fontSize: '1.1rem'}}>Detalles</h2>
@@ -357,6 +365,16 @@ export default function AdminMovementNew() {
             {saving ? 'Guardando...' : 'Confirmar Movimiento'}
           </button>
         </form>
+
+        <ConfirmModal
+          isOpen={confirmOpen}
+          title={`Confirmar ${type === 'venta' ? 'venta' : 'consignación'}`}
+          message={`Se registrará ${type === 'venta' ? 'una venta' : 'una consignación'} por $${totalAmount.toFixed(2)} con ${cart.reduce((s, i) => s + i.quantity, 0)} unidades.`}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={executeSave}
+          confirmText="Confirmar"
+          disabled={saving}
+        />
       </div>
     </div>
   )

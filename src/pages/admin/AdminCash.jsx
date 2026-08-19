@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useCashSession, getExpectedCashAmount, getSessionTotalsByMethod } from '../../hooks/useCashSession'
 import { DollarSign, Lock, Unlock, AlertCircle, Loader2 } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import * as V from '../../lib/validation'
 import styles from './AdminCash.module.css'
 
 const PAYMENT_METHODS = {
@@ -28,6 +30,8 @@ export default function AdminCash() {
   const [lastClosingAmount, setLastClosingAmount] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmType, setConfirmType] = useState(null)
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -60,10 +64,34 @@ export default function AdminCash() {
     loadTotals()
   }, [session])
 
-  const handleOpen = async (e) => {
+  const openErrors = useMemo(() => {
+    const errs = {}
+    errs.openAmount = V.number(openAmount, 'El monto inicial', { min: 0 })
+    Object.keys(errs).forEach(k => { if (!errs[k]) delete errs[k] })
+    return errs
+  }, [openAmount])
+
+  const closeErrors = useMemo(() => {
+    const errs = {}
+    errs.closeAmount = V.number(closeAmount, 'El efectivo contado', { min: 0 })
+    Object.keys(errs).forEach(k => { if (!errs[k]) delete errs[k] })
+    return errs
+  }, [closeAmount])
+
+  const hasOpenErrors = useMemo(() => Object.keys(openErrors).length > 0, [openErrors])
+  const hasCloseErrors = useMemo(() => Object.keys(closeErrors).length > 0, [closeErrors])
+
+  const handleOpen = (e) => {
     e.preventDefault()
     setFormError('')
+    if (hasOpenErrors) return
+    setConfirmType('open')
+    setConfirmOpen(true)
+  }
+
+  const executeOpen = async () => {
     setSubmitting(true)
+    setFormError('')
     try {
       await openSession(openAmount)
       setOpenAmount('')
@@ -71,13 +99,22 @@ export default function AdminCash() {
       setFormError(e.message)
     } finally {
       setSubmitting(false)
+      setConfirmOpen(false)
+      setConfirmType(null)
     }
   }
 
-  const handleClose = async (e) => {
+  const handleClose = (e) => {
     e.preventDefault()
     setFormError('')
+    if (hasCloseErrors) return
+    setConfirmType('close')
+    setConfirmOpen(true)
+  }
+
+  const executeClose = async () => {
     setSubmitting(true)
+    setFormError('')
     try {
       await closeSession(closeAmount)
       setCloseAmount('')
@@ -85,6 +122,8 @@ export default function AdminCash() {
       setFormError(e.message)
     } finally {
       setSubmitting(false)
+      setConfirmOpen(false)
+      setConfirmType(null)
     }
   }
 
@@ -114,29 +153,31 @@ export default function AdminCash() {
               <Lock size={20} /> Caja cerrada
             </div>
             <h2 className={styles.cardTitle} style={{ marginTop: '1rem' }}>Abrir caja</h2>
-            <form className={styles.form} onSubmit={handleOpen}>
+            <form className={styles.form} onSubmit={handleOpen} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
               <div className={styles.field}>
                 <label>Monto inicial en caja</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <DollarSign size={16} />
                   <input
-                    className={styles.input}
+                    className={`${styles.input} ${openErrors.openAmount ? styles.inputError : ''}`}
                     type="number"
                     step="0.01"
-                    min={0}
                     value={openAmount}
                     onChange={(e) => setOpenAmount(e.target.value)}
                     placeholder={lastClosingAmount !== null ? `Último cierre: $${lastClosingAmount.toFixed(2)}` : '0.00'}
                     autoFocus
-                    required
                   />
                 </div>
-                {lastClosingAmount !== null && openAmount === '' && (
-                  <p className={styles.hint}>Sugerencia: $${lastClosingAmount.toFixed(2)} del último cierre</p>
+                {openErrors.openAmount ? (
+                  <span className={styles.fieldError}>{openErrors.openAmount}</span>
+                ) : (
+                  lastClosingAmount !== null && openAmount === '' && (
+                    <p className={styles.hint}>Sugerencia: $${lastClosingAmount.toFixed(2)} del último cierre</p>
+                  )
                 )}
               </div>
               <div className={styles.actions}>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button type="submit" className="btn btn-primary" disabled={submitting || hasOpenErrors}>
                   {submitting ? 'Abriendo...' : 'Abrir caja'}
                 </button>
               </div>
@@ -145,7 +186,21 @@ export default function AdminCash() {
           </motion.div>
         ) : (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <div className={styles.card}>
+        <ConfirmModal
+          isOpen={confirmOpen}
+          title={confirmType === 'open' ? '¿Abrir caja?' : '¿Cerrar caja?'}
+          message={
+            confirmType === 'open'
+              ? `Se abrirá la caja con un monto inicial de $${parseFloat(openAmount || 0).toFixed(2)}.`
+              : `Se cerrará la caja con un efectivo contado de $${parseFloat(closeAmount || 0).toFixed(2)}. La diferencia es ${cashDifference === 0 ? 'cuadrada' : cashDifference > 0 ? `sobrante de $${cashDifference.toFixed(2)}` : `faltante de $${Math.abs(cashDifference).toFixed(2)}`}.`
+          }
+          onCancel={() => { setConfirmOpen(false); setConfirmType(null) }}
+          onConfirm={confirmType === 'open' ? executeOpen : executeClose}
+          confirmText="Confirmar"
+          disabled={submitting}
+        />
+
+        <div className={styles.card}>
               <div className={styles.statusOpen}>
                 <Unlock size={20} /> Caja abierta desde {new Date(session.opened_at).toLocaleString()}
               </div>
@@ -180,22 +235,21 @@ export default function AdminCash() {
               )}
 
               <h3 className={styles.cardTitle}>Cerrar caja</h3>
-              <form className={styles.form} onSubmit={handleClose}>
+              <form className={styles.form} onSubmit={handleClose} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
                   <div className={styles.field}>
                     <label>Efectivo real contado en caja</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <DollarSign size={16} />
                       <input
-                        className={styles.input}
+                        className={`${styles.input} ${closeErrors.closeAmount ? styles.inputError : ''}`}
                         type="number"
                         step="0.01"
-                        min={0}
                         value={closeAmount}
                         onChange={(e) => setCloseAmount(e.target.value)}
                         placeholder={`Esperado: $${expectedCashInBox.toFixed(2)}`}
-                        required
                       />
                     </div>
+                    {closeErrors.closeAmount && <span className={styles.fieldError}>{closeErrors.closeAmount}</span>}
                   </div>
 
                 {closeAmount !== '' && (
@@ -208,7 +262,7 @@ export default function AdminCash() {
                 )}
 
                 <div className={styles.actions}>
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  <button type="submit" className="btn btn-primary" disabled={submitting || hasCloseErrors}>
                     {submitting ? 'Cerrando...' : 'Cerrar caja'}
                   </button>
                 </div>

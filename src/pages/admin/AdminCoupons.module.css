@@ -320,3 +320,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+.inputError {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+.fieldError {
+  display: block;
+  color: #dc2626;
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+}
+
+.summaryList {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summaryList li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(196, 120, 138, 0.08);
+  font-size: 0.9rem;
+}
+
+.summaryList li:last-child {
+  border-bottom: none;
+}
+
+.summaryLabel {
+  color: var(--color-dark-soft);
+}
+
+.summaryValue {
+  color: var(--color-dark);
+  font-weight: 600;
+}
+

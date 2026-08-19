@@ -1,0 +1,110 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(61, 43, 43, 0.5);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal {
+  background: white;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(196, 120, 138, 0.12);
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-dark);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modalHeader h3 svg {
+  color: #d97706;
+}
+
+.closeBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(196, 120, 138, 0.2);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-dark-soft);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.closeBtn:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.modalBody {
+  padding: 1.25rem 1.5rem;
+  color: var(--color-dark-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.modalBody p {
+  margin: 0 0 0.75rem;
+}
+
+.modalBody p:last-child {
+  margin-bottom: 0;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 1.5rem;
+}
+
+.summaryList {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summaryList li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(196, 120, 138, 0.08);
+  font-size: 0.9rem;
+}
+
+.summaryList li:last-child {
+  border-bottom: none;
+}
+
+.summaryLabel {
+  color: var(--color-dark-soft);
+}
+
+.summaryValue {
+  color: var(--color-dark);
+  font-weight: 600;
+}

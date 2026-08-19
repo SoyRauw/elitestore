@@ -29,3 +29,50 @@
 .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:var(--z-modal); padding:var(--space-5); }
 .formModal { background:white; padding:var(--space-6); border-radius:var(--radius-xl); width:100%; max-width:400px; }
 .formModal h3 { font-family:var(--font-display); font-size:var(--text-xl); color:var(--color-dark); }
+
+.inputError {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+.fieldError {
+  display: block;
+  color: #dc2626;
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.formError {
+  color: #dc2626;
+  font-size: var(--text-sm);
+  text-align: center;
+  margin: 0;
+}
+
+.summaryList {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summaryList li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(196, 120, 138, 0.08);
+  font-size: 0.9rem;
+}
+
+.summaryList li:last-child {
+  border-bottom: none;
+}
+
+.summaryLabel {
+  color: var(--color-dark-soft);
+}
+
+.summaryValue {
+  color: var(--color-dark);
+  font-weight: 600;
+}
+

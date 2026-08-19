@@ -8,8 +8,10 @@ import {
   ImagePlus, Star, RefreshCw, Copy, Download
 } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
+import ConfirmModal from '../../components/admin/ConfirmModal'
 import { generateProductId, generateProductCode, generateVariantCode } from '../../lib/sku'
 import { exportProductLabels } from '../../lib/labelExport'
+import * as V from '../../lib/validation'
 import styles from './AdminProducts.module.css'
 
 
@@ -324,6 +326,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [saved, setSaved] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const category = useMemo(() => {
     return categories.find(c => c.id === form.category_id)
@@ -371,6 +374,69 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     return skus
   }, [allProducts, product])
 
+  const validationErrors = useMemo(() => {
+    const fieldLabels = {
+      cost_price: 'El costo',
+      shipping_cost: 'El envío',
+      freight_cost: 'El flete',
+      profit_margin: 'El % de ganancia',
+    }
+    const errs = {}
+    errs.id = V.run(form.id.trim(), [
+      (v) => V.required(v, 'El ID'),
+      (v) => V.noSpaces(v, 'El ID'),
+      (v) => V.unique(v, 'El ID', existingIds),
+    ])
+    errs.name = V.required(form.name, 'El nombre')
+    errs.category_id = V.required(form.category_id, 'La categoría')
+    errs.price = V.number(form.price, 'El precio base', { min: 0 })
+    if (form.wholesale_price !== '' && form.wholesale_price != null) {
+      errs.wholesale_price = V.number(form.wholesale_price, 'El precio al mayor', { min: 0, allowEmpty: true })
+    }
+    if (form.min_wholesale_qty !== '' && form.min_wholesale_qty != null) {
+      errs.min_wholesale_qty = V.integer(form.min_wholesale_qty, 'La cantidad mínima al mayor', { min: 0, allowEmpty: true })
+    }
+    ;['cost_price', 'shipping_cost', 'freight_cost', 'profit_margin'].forEach((field) => {
+      if (form[field] !== '' && form[field] != null) {
+        const err = V.number(form[field], fieldLabels[field], { min: 0, allowEmpty: true })
+        if (err) errs[field] = err
+      }
+    })
+    const totalImages = form.images.length + pendingFiles.length
+    if (totalImages === 0) errs.images = 'Debe subir al menos una imagen principal'
+    const visibleVariants = variants.filter((v) => !v.isDeleted)
+    if (visibleVariants.length === 0) errs.variants = 'Debe tener al menos una variante'
+    const usedSKUs = new Set()
+    visibleVariants.forEach((v) => {
+      const key = `variant_${v.id}`
+      const skuErr = V.run(v.sku?.trim(), [
+        (val) => V.required(val, 'El SKU'),
+        (val) => V.noSpaces(val, 'El SKU'),
+        (val) => V.unique(val, 'El SKU', existingSKUs),
+      ])
+      if (skuErr) {
+        errs[key] = skuErr
+      } else {
+        const upper = v.sku.trim().toUpperCase()
+        if (usedSKUs.has(upper)) errs[key] = 'El SKU está repetido dentro de este producto'
+        usedSKUs.add(upper)
+      }
+      if (v.price !== '' && v.price != null) {
+        const perr = V.number(v.price, 'El precio de variante', { min: 0, allowEmpty: true })
+        if (perr) errs[`${key}_price`] = perr
+      }
+      if (v.wholesale_price !== '' && v.wholesale_price != null) {
+        const werr = V.number(v.wholesale_price, 'El precio al mayor de variante', { min: 0, allowEmpty: true })
+        if (werr) errs[`${key}_wholesale`] = werr
+      }
+      const stockErr = V.integer(v.stock, 'El stock', { min: 0 })
+      if (stockErr) errs[`${key}_stock`] = stockErr
+    })
+    Object.keys(errs).forEach((k) => { if (!errs[k]) delete errs[k] })
+    return errs
+  }, [form, variants, existingIds, existingSKUs, pendingFiles.length])
+
+  const hasErrors = useMemo(() => Object.keys(validationErrors).length > 0, [validationErrors])
   useEffect(() => {
     if (scannedId) setForm(f => ({ ...f, id: scannedId }))
   }, [scannedId])
@@ -534,13 +600,14 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     setVariants(prev => [...prev, ...newVariants])
   }
 
-  const handleSave = async (e) => {
+  const handleFormSubmit = (e) => {
     e.preventDefault()
-    if (!form.id.trim()) { setError('El ID del producto es obligatorio'); return }
-    if (!form.category_id) { setError('Debe seleccionar una categoría'); return }
-    if (variants.filter(v => !v.isDeleted).length === 0) { setError('Debe tener al menos una variante'); return }
-    if (form.images.length === 0 && pendingFiles.length === 0) { setError('Debe subir al menos una imagen principal del producto'); return }
+    setError('')
+    if (hasErrors) return
+    setConfirmOpen(true)
+  }
 
+  const executeSave = async () => {
     setSaving(true)
     setError('')
     try {
@@ -656,13 +723,19 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     } catch (e) {
       console.error('Error guardando producto:', e)
       const message = e?.message || e?.error?.message || 'Error al guardar'
-      if (message.toLowerCase().includes('row-level security') || message.toLowerCase().includes('violates')) {
-        setError(`Error de permisos (RLS): ${message}. Ve a Supabase → Authentication → Policies y asegúrate de que la tabla product_variants permita INSERT/UPDATE.`)
+      const lower = message.toLowerCase()
+      if (lower.includes('products_pkey')) {
+        setError('Ya existe un producto con este ID. Usa otro ID o edita el existente.')
+      } else if (lower.includes('product_variants_sku_key') || (lower.includes('duplicate key') && lower.includes('sku'))) {
+        setError('El SKU de una variante ya existe. Revisa que no haya SKUs repetidos.')
+      } else if (lower.includes('row-level security')) {
+        setError(`Error de permisos (RLS): ${message}. Ve a Supabase → Authentication → Policies y asegúrate de que las tablas permitan INSERT/UPDATE.`)
       } else {
         setError(message)
       }
     } finally {
       setSaving(false)
+      setConfirmOpen(false)
     }
   }
 
@@ -674,11 +747,11 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
           <button className={styles.closeBtn} onClick={onClose}><X size={20}/></button>
         </div>
 
-        <form onSubmit={handleSave} className={styles.form}>
+        <form onSubmit={handleFormSubmit} className={styles.form} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
           <div className={styles.field}>
             <label className="label">ID del producto</label>
             <div className={styles.idRow}>
-              <input className="input" value={form.id} onChange={(e) => { setForm({...form,id:e.target.value}); onScannedIdChange(e.target.value) }} placeholder="ej: PIJ-SAT" required disabled={!!product} />
+              <input className={`input ${validationErrors.id ? styles.inputError : ''}`} value={form.id} onChange={(e) => { setForm({...form,id:e.target.value}); onScannedIdChange(e.target.value) }} placeholder="ej: PIJ-SAT" disabled={!!product} />
               {!product && (
                 <>
                   <button type="button" className={styles.scanBtn} onClick={onOpenScanner} title="Escanear código"><Camera size={20} /></button>
@@ -686,11 +759,17 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
                 </>
               )}
             </div>
+            {validationErrors.id ? (
+              <span className={styles.fieldError}>{validationErrors.id}</span>
+            ) : (
+              <span className={styles.fieldHint}>ID único del producto. Ej: OW-SIP-LAZ-ROS-32</span>
+            )}
           </div>
 
           <div className={styles.field}>
             <label className="label">Nombre</label>
-            <input className="input" value={form.name} onChange={(e) => setForm({...form,name:e.target.value})} placeholder="Pijama Satín Rosa" required />
+            <input className={`input ${validationErrors.name ? styles.inputError : ''}`} value={form.name} onChange={(e) => setForm({...form,name:e.target.value})} placeholder="Pijama Satín Rosa" />
+            {validationErrors.name && <span className={styles.fieldError}>{validationErrors.name}</span>}
           </div>
 
           <div className={styles.field}>
@@ -742,6 +821,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
               <span style={{ fontSize: '11px', opacity: 0.6 }}>PNG, JPG — múltiples a la vez</span>
               <input type="file" accept="image/*" multiple onChange={handleImageFiles} style={{ display: 'none' }} />
             </label>
+            {validationErrors.images && <span className={styles.fieldError}>{validationErrors.images}</span>}
             {saving && uploadProgress > 0 && uploadProgress < 100 && (
               <div className={styles.progressBar}>
                 <div className={styles.progressFill} style={{ width: `${uploadProgress}%` }} />
@@ -752,22 +832,26 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
           <div className={styles.formRow}>
             <div className={styles.field}>
               <label className="label">Precio base ($)</label>
-              <input type="number" step="0.01" className="input" value={form.price} onChange={(e) => { setPriceTouched(true); setForm({...form,price:e.target.value}) }} placeholder="35.00" required />
+              <input type="number" step="0.01" className={`input ${validationErrors.price ? styles.inputError : ''}`} value={form.price} onChange={(e) => { setPriceTouched(true); setForm({...form,price:e.target.value}) }} placeholder="35.00" />
+              {validationErrors.price && <span className={styles.fieldError}>{validationErrors.price}</span>}
             </div>
             <div className={styles.field}>
               <label className="label">Precio al Mayor ($)</label>
-              <input type="number" step="0.01" className="input" value={form.wholesale_price} onChange={(e) => setForm({...form,wholesale_price:e.target.value})} placeholder="25.00" />
+              <input type="number" step="0.01" className={`input ${validationErrors.wholesale_price ? styles.inputError : ''}`} value={form.wholesale_price} onChange={(e) => setForm({...form,wholesale_price:e.target.value})} placeholder="25.00" />
+              {validationErrors.wholesale_price && <span className={styles.fieldError}>{validationErrors.wholesale_price}</span>}
             </div>
             <div className={styles.field}>
               <label className="label">Cant. mínima mayor</label>
-              <input type="number" min={0} className="input" value={form.min_wholesale_qty} onChange={(e) => setForm({...form,min_wholesale_qty:e.target.value})} placeholder="3" />
+              <input type="number" className={`input ${validationErrors.min_wholesale_qty ? styles.inputError : ''}`} value={form.min_wholesale_qty} onChange={(e) => setForm({...form,min_wholesale_qty:e.target.value})} placeholder="3" />
+              {validationErrors.min_wholesale_qty && <span className={styles.fieldError}>{validationErrors.min_wholesale_qty}</span>}
             </div>
             <div className={styles.field}>
               <label className="label">Categoría</label>
-              <select className="input" value={form.category_id} onChange={(e) => setForm({...form,category_id:e.target.value})} required>
-                {categories.length === 0 && <option value="">Sin categorías</option>}
+              <select className={`input ${validationErrors.category_id ? styles.inputError : ''}`} value={form.category_id} onChange={(e) => setForm({...form,category_id:e.target.value})}>
+                <option value="">Selecciona una categoría</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {validationErrors.category_id && <span className={styles.fieldError}>{validationErrors.category_id}</span>}
             </div>
           </div>
 
@@ -777,19 +861,23 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
             <div className={styles.pricingGrid}>
               <div className={styles.field}>
                 <label className="label">Costo ($)</label>
-                <input type="number" step="0.01" min={0} className="input" value={form.cost_price} onChange={(e) => setForm({...form,cost_price:e.target.value})} placeholder="0.00" />
+                <input type="number" step="0.01" className={`input ${validationErrors.cost_price ? styles.inputError : ''}`} value={form.cost_price} onChange={(e) => setForm({...form,cost_price:e.target.value})} placeholder="0.00" />
+                {validationErrors.cost_price && <span className={styles.fieldError}>{validationErrors.cost_price}</span>}
               </div>
               <div className={styles.field}>
                 <label className="label">Envío + com. tarjeta ($)</label>
-                <input type="number" step="0.01" min={0} className="input" value={form.shipping_cost} onChange={(e) => setForm({...form,shipping_cost:e.target.value})} placeholder="0.00" />
+                <input type="number" step="0.01" className={`input ${validationErrors.shipping_cost ? styles.inputError : ''}`} value={form.shipping_cost} onChange={(e) => setForm({...form,shipping_cost:e.target.value})} placeholder="0.00" />
+                {validationErrors.shipping_cost && <span className={styles.fieldError}>{validationErrors.shipping_cost}</span>}
               </div>
               <div className={styles.field}>
                 <label className="label">Flete ($)</label>
-                <input type="number" step="0.01" min={0} className="input" value={form.freight_cost} onChange={(e) => setForm({...form,freight_cost:e.target.value})} placeholder="0.00" />
+                <input type="number" step="0.01" className={`input ${validationErrors.freight_cost ? styles.inputError : ''}`} value={form.freight_cost} onChange={(e) => setForm({...form,freight_cost:e.target.value})} placeholder="0.00" />
+                {validationErrors.freight_cost && <span className={styles.fieldError}>{validationErrors.freight_cost}</span>}
               </div>
               <div className={styles.field}>
                 <label className="label">% Ganancia</label>
-                <input type="number" step="0.01" min={0} className="input" value={form.profit_margin} onChange={(e) => setForm({...form,profit_margin:e.target.value})} placeholder="50" />
+                <input type="number" step="0.01" className={`input ${validationErrors.profit_margin ? styles.inputError : ''}`} value={form.profit_margin} onChange={(e) => setForm({...form,profit_margin:e.target.value})} placeholder="50" />
+                {validationErrors.profit_margin && <span className={styles.fieldError}>{validationErrors.profit_margin}</span>}
               </div>
             </div>
             <div className={styles.pricingResults}>
@@ -807,7 +895,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
               </div>
               <div className={`${styles.pricingResult} ${styles.pricingFinal}`}>
                 <span>Precio final</span>
-                <input type="number" step="0.01" min={0} className={`input ${styles.pricingFinalInput}`} value={form.price} onChange={(e) => { setPriceTouched(true); setForm({...form,price:e.target.value}) }} placeholder="0.00" required />
+                <input type="number" step="0.01" className={`input ${styles.pricingFinalInput} ${validationErrors.price ? styles.inputError : ''}`} value={form.price} onChange={(e) => { setPriceTouched(true); setForm({...form,price:e.target.value}) }} placeholder="0.00" />
               </div>
             </div>
             {!product && !priceTouched && pricing.recommended > 0 && (
@@ -848,7 +936,9 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
                   </tr>
                 </thead>
                 <tbody>
-                  {variants.filter(v => !v.isDeleted).map((v) => (
+                  {variants.filter(v => !v.isDeleted).map((v) => {
+                    const vKey = `variant_${v.id}`
+                    return (
                     <tr key={v.id}>
                       <td>
                         <div className={styles.variantImageCell}>
@@ -868,7 +958,8 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
                         </div>
                       </td>
                       <td>
-                        <input className="input" style={{ minWidth: '120px' }} value={v.sku} onChange={(e) => updateVariant(v.id, 'sku', e.target.value)} placeholder="SKU" required />
+                        <input className={`input ${validationErrors[vKey] ? styles.inputError : ''}`} style={{ minWidth: '120px' }} value={v.sku} onChange={(e) => updateVariant(v.id, 'sku', e.target.value)} placeholder="SKU" />
+                        {validationErrors[vKey] && <span className={styles.fieldError}>{validationErrors[vKey]}</span>}
                         {v.barcode && v.barcode !== v.sku && (
                           <div style={{ fontSize: '11px', color: 'var(--color-dark-soft)', marginTop: '2px' }}>Barcode: {v.barcode}</div>
                         )}
@@ -882,22 +973,33 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
                           {categorySizeOptions.length === 0 && <option value="" disabled>No hay medidas</option>}
                         </select>
                       </td>
-                      <td><input type="number" step="0.01" className="input" style={{ minWidth: '80px' }} value={v.price ?? ''} onChange={(e) => updateVariant(v.id, 'price', e.target.value)} placeholder={form.price} /></td>
-                      <td><input type="number" step="0.01" className="input" style={{ minWidth: '80px' }} value={v.wholesale_price ?? ''} onChange={(e) => updateVariant(v.id, 'wholesale_price', e.target.value)} placeholder={form.wholesale_price} /></td>
-                      <td><input type="number" min={0} className="input" style={{ minWidth: '70px' }} value={v.stock} onChange={(e) => updateVariant(v.id, 'stock', e.target.value)} required /></td>
+                      <td>
+                        <input type="number" step="0.01" className={`input ${validationErrors[`${vKey}_price`] ? styles.inputError : ''}`} style={{ minWidth: '80px' }} value={v.price ?? ''} onChange={(e) => updateVariant(v.id, 'price', e.target.value)} placeholder={form.price} />
+                        {validationErrors[`${vKey}_price`] && <span className={styles.fieldError}>{validationErrors[`${vKey}_price`]}</span>}
+                      </td>
+                      <td>
+                        <input type="number" step="0.01" className={`input ${validationErrors[`${vKey}_wholesale`] ? styles.inputError : ''}`} style={{ minWidth: '80px' }} value={v.wholesale_price ?? ''} onChange={(e) => updateVariant(v.id, 'wholesale_price', e.target.value)} placeholder={form.wholesale_price} />
+                        {validationErrors[`${vKey}_wholesale`] && <span className={styles.fieldError}>{validationErrors[`${vKey}_wholesale`]}</span>}
+                      </td>
+                      <td>
+                        <input type="number" className={`input ${validationErrors[`${vKey}_stock`] ? styles.inputError : ''}`} style={{ minWidth: '70px' }} value={v.stock} onChange={(e) => updateVariant(v.id, 'stock', e.target.value)} />
+                        {validationErrors[`${vKey}_stock`] && <span className={styles.fieldError}>{validationErrors[`${vKey}_stock`]}</span>}
+                      </td>
                       <td>
                         <button type="button" className={styles.deleteBtn} onClick={() => removeVariant(v.id)} aria-label="Eliminar variante">
                           <Trash2 size={14} />
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
             <button type="button" className="btn btn-outline" style={{ marginTop: '0.75rem', width: '100%' }} onClick={addVariant}>
               <Plus size={14} /> Agregar variante manualmente
             </button>
+            {validationErrors.variants && <span className={styles.fieldError}>{validationErrors.variants}</span>}
           </div>
 
           <div className={styles.toggles}>
@@ -926,13 +1028,31 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
             ) : (
               <>
                 <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
+                <button type="submit" className="btn btn-primary" disabled={saving || hasErrors}>
                   {saving ? <div className={styles.spinner}/> : <><Save size={16}/> Guardar</>}
                 </button>
               </>
             )}
           </div>
         </form>
+
+        <ConfirmModal
+          isOpen={confirmOpen}
+          title={product ? '¿Guardar cambios?' : '¿Crear producto?'}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={executeSave}
+          confirmText="Confirmar"
+          disabled={saving}
+        >
+          <ul className={styles.summaryList}>
+            <li><span className={styles.summaryLabel}>ID</span><span className={styles.summaryValue}>{form.id || '—'}</span></li>
+            <li><span className={styles.summaryLabel}>Nombre</span><span className={styles.summaryValue}>{form.name || '—'}</span></li>
+            <li><span className={styles.summaryLabel}>Categoría</span><span className={styles.summaryValue}>{category?.name || '—'}</span></li>
+            <li><span className={styles.summaryLabel}>Variantes</span><span className={styles.summaryValue}>{variants.filter(v => !v.isDeleted).length}</span></li>
+            <li><span className={styles.summaryLabel}>Stock total</span><span className={styles.summaryValue}>{variants.filter(v => !v.isDeleted).reduce((s, v) => s + (parseInt(v.stock) || 0), 0)} uds</span></li>
+            <li><span className={styles.summaryLabel}>Precio final</span><span className={styles.summaryValue}>${form.price || '0.00'}</span></li>
+          </ul>
+        </ConfirmModal>
       </motion.div>
     </motion.div>
   )

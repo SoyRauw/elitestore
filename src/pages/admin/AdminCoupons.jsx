@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { Plus, Edit2, Trash2, X, Save, Tag, Percent, DollarSign, Package, ShoppingBag } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import * as V from '../../lib/validation'
 import styles from './AdminCoupons.module.css'
 
 const emptyForm = {
@@ -25,6 +27,7 @@ export default function AdminCoupons() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const fetchCoupons = async () => {
     setLoading(true)
@@ -67,16 +70,38 @@ export default function AdminCoupons() {
     fetchCoupons()
   }
 
-  const handleSave = async (e) => {
-    e.preventDefault()
-    if (!form.name.trim()) { setError('El nombre es obligatorio'); return }
-    if (!form.discount_value || parseFloat(form.discount_value) <= 0) { setError('El descuento debe ser mayor a 0'); return }
-    if (form.points_cost === '' || parseInt(form.points_cost) < 0) { setError('El costo en puntos no puede ser negativo'); return }
-    if (form.min_purchase_amount !== '' && parseFloat(form.min_purchase_amount) < 0) { setError('La compra mínima no puede ser negativa'); return }
+  const validationErrors = useMemo(() => {
+    const errs = {}
+    errs.name = V.required(form.name, 'El nombre')
+    errs.discount_value = V.number(form.discount_value, 'El valor del descuento', { min: 0.01 })
+    if (form.discount_type === 'percentage' && form.discount_value !== '' && parseFloat(form.discount_value) > 100) {
+      errs.discount_value = 'El porcentaje no puede ser mayor a 100'
+    }
+    errs.points_cost = V.integer(form.points_cost, 'El costo en puntos', { min: 0 })
+    if (form.min_purchase_amount !== '' && form.min_purchase_amount != null) {
+      errs.min_purchase_amount = V.number(form.min_purchase_amount, 'La compra mínima', { min: 0, allowEmpty: true })
+    }
+    errs.usage_limit = V.integer(form.usage_limit, 'El límite de usos', { min: 1 })
+    if (form.end_date) {
+      const today = new Date().setHours(0, 0, 0, 0)
+      if (new Date(form.end_date).getTime() < today) errs.end_date = 'La fecha de vencimiento no puede estar en el pasado'
+    }
+    Object.keys(errs).forEach(k => { if (!errs[k]) delete errs[k] })
+    return errs
+  }, [form])
 
+  const hasErrors = useMemo(() => Object.keys(validationErrors).length > 0, [validationErrors])
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault()
+    setError('')
+    if (hasErrors) return
+    setConfirmOpen(true)
+  }
+
+  const executeSave = async () => {
     setSaving(true)
     setError('')
-
     const payload = {
       name: form.name.trim(),
       discount_type: form.discount_type,
@@ -88,7 +113,6 @@ export default function AdminCoupons() {
       end_date: form.end_date || null,
       is_active: form.is_active,
     }
-
     try {
       if (editCoupon) {
         const { error } = await supabase.from('reward_coupons').update(payload).eq('id', editCoupon.id)
@@ -100,9 +124,15 @@ export default function AdminCoupons() {
       setShowForm(false)
       fetchCoupons()
     } catch (e) {
-      setError(e.message || 'Error al guardar')
+      const message = e?.message || e?.error?.message || 'Error al guardar'
+      if (message.toLowerCase().includes('row-level security')) {
+        setError(`Error de permisos (RLS): ${message}.`)
+      } else {
+        setError(message)
+      }
     } finally {
       setSaving(false)
+      setConfirmOpen(false)
     }
   }
 
@@ -208,10 +238,11 @@ export default function AdminCoupons() {
                 </button>
               </div>
 
-              <form className={styles.form} onSubmit={handleSave}>
+              <form className={styles.form} onSubmit={handleFormSubmit} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
                 <div className={styles.field}>
                   <label>Nombre del cupón</label>
-                  <input className={styles.input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Descuento 10%" required />
+                  <input className={`${styles.input} ${validationErrors.name ? styles.inputError : ''}`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Descuento 10%" />
+                  {validationErrors.name && <span className={styles.fieldError}>{validationErrors.name}</span>}
                 </div>
 
                 <div className={styles.row}>
@@ -224,14 +255,16 @@ export default function AdminCoupons() {
                   </div>
                   <div className={styles.field}>
                     <label>Valor del descuento</label>
-                    <input type="number" step="0.01" min="0.01" className={styles.input} value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: e.target.value })} placeholder={form.discount_type === 'percentage' ? '10' : '5'} required />
+                    <input type="number" step="0.01" className={`${styles.input} ${validationErrors.discount_value ? styles.inputError : ''}`} value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: e.target.value })} placeholder={form.discount_type === 'percentage' ? '10' : '5'} />
+                    {validationErrors.discount_value && <span className={styles.fieldError}>{validationErrors.discount_value}</span>}
                   </div>
                 </div>
 
                 <div className={styles.row}>
                   <div className={styles.field}>
                     <label>Costo en puntos</label>
-                    <input type="number" min="0" className={styles.input} value={form.points_cost} onChange={(e) => setForm({ ...form, points_cost: e.target.value })} placeholder="100" required />
+                    <input type="number" className={`${styles.input} ${validationErrors.points_cost ? styles.inputError : ''}`} value={form.points_cost} onChange={(e) => setForm({ ...form, points_cost: e.target.value })} placeholder="100" />
+                    {validationErrors.points_cost && <span className={styles.fieldError}>{validationErrors.points_cost}</span>}
                   </div>
                   <div className={styles.field}>
                     <label>Aplica a</label>
@@ -245,18 +278,21 @@ export default function AdminCoupons() {
                 <div className={styles.row}>
                   <div className={styles.field}>
                     <label>Límite de usos</label>
-                    <input type="number" min="1" className={styles.input} value={form.usage_limit} onChange={(e) => setForm({ ...form, usage_limit: e.target.value })} required />
+                    <input type="number" className={`${styles.input} ${validationErrors.usage_limit ? styles.inputError : ''}`} value={form.usage_limit} onChange={(e) => setForm({ ...form, usage_limit: e.target.value })} />
+                    {validationErrors.usage_limit && <span className={styles.fieldError}>{validationErrors.usage_limit}</span>}
                   </div>
                   <div className={styles.field}>
                     <label>Vencimiento (opcional)</label>
-                    <input type="date" className={styles.input} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+                    <input type="date" className={`${styles.input} ${validationErrors.end_date ? styles.inputError : ''}`} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+                    {validationErrors.end_date && <span className={styles.fieldError}>{validationErrors.end_date}</span>}
                   </div>
                 </div>
 
                 <div className={styles.row}>
                   <div className={styles.field}>
                     <label>Compra mínima ($)</label>
-                    <input type="number" step="0.01" min="0" className={styles.input} value={form.min_purchase_amount} onChange={(e) => setForm({ ...form, min_purchase_amount: e.target.value })} placeholder="0" />
+                    <input type="number" step="0.01" className={`${styles.input} ${validationErrors.min_purchase_amount ? styles.inputError : ''}`} value={form.min_purchase_amount} onChange={(e) => setForm({ ...form, min_purchase_amount: e.target.value })} placeholder="0" />
+                    {validationErrors.min_purchase_amount && <span className={styles.fieldError}>{validationErrors.min_purchase_amount}</span>}
                   </div>
                 </div>
 
@@ -269,11 +305,27 @@ export default function AdminCoupons() {
 
                 <div className={styles.formActions}>
                   <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                  <button type="submit" className="btn btn-primary" disabled={saving || hasErrors}>
                     {saving ? 'Guardando...' : <><Save size={16} /> Guardar</>}
                   </button>
                 </div>
               </form>
+
+              <ConfirmModal
+                isOpen={confirmOpen}
+                title={editCoupon ? '¿Guardar cambios?' : '¿Crear cupón?'}
+                onCancel={() => setConfirmOpen(false)}
+                onConfirm={executeSave}
+                confirmText="Confirmar"
+                disabled={saving}
+              >
+                <ul className={styles.summaryList}>
+                  <li><span className={styles.summaryLabel}>Nombre</span><span className={styles.summaryValue}>{form.name || '—'}</span></li>
+                  <li><span className={styles.summaryLabel}>Descuento</span><span className={styles.summaryValue}>{form.discount_type === 'percentage' ? `${form.discount_value}%` : `$${form.discount_value}`}</span></li>
+                  <li><span className={styles.summaryLabel}>Costo en puntos</span><span className={styles.summaryValue}>{form.points_cost || 0} pts</span></li>
+                  <li><span className={styles.summaryLabel}>Usos</span><span className={styles.summaryValue}>{form.usage_limit || 1}</span></li>
+                </ul>
+              </ConfirmModal>
             </motion.div>
           </motion.div>
         )}
