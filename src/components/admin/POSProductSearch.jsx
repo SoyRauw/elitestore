@@ -41,6 +41,15 @@ export default function POSProductSearch({ onAdd }) {
         if (varError) throw varError
 
         const matchedProductIds = [...new Set((matchingVariants || []).map(v => v.product_id).filter(Boolean))]
+        const matchedVariantIds = new Set(
+          (matchingVariants || [])
+            .filter(v => {
+              const skuMatch = v.sku?.toLowerCase().includes(search)
+              const barcodeMatch = v.barcode?.toLowerCase().includes(search)
+              return skuMatch || barcodeMatch
+            })
+            .map(v => v.id)
+        )
 
         let byVariant = []
         if (matchedProductIds.length > 0) {
@@ -57,14 +66,17 @@ export default function POSProductSearch({ onAdd }) {
 
         // 3. Unir resultados sin duplicados
         const all = [...(byProduct || []), ...byVariant]
+        const byProductIds = new Set((byProduct || []).map(p => p.id))
         const uniqueMap = new Map()
         all.forEach(p => {
           if (!uniqueMap.has(p.id)) uniqueMap.set(p.id, p)
         })
 
         const filtered = Array.from(uniqueMap.values()).map(product => {
+          const restrictToMatched = !byProductIds.has(product.id) && matchedProductIds.includes(product.id)
           const variants = (product.product_variants || [])
             .filter(v => v.stock > 0)
+            .filter(v => !restrictToMatched || matchedVariantIds.has(v.id))
           return { ...product, product_variants: variants }
         }).filter(p => p.product_variants.length > 0)
 
