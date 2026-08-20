@@ -19,29 +19,59 @@ export default function POSProductSearch({ onAdd }) {
     const timeout = setTimeout(async () => {
       setLoading(true)
       const search = query.trim().toLowerCase()
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(*), product_variants(*)')
-        .eq('active', true)
-        .or(`name.ilike.%${search}%,id.ilike.%${search}%`)
-        .limit(20)
 
-      if (error) {
-        console.error('Error buscando productos:', error)
-        setProducts([])
-      } else {
-        const filtered = (data || []).map(product => {
+      try {
+        // 1. Buscar productos por nombre o id
+        const { data: byProduct, error: prodError } = await supabase
+          .from('products')
+          .select('*, categories(*), product_variants(*)')
+          .eq('active', true)
+          .or(`name.ilike.%${search}%,id.ilike.%${search}%`)
+          .limit(20)
+
+        if (prodError) throw prodError
+
+        // 2. Buscar variantes por id, sku o barcode y obtener sus productos padres
+        const { data: matchingVariants, error: varError } = await supabase
+          .from('product_variants')
+          .select('product_id')
+          .or(`id.eq.${search},sku.ilike.%${search}%,barcode.ilike.%${search}%`)
+          .limit(50)
+
+        if (varError) throw varError
+
+        const matchedProductIds = [...new Set((matchingVariants || []).map(v => v.product_id).filter(Boolean))]
+
+        let byVariant = []
+        if (matchedProductIds.length > 0) {
+          const { data: parentProducts, error: parentError } = await supabase
+            .from('products')
+            .select('*, categories(*), product_variants(*)')
+            .eq('active', true)
+            .in('id', matchedProductIds)
+            .limit(20)
+
+          if (parentError) throw parentError
+          byVariant = parentProducts || []
+        }
+
+        // 3. Unir resultados sin duplicados
+        const all = [...(byProduct || []), ...byVariant]
+        const uniqueMap = new Map()
+        all.forEach(p => {
+          if (!uniqueMap.has(p.id)) uniqueMap.set(p.id, p)
+        })
+
+        const filtered = Array.from(uniqueMap.values()).map(product => {
           const variants = (product.product_variants || [])
             .filter(v => v.stock > 0)
-            .filter(v => {
-              const matchesSku = v.sku?.toLowerCase().includes(search)
-              const matchesBarcode = v.barcode?.toLowerCase().includes(search)
-              return matchesSku || matchesBarcode || true
-            })
           return { ...product, product_variants: variants }
         }).filter(p => p.product_variants.length > 0)
 
         setProducts(filtered)
+      } catch (e) {
+        console.error('Error buscando productos:', e)
+        setProducts([])
       }
       setLoading(false)
     }, 250)
