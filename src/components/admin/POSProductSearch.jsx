@@ -31,11 +31,11 @@ export default function POSProductSearch({ onAdd }) {
 
         if (prodError) throw prodError
 
-        // 2. Buscar variantes por id, sku o barcode y obtener sus productos padres
+        // 2. Buscar variantes por sku o barcode y obtener sus productos padres
         const { data: matchingVariants, error: varError } = await supabase
           .from('product_variants')
           .select('product_id')
-          .or(`id.eq.${search},sku.ilike.%${search}%,barcode.ilike.%${search}%`)
+          .or(`sku.ilike.%${search}%,barcode.ilike.%${search}%`)
           .limit(50)
 
         if (varError) throw varError
