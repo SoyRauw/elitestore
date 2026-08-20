@@ -51,10 +51,10 @@ export default function POSProductSearch({ onAdd }) {
 
   const handleBarcodeScan = (e) => {
     if (e.key === 'Enter' && query.trim()) {
-      const search = query.trim().toLowerCase()
+      const search = query.trim().toUpperCase()
       for (const product of products) {
         const variant = product.product_variants.find(
-          v => v.sku?.toLowerCase() === search || v.barcode?.toLowerCase() === search
+          v => v.id?.toUpperCase() === search || v.sku?.toUpperCase() === search || v.barcode?.toUpperCase() === search
         )
         if (variant) {
           onAdd(product, variant)

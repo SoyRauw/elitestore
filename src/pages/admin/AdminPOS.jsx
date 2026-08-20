@@ -221,15 +221,59 @@ export default function AdminPOS() {
     setError('')
 
     try {
-      const { data: variants, error: variantError } = await supabase
-        .from('product_variants')
-        .select('*, products(*, categories(*))')
-        .or(`barcode.eq.${cleanCode},sku.eq.${cleanCode}`)
-        .limit(10)
+      let matching = []
 
-      if (variantError) throw variantError
+      // 1. Si parece UUID, buscar por id de variante
+      const isUUID = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(cleanCode)
+      if (isUUID) {
+        const { data: byId, error: idError } = await supabase
+          .from('product_variants')
+          .select('*, products(*, categories(*))')
+          .eq('id', cleanCode)
+          .limit(1)
+        if (idError) throw idError
+        if (byId?.[0]) matching.push(byId[0])
+      }
 
-      const matching = (variants || []).filter(v => v.barcode?.toUpperCase().replace(/[^A-Z0-9\-.]/g, '') === cleanCode || v.sku?.toUpperCase().replace(/[^A-Z0-9\-.]/g, '') === cleanCode)
+      // 2. Buscar por barcode o sku
+      if (matching.length === 0) {
+        const { data: variants, error: variantError } = await supabase
+          .from('product_variants')
+          .select('*, products(*, categories(*))')
+          .or(`barcode.eq.${cleanCode},sku.eq.${cleanCode}`)
+          .limit(10)
+
+        if (variantError) throw variantError
+
+        matching = (variants || []).filter(v =>
+          v.barcode?.toUpperCase().replace(/[^A-Z0-9\-.]/g, '') === cleanCode ||
+          v.sku?.toUpperCase().replace(/[^A-Z0-9\-.]/g, '') === cleanCode
+        )
+      }
+
+      // 3. Si no hay coincidencia, buscar por id de producto padre
+      if (matching.length === 0) {
+        const { data: products, error: productError } = await supabase
+          .from('products')
+          .select('*, categories(*), product_variants(*)')
+          .eq('id', cleanCode)
+          .eq('active', true)
+          .limit(1)
+
+        if (productError) throw productError
+
+        if (products && products.length > 0) {
+          const product = products[0]
+          const variant = (product.product_variants || []).find(v => v.stock > 0)
+          if (variant) {
+            addItem(product, variant)
+            return
+          } else {
+            setError(`Sin stock para: ${product.name}`)
+            return
+          }
+        }
+      }
 
       if (matching.length === 0) {
         setError(`No se encontró producto con código: ${cleanCode}`)
