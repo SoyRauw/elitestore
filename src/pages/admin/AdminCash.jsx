@@ -186,21 +186,7 @@ export default function AdminCash() {
           </motion.div>
         ) : (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <ConfirmModal
-          isOpen={confirmOpen}
-          title={confirmType === 'open' ? '¿Abrir caja?' : '¿Cerrar caja?'}
-          message={
-            confirmType === 'open'
-              ? `Se abrirá la caja con un monto inicial de $${parseFloat(openAmount || 0).toFixed(2)}.`
-              : `Se cerrará la caja con un efectivo contado de $${parseFloat(closeAmount || 0).toFixed(2)}. La diferencia es ${cashDifference === 0 ? 'cuadrada' : cashDifference > 0 ? `sobrante de $${cashDifference.toFixed(2)}` : `faltante de $${Math.abs(cashDifference).toFixed(2)}`}.`
-          }
-          onCancel={() => { setConfirmOpen(false); setConfirmType(null) }}
-          onConfirm={confirmType === 'open' ? executeOpen : executeClose}
-          confirmText="Confirmar"
-          disabled={submitting}
-        />
-
-        <div className={styles.card}>
+            <div className={styles.card}>
               <div className={styles.statusOpen}>
                 <Unlock size={20} /> Caja abierta desde {new Date(session.opened_at).toLocaleString()}
               </div>
@@ -271,6 +257,20 @@ export default function AdminCash() {
             </div>
           </motion.div>
         )}
+
+        <ConfirmModal
+          isOpen={confirmOpen}
+          title={confirmType === 'open' ? '¿Abrir caja?' : '¿Cerrar caja?'}
+          message={
+            confirmType === 'open'
+              ? `Se abrirá la caja con un monto inicial de $${parseFloat(openAmount || 0).toFixed(2)}.`
+              : `Se cerrará la caja con un efectivo contado de $${parseFloat(closeAmount || 0).toFixed(2)}. La diferencia es ${cashDifference === 0 ? 'cuadrada' : cashDifference > 0 ? `sobrante de $${cashDifference.toFixed(2)}` : `faltante de $${Math.abs(cashDifference).toFixed(2)}`}.`
+          }
+          onCancel={() => { setConfirmOpen(false); setConfirmType(null) }}
+          onConfirm={confirmType === 'open' ? executeOpen : executeClose}
+          confirmText="Confirmar"
+          disabled={submitting}
+        />
 
         <div className={styles.card}>
           <h3 className={styles.cardTitle}>Historial de cierres</h3>
