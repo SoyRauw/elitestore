@@ -16,23 +16,26 @@ const PAYMENT_METHODS = {
   multiple: 'Múltiple',
 }
 
+function pad(n) {
+  return n.toString().padStart(2, '0')
+}
+
 function formatDateInput(date) {
   if (!date) return ''
-  return new Date(date).toISOString().split('T')[0]
+  const d = new Date(date)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 function toStartOfDay(dateStr) {
   if (!dateStr) return null
-  const d = new Date(dateStr)
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d, 0, 0, 0, 0).toISOString()
 }
 
 function toEndOfDay(dateStr) {
   if (!dateStr) return null
-  const d = new Date(dateStr)
-  d.setHours(23, 59, 59, 999)
-  return d.toISOString()
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
 }
 
 export default function AdminReports() {
