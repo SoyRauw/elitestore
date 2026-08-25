@@ -47,7 +47,83 @@
 .deleteBtn { width:32px; height:32px; border-radius:var(--radius-sm); border:1px solid rgba(239,68,68,0.3); color:#dc2626; display:flex; align-items:center; justify-content:center; transition:all var(--transition-fast); }
 .deleteBtn:hover { background:#dc2626; color:white; }
 
-.emptyTable { padding:var(--space-12); text-align:center; display:flex; flex-direction:column; align-items:center; gap:var(--space-4); }
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.searchWrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.6rem 0.9rem 0.6rem 2.25rem;
+  border: 1px solid rgba(196, 120, 138, 0.2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  background: white;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-dark-soft);
+  pointer-events: none;
+}
+
+.filterSelect {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(196, 120, 138, 0.2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  background: white;
+  min-width: 150px;
+}
+
+@media (max-width: 767px) {
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .searchWrap,
+  .filterSelect {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+.emptyTable {
+  padding: var(--space-12);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.emptyTable p {
+  margin: 0;
+  color: var(--color-dark-soft);
+}
+
+.emptyTable button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+/* Keep existing styles below */
+
 .skeletonList { display:flex; flex-direction:column; gap:var(--space-3); }
 .skeletonRow { height:64px; border-radius:var(--radius-lg); }
 

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
+import { formatVariantLabel } from './sku'
 
 const PAYMENT_METHODS = {
   efectivo: 'Efectivo',
@@ -21,25 +22,90 @@ function formatMoney(value) {
 }
 
 function sanitizeFilename(name) {
-  return name.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+  return name.replace(/[^a-z0-9_\-() ]/gi, '_')
 }
 
-export function exportMovementsToExcel(movements, filename = 'reporte_ventas') {
-  const rows = movements.map((m) => ({
+function formatMovementPayments(movement) {
+  const method = movement.payment_method
+  if (method !== 'multiple') {
+    return `${PAYMENT_METHODS[method] || method || '—'} ${formatMoney(movement.total_amount)}`
+  }
+  if (!movement.movement_payments?.length) {
+    return 'Múltiple'
+  }
+  return movement.movement_payments
+    .map((p) => `${PAYMENT_METHODS[p.method] || p.method} ${formatMoney(p.amount)}`)
+    .join(' / ')
+}
+
+export function exportMovementsToExcel(movements, movementItems, filename = 'reporte_ventas') {
+  const movementsById = new Map(movements.map((m) => [m.id, m]))
+
+  // 1. Sheet "Ventas" — one row per movement
+  const salesRows = movements.map((m) => ({
     Fecha: formatDate(m.created_at),
     Recibo: `#${m.id?.slice(0, 8)}`,
     Tipo: m.movement_type?.toUpperCase() || '—',
     Cliente: m.customer_name || 'Cliente general',
-    Método: PAYMENT_METHODS[m.payment_method] || m.payment_method || '—',
-    Subtotal: formatMoney(m.total_amount + (m.discount_amount || 0)),
+    Método: formatMovementPayments(m),
+    Subtotal: formatMoney((parseFloat(m.total_amount) || 0) + (parseFloat(m.discount_amount) || 0)),
     Descuento: formatMoney(m.discount_amount || 0),
     Total: formatMoney(m.total_amount),
     Estado: m.status?.toUpperCase() || '—',
   }))
 
+  // 2. Sheet "Productos vendidos" — one row per movement_item
+  const itemRows = movementItems.map((item) => {
+    const movement = movementsById.get(item.movement_id) || {}
+    const date = movement.created_at ? new Date(movement.created_at) : null
+    return {
+      Fecha: date ? date.toLocaleDateString() : '—',
+      Hora: date ? date.toLocaleTimeString() : '—',
+      Recibo: `#${movement.id?.slice(0, 8)}`,
+      Cliente: movement.customer_name || 'Cliente general',
+      Producto: item.products?.name || '—',
+      Variante: formatVariantLabel(item.product_variants || {}),
+      SKU: item.product_variants?.sku || '—',
+      Cantidad: item.quantity,
+      'Precio unitario': formatMoney(item.unit_price),
+      Total: formatMoney((item.quantity || 0) * (item.unit_price || 0)),
+      'Método de pago': formatMovementPayments(movement),
+    }
+  })
+
+  // 3. Sheet "Resumen por producto" — aggregated by product + variant
+  const productSummary = {}
+  movementItems.forEach((item) => {
+    const name = item.products?.name || '—'
+    const variant = formatVariantLabel(item.product_variants || {})
+    const sku = item.product_variants?.sku || item.products?.sku || '—'
+    const key = `${name}|${variant}|${sku}`
+    const quantity = item.quantity || 0
+    const total = quantity * (item.unit_price || 0)
+
+    if (!productSummary[key]) {
+      productSummary[key] = { Producto: name, Variante: variant, SKU: sku, quantity: 0, total: 0 }
+    }
+    productSummary[key].quantity += quantity
+    productSummary[key].total += total
+  })
+
+  const summaryRows = Object.values(productSummary).map((p) => ({
+    Producto: p.Producto,
+    Variante: p.Variante,
+    SKU: p.SKU,
+    'Unidades vendidas': p.quantity,
+    'Monto total': formatMoney(p.total),
+  }))
+
   const wb = XLSX.utils.book_new()
-  const ws = XLSX.utils.json_to_sheet(rows)
-  XLSX.utils.book_append_sheet(wb, ws, 'Ventas')
+  const wsSales = XLSX.utils.json_to_sheet(salesRows)
+  const wsItems = XLSX.utils.json_to_sheet(itemRows)
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows)
+
+  XLSX.utils.book_append_sheet(wb, wsSales, 'Ventas')
+  XLSX.utils.book_append_sheet(wb, wsItems, 'Productos vendidos')
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen por producto')
   XLSX.writeFile(wb, `${sanitizeFilename(filename)}.xlsx`)
 }
 

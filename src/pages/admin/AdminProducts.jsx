@@ -5,7 +5,7 @@ import { Html5QrcodeScanner } from 'html5-qrcode'
 import {
   Package, Plus, Edit2, Trash2,
   Camera, X, ShoppingBag, Save, AlertTriangle,
-  ImagePlus, Star, RefreshCw, Copy, Download
+  ImagePlus, Star, RefreshCw, Copy, Download, Search
 } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
@@ -47,6 +47,10 @@ export default function AdminProducts() {
   const [scannedId, setScannedId] = useState('')
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [bulkError, setBulkError] = useState('')
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [stockFilter, setStockFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   const handleScanResult = useCallback((id) => {
     setScannedId(id)
@@ -126,18 +130,51 @@ export default function AdminProducts() {
     })
   }
 
-  const toggleAll = () => {
-    if (selectedIds.size === products.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(products.map(p => p.id)))
-    }
-  }
-
   const handleFormClose = () => {
     setShowForm(false)
     setEditProduct(null)
     setScannedId('')
+  }
+
+  const filteredProducts = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return products.filter((p) => {
+      const variants = p.product_variants || []
+      const totalStock = variants.reduce((s, v) => s + (v.stock || 0), 0)
+      const matchesSearch =
+        !term ||
+        p.name.toLowerCase().includes(term) ||
+        p.id.toLowerCase().includes(term) ||
+        variants.some(v => (v.sku || '').toLowerCase().includes(term) || (v.barcode || '').toLowerCase().includes(term))
+      const matchesCategory = !categoryFilter || p.category_id === categoryFilter
+      const matchesStatus = !statusFilter || (statusFilter === 'active' ? p.active : !p.active)
+      const matchesStock =
+        !stockFilter ||
+        (stockFilter === 'out' ? totalStock === 0 : stockFilter === 'low' ? totalStock > 0 && totalStock < 5 : totalStock >= 5)
+      return matchesSearch && matchesCategory && matchesStatus && matchesStock
+    })
+  }, [products, search, categoryFilter, stockFilter, statusFilter])
+
+  const visibleIds = useMemo(() => new Set(filteredProducts.map(p => p.id)), [filteredProducts])
+  const allVisibleSelected = visibleIds.size > 0 && [...visibleIds].every(id => selectedIds.has(id))
+
+  const toggleAllVisible = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allVisibleSelected) {
+        visibleIds.forEach(id => next.delete(id))
+      } else {
+        visibleIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const clearFilters = () => {
+    setSearch('')
+    setCategoryFilter('')
+    setStockFilter('')
+    setStatusFilter('')
   }
 
   return (
@@ -145,7 +182,7 @@ export default function AdminProducts() {
       <div className={styles.topBar}>
         <div>
           <h1 className={styles.pageTitle}>Productos</h1>
-          <p className={styles.pageSubtitle}>{products.length} productos registrados</p>
+          <p className={styles.pageSubtitle}>{filteredProducts.length} de {products.length} productos registrados</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           {selectedIds.size > 0 && (
@@ -161,6 +198,40 @@ export default function AdminProducts() {
 
       {bulkError && <p className={styles.formError}>{bulkError}</p>}
 
+      {!loading && (
+        <div className={styles.filterBar}>
+          <div className={styles.searchWrap}>
+            <Search size={16} className={styles.searchIcon} />
+            <input
+              className={styles.searchInput}
+              placeholder="Buscar por nombre, ID, SKU o barcode..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select className={styles.filterSelect} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="">Todas las categorías</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select className={styles.filterSelect} value={stockFilter} onChange={(e) => setStockFilter(e.target.value)}>
+            <option value="">Todo stock</option>
+            <option value="out">Sin stock</option>
+            <option value="low">Stock bajo</option>
+            <option value="ok">Stock OK</option>
+          </select>
+          <select className={styles.filterSelect} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">Todos los estados</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </select>
+          {(search || categoryFilter || stockFilter || statusFilter) && (
+            <button className="btn btn-outline" onClick={clearFilters} style={{ padding: '0.55rem 0.9rem' }}>
+              <X size={14} /> Limpiar
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className={styles.skeletonList}>
           {[1,2,3].map(i => <div key={i} className={`skeleton ${styles.skeletonRow}`} />)}
@@ -171,7 +242,7 @@ export default function AdminProducts() {
             <thead>
               <tr>
                 <th style={{ width: '40px' }}>
-                  <input type="checkbox" checked={products.length > 0 && selectedIds.size === products.length} onChange={toggleAll} />
+                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} />
                 </th>
                 <th>ID / Producto</th>
                 <th>Categoría</th>
@@ -182,7 +253,7 @@ export default function AdminProducts() {
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => {
+              {filteredProducts.map((p) => {
                 const variants = p.product_variants || []
                 const totalStock = variants.reduce((s, v) => s + (v.stock || 0), 0)
                 const isLow = totalStock > 0 && totalStock < 5
@@ -246,6 +317,11 @@ export default function AdminProducts() {
             <div className={styles.emptyTable}>
               <Package size={40} style={{color:'var(--color-secondary)'}} />
               <p>No hay productos. <button onClick={() => setShowForm(true)} style={{color:'var(--color-primary)',textDecoration:'underline'}}>Agrega el primero</button></p>
+            </div>
+          )}
+          {products.length > 0 && filteredProducts.length === 0 && (
+            <div className={styles.emptyTable}>
+              <p>No hay productos que coincidan con los filtros.</p>
             </div>
           )}
         </div>

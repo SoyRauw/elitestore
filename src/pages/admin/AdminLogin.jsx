@@ -2,25 +2,39 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import { Sparkles, Eye, EyeOff, Lock } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import { Sparkles, Eye, EyeOff, Lock, User } from 'lucide-react'
 import styles from './AdminLogin.module.css'
 
+const INTERNAL_EMAIL_DOMAIN = 'elite.local'
+
+function toEmail(value) {
+  const trimmed = value.trim()
+  if (trimmed.includes('@')) return trimmed
+  return `${trimmed}@${INTERNAL_EMAIL_DOMAIN}`
+}
+
 export default function AdminLogin() {
-  const [email, setEmail]     = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPwd, setShowPwd]   = useState(false)
-  const [error, setError]       = useState('')
-  const [loading, setLoading]   = useState(false)
-  const { signIn }  = useAuth()
-  const navigate    = useNavigate()
+  const [showPwd, setShowPwd] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { signIn } = useAuth()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      await signIn(email, password)
-      navigate('/admin/dashboard')
+      const { user } = await signIn(toEmail(email), password)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      navigate(profile?.role === 'admin' ? '/admin/dashboard' : '/admin/pos')
     } catch {
       setError('Credenciales incorrectas. Verifica tu usuario y contraseña.')
     } finally {
@@ -58,17 +72,21 @@ export default function AdminLogin() {
         {/* Form */}
         <form className={styles.form} onSubmit={handleSubmit} id="admin-login-form">
           <div className={styles.field}>
-            <label className="label" htmlFor="admin-email">Correo electrónico</label>
-            <input
-              id="admin-email"
-              type="email"
-              className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@elitestore.com"
-              required
-              autoComplete="email"
-            />
+            <label className="label" htmlFor="admin-email">Usuario o correo</label>
+            <div className={styles.passwordWrap}>
+              <User size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--color-dark-soft)', pointerEvents: 'none' }} />
+              <input
+                id="admin-email"
+                type="text"
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin o admin@correo.com"
+                required
+                autoComplete="username"
+                style={{ paddingLeft: '2.25rem' }}
+              />
+            </div>
           </div>
 
           <div className={styles.field}>

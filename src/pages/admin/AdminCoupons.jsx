@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Plus, Edit2, Trash2, X, Save, Tag, Percent, DollarSign, Package, ShoppingBag } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import { useAuth } from '../../hooks/useAuth'
 import * as V from '../../lib/validation'
 import styles from './AdminCoupons.module.css'
 
@@ -28,6 +29,7 @@ export default function AdminCoupons() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const { isAdmin } = useAuth()
 
   const fetchCoupons = async () => {
     setLoading(true)
@@ -149,9 +151,11 @@ export default function AdminCoupons() {
             <h1 className={styles.pageTitle}>Cupones y Descuentos</h1>
             <p className={styles.pageSubtitle}>{coupons.length} cupones creados</p>
           </div>
-          <button className="btn btn-primary" onClick={handleNew}>
-            <Plus size={16} /> Nuevo cupón
-          </button>
+          {isAdmin && (
+            <button className="btn btn-primary" onClick={handleNew}>
+              <Plus size={16} /> Nuevo cupón
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -160,9 +164,11 @@ export default function AdminCoupons() {
           <div className={styles.emptyCard}>
             <Tag size={48} />
             <p>No hay cupones creados</p>
-            <button className="btn btn-primary" onClick={handleNew} style={{ marginTop: '0.5rem' }}>
-              Crear primer cupón
-            </button>
+            {isAdmin && (
+              <button className="btn btn-primary" onClick={handleNew} style={{ marginTop: '0.5rem' }}>
+                Crear primer cupón
+              </button>
+            )}
           </div>
         ) : (
           <div className={styles.grid}>
@@ -179,12 +185,16 @@ export default function AdminCoupons() {
                     </span>
                   </div>
                   <div className={styles.cardActions}>
-                    <button className={styles.iconBtn} onClick={() => handleEdit(coupon)} aria-label="Editar">
-                      <Edit2 size={14} />
-                    </button>
-                    <button className={`${styles.iconBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(coupon.id)} aria-label="Eliminar">
-                      <Trash2 size={14} />
-                    </button>
+                    {isAdmin && (
+                      <>
+                        <button className={styles.iconBtn} onClick={() => handleEdit(coupon)} aria-label="Editar">
+                          <Edit2 size={14} />
+                        </button>
+                        <button className={`${styles.iconBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(coupon.id)} aria-label="Eliminar">
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 

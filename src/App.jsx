@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet, Navigate } from 'react-router-dom'
+import { Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 
 /* Store Components */
@@ -15,21 +15,35 @@ import AdminProducts from './pages/admin/AdminProducts'
 import AdminInventory from './pages/admin/AdminInventory'
 import AdminCategories from './pages/admin/AdminCategories'
 import AdminMovements from './pages/admin/AdminMovements'
-import AdminMovementNew from './pages/admin/AdminMovementNew'
 import AdminMovementDetail from './pages/admin/AdminMovementDetail'
 import AdminPOS from './pages/admin/AdminPOS'
 import AdminCash from './pages/admin/AdminCash'
 import AdminCustomers from './pages/admin/AdminCustomers'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminReports from './pages/admin/AdminReports'
+import AdminUsers from './pages/admin/AdminUsers'
+
+const ADMIN_ONLY_ROUTES = [
+  '/admin/dashboard',
+  '/admin/categories',
+  '/admin/products',
+  '/admin/reports',
+  '/admin/users',
+]
 
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
-  
+  const { user, loading, role } = useAuth()
+  const location = useLocation()
+
   if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Cargando...</div>
-  
+
   if (!user) {
     return <Navigate to="/admin" replace />
+  }
+
+  // Sellers cannot access admin-only routes.
+  if (role === 'seller' && ADMIN_ONLY_ROUTES.some(path => location.pathname.startsWith(path))) {
+    return <Navigate to="/admin/pos" replace />
   }
 
   return children ? children : <Outlet />
@@ -64,13 +78,13 @@ function App() {
           <Route path="/admin/products" element={<AdminProducts />} />
           <Route path="/admin/inventory" element={<AdminInventory />} />
           <Route path="/admin/movements" element={<AdminMovements />} />
-          <Route path="/admin/movements/new" element={<AdminMovementNew />} />
           <Route path="/admin/movements/:id" element={<AdminMovementDetail />} />
           <Route path="/admin/pos" element={<AdminPOS />} />
           <Route path="/admin/cash" element={<AdminCash />} />
           <Route path="/admin/reports" element={<AdminReports />} />
           <Route path="/admin/customers" element={<AdminCustomers />} />
           <Route path="/admin/coupons" element={<AdminCoupons />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
         </Route>
       </Routes>
     </AuthProvider>

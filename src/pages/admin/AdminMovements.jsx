@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { Plus, Eye, Store } from 'lucide-react'
+import { Eye, Store } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import styles from './AdminMovements.module.css'
@@ -40,12 +40,9 @@ export default function AdminMovements() {
         <div className={styles.topBar}>
           <div>
             <h1 className={styles.pageTitle}>Historial de Movimientos</h1>
-            <p className={styles.pageSubtitle}>Ventas, recibos y consignaciones</p>
+            <p className={styles.pageSubtitle}>Ventas y recibos</p>
           </div>
           <div style={{display:'flex', gap:'1rem'}}>
-            <Link to="/admin/movements/new?type=consignacion" className="btn btn-outline">
-              <Plus size={16} /> Consignar
-            </Link>
             <Link to="/admin/pos" className="btn btn-primary">
               <Store size={16} /> Ir al POS
             </Link>
@@ -129,7 +126,7 @@ export default function AdminMovements() {
             </table>
             {movements.length === 0 && (
                <div style={{padding:'3rem', textAlign:'center', color:'var(--color-dark-soft)'}}>
-                 No hay movimientos registrados. Crea una venta o consignación.
+                 No hay movimientos registrados. Crea una venta desde el POS.
                </div>
   )
 }

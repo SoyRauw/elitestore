@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { Package, Save, ShoppingBag, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { Package, Save, ShoppingBag, ChevronDown, ChevronUp, Trash2, Search, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
+import { useAuth } from '../../hooks/useAuth'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
 import styles from './AdminInventory.module.css'
 
 export default function AdminInventory() {
+  const { isAdmin } = useAuth()
   const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState({})
   const [saved, setSaved] = useState({})
@@ -16,25 +19,32 @@ export default function AdminInventory() {
   const [expanded, setExpanded] = useState({})
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [bulkError, setBulkError] = useState('')
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [stockFilter, setStockFilter] = useState('')
+  const [lightboxImage, setLightboxImage] = useState(null)
 
   const toggleExpand = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
   const fetchData = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('products')
-      .select('id, name, price, wholesale_price, images, category_id, categories(size_label), product_variants(*)')
-      .order('name')
-    if (data) {
-      setProducts(data)
-      const drafts = {}
-      data.forEach(p => {
-        p.product_variants?.forEach(v => {
-          drafts[v.id] = v.stock || 0
-        })
+    const [prodRes, catRes] = await Promise.all([
+      supabase
+        .from('products')
+        .select('id, name, price, wholesale_price, images, category_id, categories(id, name, size_label), product_variants(*)')
+        .order('name'),
+      supabase.from('categories').select('id, name').order('name')
+    ])
+    const data = prodRes.data || []
+    setProducts(data)
+    setCategories(catRes.data || [])
+    const drafts = {}
+    data.forEach(p => {
+      p.product_variants?.forEach(v => {
+        drafts[v.id] = v.stock || 0
       })
-      setDraftStocks(drafts)
-    }
+    })
+    setDraftStocks(drafts)
     setLoading(false)
     setSelectedIds(new Set())
   }
@@ -56,9 +66,9 @@ export default function AdminInventory() {
     setTimeout(() => setSaved(s => ({ ...s, [variantId]: false })), 2000)
   }
 
-  const totalStockOf = (product) => {
+  const totalStockOf = useCallback((product) => {
     return (product.product_variants || []).reduce((sum, v) => sum + (draftStocks[v.id] ?? v.stock ?? 0), 0)
-  }
+  }, [draftStocks])
 
   const checkProductsHaveSales = async (ids) => {
     const { data } = await supabase
@@ -125,14 +135,61 @@ export default function AdminInventory() {
     })
   }
 
+  const filteredProducts = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return products.filter((p) => {
+      const variants = p.product_variants || []
+      const total = totalStockOf(p)
+      const matchesSearch =
+        !term ||
+        p.name.toLowerCase().includes(term) ||
+        p.id.toLowerCase().includes(term) ||
+        variants.some(v => (v.sku || '').toLowerCase().includes(term) || (v.barcode || '').toLowerCase().includes(term))
+      const matchesCategory = !categoryFilter || p.category_id === categoryFilter
+      const matchesStock =
+        !stockFilter ||
+        (stockFilter === 'out' ? total === 0 : stockFilter === 'low' ? total > 0 && total < 5 : total >= 5)
+      return matchesSearch && matchesCategory && matchesStock
+    })
+  }, [products, search, categoryFilter, stockFilter, totalStockOf])
+
+  const visibleIds = useMemo(() => new Set(filteredProducts.map(p => p.id)), [filteredProducts])
+  const allVisibleSelected = visibleIds.size > 0 && [...visibleIds].every(id => selectedIds.has(id))
+
+  const toggleAllVisible = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allVisibleSelected) {
+        visibleIds.forEach(id => next.delete(id))
+      } else {
+        visibleIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const clearFilters = () => {
+    setSearch('')
+    setCategoryFilter('')
+    setStockFilter('')
+  }
+
+  const stockStatus = (total) => {
+    if (total === 0) return { label: 'Sin stock', cls: styles.stockOut }
+    if (total < 5) return { label: `⚡ ${total} und.`, cls: styles.stockLow }
+    return { label: `✓ ${total} und.`, cls: styles.stockOk }
+  }
+
+  const colSpan = isAdmin ? 6 : 5
+
   return (
     <AdminLayout>
       <div className={styles.topBar}>
         <div>
           <h1 className={styles.pageTitle}>Inventario</h1>
-          <p className={styles.pageSubtitle}>Stock actual por producto y variante</p>
+          <p className={styles.pageSubtitle}>{filteredProducts.length} de {products.length} productos</p>
         </div>
-        {selectedIds.size > 0 && (
+        {isAdmin && selectedIds.size > 0 && (
           <button className="btn btn-danger" onClick={handleBulkDelete}>
             <Trash2 size={16} /> Eliminar {selectedIds.size}
           </button>
@@ -140,6 +197,35 @@ export default function AdminInventory() {
       </div>
 
       {bulkError && <p className={styles.formError}>{bulkError}</p>}
+
+      {!loading && (
+        <div className={styles.filterBar}>
+          <div className={styles.searchWrap}>
+            <Search size={16} className={styles.searchIcon} />
+            <input
+              className={styles.searchInput}
+              placeholder="Buscar por nombre, ID, SKU o barcode..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select className={styles.filterSelect} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="">Todas las categorías</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select className={styles.filterSelect} value={stockFilter} onChange={(e) => setStockFilter(e.target.value)}>
+            <option value="">Todo stock</option>
+            <option value="out">Sin stock</option>
+            <option value="low">Stock bajo</option>
+            <option value="ok">Stock OK</option>
+          </select>
+          {(search || categoryFilter || stockFilter) && (
+            <button className="btn btn-outline" onClick={clearFilters} style={{ padding: '0.55rem 0.9rem' }}>
+              Limpiar
+            </button>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className={styles.skeletonList}>
@@ -152,100 +238,170 @@ export default function AdminInventory() {
           <Link to="/admin/products" className="btn btn-primary" style={{marginTop:'0.5rem'}}>Agregar productos</Link>
         </div>
       ) : (
-        <div className={styles.productList}>
-          {products.map((product, i) => {
-            const total = totalStockOf(product)
-            const isLow = total > 0 && total < 5
-            const isOut = total === 0
-            const variants = product.product_variants || []
-            return (
-              <motion.div key={product.id} className={styles.productCard} initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:i*0.06}}>
-                <div className={`${styles.productHeader} ${selectedIds.has(product.id) ? styles.productHeaderSelected : ''}`} onClick={() => toggleExpand(product.id)} style={{ cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(product.id)}
-                      onChange={(e) => { e.stopPropagation(); toggleSelection(product.id) }}
-                    />
-                    <div className={styles.productMain}>
-                    <div className={styles.productThumb}>
-                      {product.images?.[0] ? <img src={product.images[0]} alt={product.name}/> : <ShoppingBag size={16}/>}
-                    </div>
-                    <div className={styles.productDetailsInfo}>
-                      <div className={styles.productName}>{product.name}</div>
-                      <div className={styles.productId}>#{product.id}</div>
-                      <div className={styles.productPrices}>
-                        <span className={styles.priceRetail}>Detal: ${product.price}</span>
-                        {product.wholesale_price > 0 && <span className={styles.priceWholesale}>Mayor: ${product.wholesale_price}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  </div>
-                  <div className={styles.productActionsRow}>
-                    <span className={`${styles.stockTotal} ${isOut?styles.stockOut:isLow?styles.stockLow:styles.stockOk}`}>
-                      {isOut ? '⚠ Sin stock' : isLow ? `⚡ ${total} und.` : `✓ ${total} und.`}
-                    </span>
-                    {expanded[product.id] ? <ChevronUp size={20} className={styles.expandIcon}/> : <ChevronDown size={20} className={styles.expandIcon}/>}
-                  </div>
-                </div>
-
-                {expanded[product.id] && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className={styles.productDetails}>
-                    <div className={styles.sizesTable}>
-                      {variants.map((variant) => {
-                        const qty = draftStocks[variant.id] ?? variant.stock ?? 0
-                        const isLowSize = qty > 0 && qty < 3
-                        return (
-                          <div key={variant.id} className={styles.sizeRow}>
-                            <div className={styles.variantThumbInventory}>
-                              {getVariantImage(product, variant) ? (
-                                <img src={getVariantImage(product, variant)} alt={formatVariantLabel(variant, product.categories?.size_label)} />
-                              ) : (
-                                <ShoppingBag size={14} />
-                              )}
-                            </div>
-                            <span className={styles.sizeLabel} style={{ flex: 1, textAlign: 'left' }}>
-                              {formatVariantLabel(variant, product.categories?.size_label)}
-                              <div style={{ fontSize: '11px', color: 'var(--color-dark-soft)', fontWeight: 'normal' }}>{variant.sku}</div>
-                            </span>
-                            <div className={styles.sizeBar}>
-                              <div className={`${styles.sizeBarFill} ${qty===0?styles.barOut:isLowSize?styles.barLow:styles.barOk}`} style={{width: `${Math.min(100, qty * 10)}%`}} />
-                            </div>
-                            <input
-                              type="number"
-                              min={0}
-                              className={styles.sizeQtyInput}
-                              value={qty}
-                              onChange={(e) => updateStockDraft(variant.id, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <button
-                              className={`${styles.saveBtn} ${saved[variant.id]?styles.saveBtnSaved:''}`}
-                              onClick={(e) => { e.stopPropagation(); saveVariantStock(variant.id) }}
-                              disabled={saving[variant.id]}
-                              style={{ marginLeft: '0.5rem', padding: '0.4rem 0.6rem', minWidth: 'auto' }}
-                            >
-                              {saving[variant.id] ? <div className={styles.spinner}/> : saved[variant.id] ? '✓' : <Save size={14}/>}
-                            </button>
-                            <button
-                              className={styles.deleteBtn}
-                              onClick={(e) => { e.stopPropagation(); handleDeleteVariant(variant.id, product.id) }}
-                              title="Eliminar variante"
-                              style={{ marginLeft: '0.35rem', padding: '0.4rem', minWidth: 'auto' }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </motion.div>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                {isAdmin && (
+                  <th style={{ width: '40px' }}>
+                    <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} />
+                  </th>
                 )}
-              </motion.div>
-            )
-          })}
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Stock total</th>
+                <th>Variantes</th>
+                <th style={{ width: '60px' }}></th>
+              </tr>
+            </thead>
+            {filteredProducts.map((product) => {
+              const total = totalStockOf(product)
+              const status = stockStatus(total)
+              const variants = product.product_variants || []
+              return (
+                <tbody key={product.id}>
+                  <motion.tr
+                    className={`${styles.tableRow} ${isAdmin && selectedIds.has(product.id) ? styles.tableRowSelected : ''}`}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  >
+                    {isAdmin && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(product.id)}
+                          onChange={() => toggleSelection(product.id)}
+                        />
+                      </td>
+                    )}
+                    <td>
+                      <div className={styles.productCell}>
+                        <button
+                          type="button"
+                          className={styles.productThumb}
+                          onClick={() => setLightboxImage(product.images?.[0] || null)}
+                          disabled={!product.images?.[0]}
+                          title="Ver imagen"
+                        >
+                          {product.images?.[0] ? <img src={product.images[0]} alt={product.name}/> : <ShoppingBag size={16}/>}
+                        </button>
+                        <div>
+                          <div className={styles.productName}>{product.name}</div>
+                          <div className={styles.productId}>#{product.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-primary">{product.categories?.name || 'N/A'}</span>
+                    </td>
+                    <td className={styles.priceCell}>${product.price}</td>
+                    <td>
+                      <span className={`${styles.stockTotal} ${status.cls}`}>{status.label}</span>
+                    </td>
+                    <td>{variants.length} variantes</td>
+                    <td>
+                      <button className={styles.expandBtn} onClick={() => toggleExpand(product.id)}>
+                        {expanded[product.id] ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
+                      </button>
+                    </td>
+                  </motion.tr>
+
+                  {expanded[product.id] && (
+                    <tr className={styles.detailRow}>
+                      <td colSpan={colSpan} className={styles.detailCell}>
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className={styles.variantPanelInner}
+                        >
+                          <h4 className={styles.variantPanelTitle}>
+                            {isAdmin ? `Editar stock: ${product.name}` : `Variantes de ${product.name}`}
+                          </h4>
+                          <div className={styles.variantGrid}>
+                            {variants.map((variant) => {
+                              const qty = draftStocks[variant.id] ?? variant.stock ?? 0
+                              const price = variant.price ?? product.price ?? 0
+                              return (
+                                <div key={variant.id} className={styles.variantCard}>
+                                  <div className={styles.variantThumbInventory}>
+                                    {getVariantImage(product, variant) ? (
+                                      <img src={getVariantImage(product, variant)} alt={formatVariantLabel(variant, product.categories?.size_label)} />
+                                    ) : (
+                                      <ShoppingBag size={14} />
+                                    )}
+                                  </div>
+                                  <div className={styles.variantInfo}>
+                                    <div className={styles.variantName}>
+                                      {formatVariantLabel(variant, product.categories?.size_label)}
+                                    </div>
+                                    <div className={styles.variantId}>{variant.id}</div>
+                                    <div className={styles.variantMeta}>
+                                      <span>Cantidad: <strong>{qty}</strong></span>
+                                      <span>Precio: <strong>${price}</strong></span>
+                                    </div>
+                                  </div>
+                                  {isAdmin && (
+                                    <div className={styles.variantActions}>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        className={styles.variantQtyInput}
+                                        value={qty}
+                                        onChange={(e) => updateStockDraft(variant.id, e.target.value)}
+                                      />
+                                      <button
+                                        className={`${styles.saveBtn} ${saved[variant.id]?styles.saveBtnSaved:''}`}
+                                        onClick={() => saveVariantStock(variant.id)}
+                                        disabled={saving[variant.id]}
+                                        title="Guardar stock"
+                                      >
+                                        {saving[variant.id] ? <div className={styles.spinner}/> : saved[variant.id] ? '✓' : <Save size={14}/>}
+                                      </button>
+                                      <button
+                                        className={styles.deleteBtn}
+                                        onClick={() => handleDeleteVariant(variant.id, product.id)}
+                                        title="Eliminar variante"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </motion.div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              )
+            })}
+          </table>
+
+          {filteredProducts.length === 0 && (
+            <div className={styles.emptyTable}>No hay productos que coincidan con los filtros.</div>
+          )}
         </div>
       )}
+
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            className={styles.lightbox}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxImage(null)}
+          >
+            <button className={styles.lightboxClose} onClick={() => setLightboxImage(null)}>
+              <X size={24} />
+            </button>
+            <img src={lightboxImage} alt="Vista ampliada" className={styles.lightboxImg} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AdminLayout>
   )
 }

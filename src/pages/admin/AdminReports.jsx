@@ -64,7 +64,7 @@ export default function AdminReports() {
 
       let query = supabase
         .from('movements')
-        .select('*, movement_payments(method, amount)')
+        .select('*, movement_payments(method, amount), movement_items(*, products(name, category_id, categories(name)), product_variants(*))')
         .eq('movement_type', 'venta')
         .eq('status', 'pagado')
         .order('created_at', { ascending: false })
@@ -83,15 +83,7 @@ export default function AdminReports() {
       const { data: movs, error } = await query
       if (error) console.error('Error cargando movimientos:', error)
 
-      let items = []
-      if (movs?.length) {
-        const ids = movs.map(m => m.id)
-        const { data: itemsData } = await supabase
-          .from('movement_items')
-          .select('*, products(name, category_id, categories(name)), product_variants(*)')
-          .in('movement_id', ids)
-        items = itemsData || []
-      }
+      const items = movs?.flatMap(m => m.movement_items || []) || []
 
       setMovements(movs || [])
       setMovementItems(items)
@@ -152,14 +144,20 @@ export default function AdminReports() {
     }
   }, [filteredMovements, movementItems])
 
+  const getExportFilename = () => {
+    if (startDate && endDate && startDate !== endDate) {
+      return `Reporte Elite Store (${startDate} - ${endDate})`
+    }
+    const date = startDate || endDate || formatDateInput(new Date())
+    return `Reporte Elite Store (${date})`
+  }
+
   const handleExportExcel = () => {
-    const filename = `ventas_${startDate || 'todo'}_${endDate || 'todo'}`
-    exportMovementsToExcel(filteredMovements, filename)
+    exportMovementsToExcel(filteredMovements, movementItems, getExportFilename())
   }
 
   const handleExportPDF = () => {
-    const filename = `ventas_${startDate || 'todo'}_${endDate || 'todo'}`
-    exportMovementsToPDF(filteredMovements, summary, filename)
+    exportMovementsToPDF(filteredMovements, summary, getExportFilename())
   }
 
   return (
