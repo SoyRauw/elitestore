@@ -13,6 +13,8 @@ const PAYMENT_METHODS = {
   efectivo: 'Efectivo',
   pago_movil: 'Pago Móvil',
   zelle: 'Zelle',
+  zinli: 'Zinli',
+  binance: 'Binance',
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
 }

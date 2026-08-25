@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
-import { DollarSign, Smartphone, CreditCard, Banknote } from 'lucide-react'
+import { DollarSign, Smartphone, CreditCard, Banknote, Wallet, Bitcoin } from 'lucide-react'
 import styles from './POSPaymentPanel.module.css'
 
 const PAYMENT_METHODS = [
   { value: 'efectivo', label: 'Efectivo', icon: Banknote },
   { value: 'pago_movil', label: 'Pago Móvil', icon: Smartphone },
   { value: 'zelle', label: 'Zelle', icon: DollarSign },
+  { value: 'zinli', label: 'Zinli', icon: Wallet },
+  { value: 'binance', label: 'Binance', icon: Bitcoin },
   { value: 'transferencia', label: 'Transferencia', icon: Banknote },
   { value: 'punto', label: 'Punto de Venta', icon: CreditCard },
 ]

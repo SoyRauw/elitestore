@@ -341,6 +341,8 @@ export default function AdminMovementNew() {
                   <option value="efectivo">Efectivo</option>
                   <option value="pago_movil">Pago Móvil</option>
                   <option value="zelle">Zelle</option>
+                  <option value="zinli">Zinli</option>
+                  <option value="binance">Binance</option>
                   <option value="transferencia">Transferencia</option>
                   <option value="punto">Punto de Venta</option>
                   <option value="pendiente">Pendiente (Por pagar)</option>
