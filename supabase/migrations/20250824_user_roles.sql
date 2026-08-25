@@ -7,18 +7,28 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   username text UNIQUE,
   email text,
   name text,
-  role text NOT NULL DEFAULT 'seller'
+  role text NOT NULL DEFAULT 'seller' CHECK (role IN ('admin', 'seller')),
+  created_at timestamp with time zone DEFAULT now()
 );
 
 -- Add columns safely if the table already exists without them
 ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS username text,
-ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'seller';
+ADD COLUMN IF NOT EXISTS role text,
+ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+
+-- Ensure the role check constraint is correct
+ALTER TABLE public.profiles
+DROP CONSTRAINT IF EXISTS profiles_role_check;
+
+ALTER TABLE public.profiles
+ADD CONSTRAINT profiles_role_check
+CHECK (role IN ('admin', 'seller'));
 
 -- Existing users become admins (the app had no seller concept before this migration)
 UPDATE public.profiles
 SET role = 'admin'
-WHERE role = 'seller' OR role IS NULL OR role = '';
+WHERE role IS NULL OR role = '';
 
 -- Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -53,30 +63,3 @@ FOR UPDATE USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 CREATE POLICY profiles_admin_delete ON public.profiles
 FOR DELETE USING (public.is_admin());
-
--- Trigger: create a profile row automatically when a new auth.users row is inserted.
--- The frontend sends the desired username/role inside user_metadata when signing up.
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, username, email, name, role)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)),
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'seller')
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    username = COALESCE(EXCLUDED.username, public.profiles.username),
-    email = EXCLUDED.email,
-    name = COALESCE(EXCLUDED.name, public.profiles.name),
-    role = COALESCE(public.profiles.role, EXCLUDED.role);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

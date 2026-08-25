@@ -41,8 +41,8 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/admin" replace />
   }
 
-  // Sellers cannot access admin-only routes.
-  if (role === 'seller' && ADMIN_ONLY_ROUTES.some(path => location.pathname.startsWith(path))) {
+  // Non-admin users cannot access admin-only routes.
+  if (role !== 'admin' && ADMIN_ONLY_ROUTES.some(path => location.pathname.startsWith(path))) {
     return <Navigate to="/admin/pos" replace />
   }
 
