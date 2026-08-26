@@ -19,6 +19,11 @@ const PAYMENT_METHODS = {
   multiple: 'Múltiple',
 }
 
+const SALE_TYPE_LABELS = {
+  retail: 'Venta al detal',
+  wholesale: 'Venta al mayor',
+}
+
 const STATUS_COLORS = {
   pagado: 'success',
   vendido: 'success',
@@ -148,6 +153,11 @@ export default function AdminMovementDetail() {
           <span className={`badge ${movement.movement_type === 'venta' ? 'badge-primary' : 'badge-secondary'}`}>
             {movement.movement_type.toUpperCase()}
           </span>
+          {movement.sale_type && (
+            <span className={`badge ${movement.sale_type === 'wholesale' ? 'badge-success' : 'badge-info'}`}>
+              {SALE_TYPE_LABELS[movement.sale_type] || movement.sale_type}
+            </span>
+          )}
           <span className={`badge badge-${statusColor}`}>
             {status.toUpperCase()}
           </span>

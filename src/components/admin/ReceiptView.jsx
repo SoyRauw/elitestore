@@ -13,6 +13,11 @@ const PAYMENT_METHODS = {
   multiple: 'Múltiple',
 }
 
+const SALE_TYPE_LABELS = {
+  retail: 'Venta al detal',
+  wholesale: 'Venta al mayor',
+}
+
 function getAppliedCouponName(appliedCoupon) {
   if (!appliedCoupon) return null
   if (appliedCoupon.type === 'reward') return appliedCoupon.coupon?.name
@@ -52,6 +57,12 @@ export default function ReceiptView({ movement, items, payments, customer, subto
           <div className={styles.metaRow}>
             <span>Estado</span>
             <strong>{movement.status.toUpperCase()}</strong>
+          </div>
+        )}
+        {movement?.sale_type && (
+          <div className={styles.metaRow}>
+            <span>Tipo</span>
+            <strong>{SALE_TYPE_LABELS[movement.sale_type] || movement.sale_type}</strong>
           </div>
         )}
       </div>

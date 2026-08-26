@@ -18,6 +18,11 @@ const PAYMENT_METHODS = {
   multiple: 'Múltiple',
 }
 
+const SALE_TYPE_LABELS = {
+  retail: 'Al detal',
+  wholesale: 'Al mayor',
+}
+
 function pad(n) {
   return n.toString().padStart(2, '0')
 }
@@ -114,6 +119,12 @@ export default function AdminReports() {
       }
     })
 
+    const bySaleType = {}
+    filteredMovements.forEach(m => {
+      const type = m.sale_type || 'retail'
+      bySaleType[type] = (bySaleType[type] || 0) + (parseFloat(m.total_amount) || 0)
+    })
+
     const productSales = {}
     movementItems.forEach(item => {
       const name = item.products?.name || '—'
@@ -141,6 +152,7 @@ export default function AdminReports() {
       totalTransactions,
       averageTicket,
       byMethod,
+      bySaleType,
       topProducts,
       categorySales,
     }
@@ -253,6 +265,22 @@ export default function AdminReports() {
           </div>
 
           <div className={styles.card}>
+            <h3 className={styles.cardTitle}><TrendingUp size={16} /> Ventas por tipo</h3>
+            {Object.keys(summary.bySaleType).length === 0 ? (
+              <p className={styles.empty}>Sin datos</p>
+            ) : (
+              <div className={styles.methodList}>
+                {Object.entries(summary.bySaleType).map(([key, amount]) => (
+                  <div key={key} className={styles.methodRow}>
+                    <span>{SALE_TYPE_LABELS[key] || key}</span>
+                    <strong>${amount.toFixed(2)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={styles.card}>
             <h3 className={styles.cardTitle}><Package size={16} /> Productos más vendidos</h3>
             {summary.topProducts.length === 0 ? (
               <p className={styles.empty}>Sin datos</p>
@@ -293,12 +321,13 @@ export default function AdminReports() {
             <p className={styles.empty}>No hay movimientos para el filtro seleccionado</p>
           ) : (
             <div className={styles.tableWrap}>
-              <table className={styles.table}>
+                <table className={styles.table}>
                 <thead>
                   <tr>
                     <th>Fecha</th>
                     <th>Recibo</th>
                     <th>Cliente</th>
+                    <th>Tipo</th>
                     <th>Método</th>
                     <th>Descuento</th>
                     <th>Total</th>
@@ -310,6 +339,7 @@ export default function AdminReports() {
                       <td>{new Date(m.created_at).toLocaleString()}</td>
                       <td>#{m.id.slice(0, 8)}</td>
                       <td>{m.customer_name || 'Cliente general'}</td>
+                      <td>{SALE_TYPE_LABELS[m.sale_type] || m.sale_type || 'Al detal'}</td>
                       <td>{PAYMENT_METHODS[m.payment_method] || m.payment_method || '—'}</td>
                       <td>{(m.discount_amount || 0) > 0 ? `$${parseFloat(m.discount_amount).toFixed(2)}` : '—'}</td>
                       <td className={styles.totalCell}>${parseFloat(m.total_amount).toFixed(2)}</td>

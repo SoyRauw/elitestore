@@ -429,6 +429,7 @@ export default function AdminPOS() {
           customer_coupon_id: customerCouponId,
           points_earned: earned,
           notes: notes || null,
+          sale_type: wholesaleMode ? 'wholesale' : 'retail',
         }])
         .select()
         .single()

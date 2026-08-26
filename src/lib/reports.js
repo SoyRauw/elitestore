@@ -48,6 +48,7 @@ export function exportMovementsToExcel(movements, movementItems, filename = 'rep
     Fecha: formatDate(m.created_at),
     Recibo: `#${m.id?.slice(0, 8)}`,
     Tipo: m.movement_type?.toUpperCase() || '—',
+    'Tipo de venta': m.sale_type === 'wholesale' ? 'Al mayor' : 'Al detal',
     Cliente: m.customer_name || 'Cliente general',
     Método: formatMovementPayments(m),
     Subtotal: formatMoney((parseFloat(m.total_amount) || 0) + (parseFloat(m.discount_amount) || 0)),
@@ -72,6 +73,7 @@ export function exportMovementsToExcel(movements, movementItems, filename = 'rep
       'Precio unitario': formatMoney(item.unit_price),
       Total: formatMoney((item.quantity || 0) * (item.unit_price || 0)),
       'Método de pago': formatMovementPayments(movement),
+      'Tipo de venta': movement.sale_type === 'wholesale' ? 'Al mayor' : 'Al detal',
     }
   })
 
