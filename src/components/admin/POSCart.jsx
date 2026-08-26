@@ -25,6 +25,8 @@ export default function POSCart({
   onApplyCoupon,
   onRemoveCoupon,
   onRedeemCoupon,
+  wholesaleMode = false,
+  onToggleWholesale,
 }) {
   const handleApplyCustomer = (coupon) => onApplyCoupon({ type: 'customer', coupon })
   const handleRedeemReward = (coupon) => onRedeemCoupon(coupon)
@@ -40,6 +42,13 @@ export default function POSCart({
     <div className={styles.cart}>
       <div className={styles.header}>
         <h3 className={styles.title}><ShoppingBag size={18} /> Venta actual</h3>
+        <button
+          type="button"
+          className={`${styles.modeBtn} ${wholesaleMode ? styles.modeWholesale : styles.modeRetail}`}
+          onClick={onToggleWholesale}
+        >
+          {wholesaleMode ? 'Venta al mayor' : 'Venta al detal'}
+        </button>
       </div>
 
       <div className={styles.body}>

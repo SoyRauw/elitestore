@@ -160,6 +160,19 @@
   color: var(--color-dark-soft);
 }
 
+.wholesaleTag {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #166534;
+  background: #dcfce7;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+}
+
 .noResults {
   text-align: center;
   padding: 3rem 1rem;

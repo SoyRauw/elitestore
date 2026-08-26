@@ -4,7 +4,7 @@ import { Search, ShoppingBag, Package, Tag } from 'lucide-react'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
 import styles from './POSProductSearch.module.css'
 
-export default function POSProductSearch({ onAdd }) {
+export default function POSProductSearch({ onAdd, wholesaleMode = false }) {
   const [query, setQuery] = useState('')
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -77,6 +77,7 @@ export default function POSProductSearch({ onAdd }) {
           const variants = (product.product_variants || [])
             .filter(v => v.stock > 0)
             .filter(v => !restrictToMatched || matchedVariantIds.has(v.id))
+            .filter(v => !wholesaleMode || (v.wholesale_price || product.wholesale_price))
           return { ...product, product_variants: variants }
         }).filter(p => p.product_variants.length > 0)
 
@@ -89,7 +90,7 @@ export default function POSProductSearch({ onAdd }) {
     }, 250)
 
     return () => clearTimeout(timeout)
-  }, [query])
+  }, [query, wholesaleMode])
 
   const handleBarcodeScan = (e) => {
     if (e.key === 'Enter' && query.trim()) {
@@ -164,7 +165,12 @@ export default function POSProductSearch({ onAdd }) {
                       </div>
                       <div className={styles.variantCardInfo}>
                         <span className={styles.variantLabel}>{formatVariantLabel(variant, product.categories?.size_label)}</span>
-                        <span className={styles.variantPrice}>${variant.price || product.price || 0}</span>
+                        <span className={styles.variantPrice}>
+                          ${wholesaleMode
+                            ? (variant.wholesale_price || product.wholesale_price || variant.price || product.price || 0)
+                            : (variant.price || product.price || 0)}
+                          {wholesaleMode && <span className={styles.wholesaleTag}> Mayor</span>}
+                        </span>
                         <span className={styles.variantStock}>Stock {variant.stock}</span>
                       </div>
                     </button>

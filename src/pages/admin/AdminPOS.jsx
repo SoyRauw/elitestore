@@ -23,15 +23,8 @@ const PAYMENT_METHODS = {
   punto: 'Punto de Venta',
 }
 
-function getTotalQuantityByProduct(items, productId) {
-  return items
-    .filter((i) => i.product.id === productId)
-    .reduce((sum, i) => sum + i.quantity, 0)
-}
-
-function calculateItemPrice(product, variant, quantity, totalProductQty) {
-  const minQty = product.min_wholesale_qty || 0
-  if (minQty > 0 && totalProductQty >= minQty) {
+function calculateItemPrice(product, variant, isWholesale) {
+  if (isWholesale) {
     return variant.wholesale_price || product.wholesale_price || variant.price || product.price || 0
   }
   return variant.price || product.price || 0
@@ -42,6 +35,7 @@ export default function AdminPOS() {
   const { session, loading: sessionLoading } = useCashSession(user?.id)
 
   const [items, setItems] = useState([])
+  const [wholesaleMode, setWholesaleMode] = useState(false)
   const [customer, setCustomer] = useState({ id: '', id_number: '', name: '', phone: '', points: 0 })
   const [payments, setPayments] = useState([])
   const [appliedCoupon, setAppliedCoupon] = useState(null)
@@ -128,58 +122,44 @@ export default function AdminPOS() {
   }, [subtotal, appliedCoupon, getCouponFromApplied])
 
   const addItem = useCallback((product, variant) => {
+    if (wholesaleMode && !(variant.wholesale_price || product.wholesale_price)) {
+      setError(`El producto ${product.name} no tiene precio al mayor`)
+      return
+    }
+    setError('')
     setItems((prev) => {
       const existingIndex = prev.findIndex(
         (i) => i.product.id === product.id && i.variant.id === variant.id
       )
-      let updated
 
       if (existingIndex >= 0) {
         const item = prev[existingIndex]
         if (item.quantity >= variant.stock) return prev
-        updated = prev.map((i, idx) =>
+        return prev.map((i, idx) =>
           idx === existingIndex
-            ? { ...i, quantity: i.quantity + 1 }
+            ? { ...i, quantity: i.quantity + 1, price: calculateItemPrice(i.product, i.variant, wholesaleMode) }
             : i
         )
-      } else {
-        updated = [...prev, { product, variant, quantity: 1, price: 0 }]
       }
 
-      const totalQty = getTotalQuantityByProduct(updated, product.id)
-      return updated.map((item) =>
-        item.product.id === product.id
-          ? { ...item, price: calculateItemPrice(item.product, item.variant, item.quantity, totalQty) }
-          : item
-      )
+      return [...prev, { product, variant, quantity: 1, price: calculateItemPrice(product, variant, wholesaleMode) }]
     })
-  }, [])
+  }, [wholesaleMode])
 
   const updateQuantity = useCallback((index, quantity) => {
     setItems((prev) => {
-      const productId = prev[index].product.id
-      let updated
-
       if (quantity <= 0) {
-        updated = prev.filter((_, i) => i !== index)
-      } else {
-        const item = prev[index]
-        if (quantity > item.variant.stock) return prev
-        updated = prev.map((i, idx) =>
-          idx === index
-            ? { ...i, quantity }
-            : i
-        )
+        return prev.filter((_, i) => i !== index)
       }
-
-      const totalQty = getTotalQuantityByProduct(updated, productId)
-      return updated.map((item) =>
-        item.product.id === productId
-          ? { ...item, price: calculateItemPrice(item.product, item.variant, item.quantity, totalQty) }
-          : item
+      const item = prev[index]
+      if (quantity > item.variant.stock) return prev
+      return prev.map((i, idx) =>
+        idx === index
+          ? { ...i, quantity, price: calculateItemPrice(i.product, i.variant, wholesaleMode) }
+          : i
       )
     })
-  }, [])
+  }, [wholesaleMode])
 
   const removeItem = useCallback((index) => {
     setItems((prev) => prev.filter((_, i) => i !== index))
@@ -192,6 +172,14 @@ export default function AdminPOS() {
     setAppliedCoupon(null)
     setError('')
   }, [])
+
+  const toggleWholesaleMode = useCallback(() => {
+    if (items.length > 0) {
+      clearCart()
+    }
+    setWholesaleMode((prev) => !prev)
+    setError('')
+  }, [items.length, clearCart])
 
   const applyCoupon = useCallback((coupon) => {
     setAppliedCoupon(coupon)
@@ -593,7 +581,7 @@ export default function AdminPOS() {
 
           <div className={styles.layout}>
             <div className={styles.leftPanel}>
-              <POSProductSearch onAdd={addItem} />
+              <POSProductSearch onAdd={addItem} wholesaleMode={wholesaleMode} />
             </div>
             <div className={styles.rightPanel}>
               <POSCart
@@ -617,6 +605,8 @@ export default function AdminPOS() {
                 onApplyCoupon={applyCoupon}
                 onRemoveCoupon={removeCoupon}
                 onRedeemCoupon={redeemCoupon}
+                wholesaleMode={wholesaleMode}
+                onToggleWholesale={toggleWholesaleMode}
               />
             </div>
           </div>

@@ -13,6 +13,10 @@
   padding: 1rem 1.25rem;
   border-bottom: 1px solid rgba(0,0,0,0.05);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .title {
@@ -22,6 +26,35 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.modeBtn {
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.modeRetail {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.modeRetail:hover {
+  background: #dbeafe;
+}
+
+.modeWholesale {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.modeWholesale:hover {
+  background: #bbf7d0;
 }
 
 .body {
