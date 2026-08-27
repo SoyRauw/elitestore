@@ -10,7 +10,6 @@ import {
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import { generateProductId, generateProductCode, generateVariantCode } from '../../lib/sku'
-import { exportProductLabels } from '../../lib/labelExport'
 import * as V from '../../lib/validation'
 import styles from './AdminProducts.module.css'
 
@@ -1091,7 +1090,10 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => exportProductLabels({ id: form.id, name: form.name, price: form.price }, variants.filter(v => !v.isDeleted))}
+                onClick={async () => {
+                  const { exportProductLabels } = await import('../../lib/labelExport')
+                  exportProductLabels({ id: form.id, name: form.name, price: form.price }, variants.filter(v => !v.isDeleted))
+                }}
               >
                 <Download size={16} /> Descargar Excel de etiquetas
               </button>

@@ -7,7 +7,23 @@
   justify-content: center;
   padding: 100px var(--space-5) var(--space-16);
   overflow: hidden;
-  background: transparent;
+  background: var(--gradient-hero);
+}
+
+.videoBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.videoOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(253, 246, 240, 0.62);
+  z-index: 0;
 }
 
 /* === CONTENT === */

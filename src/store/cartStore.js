@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getVariantImage } from '../lib/sku'
 
 export const useCartStore = create(
   persist(
@@ -30,7 +31,7 @@ export const useCartStore = create(
                 size_label: product.categories?.size_label || 'Talla',
                 sku: variant.sku,
                 price: variant.price,
-                image: product.images?.[0] || null,
+                image: getVariantImage(product, variant),
                 stock: variant.stock,
                 quantity: 1,
               },

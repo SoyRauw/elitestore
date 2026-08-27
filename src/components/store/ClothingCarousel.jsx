@@ -1,30 +1,27 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { EffectCoverflow, Pagination, Autoplay } from 'swiper/modules'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag } from 'lucide-react'
-import { useCartStore } from '../../store/cartStore'
-import ProductDetailModal from './ProductDetailModal'
+import { motion } from 'framer-motion'
+import { ShoppingBag, Eye } from 'lucide-react'
+import { useProducts } from '../../hooks/useProducts'
+import { getVariantModels, getProductPriceRange } from '../../lib/sku'
 import 'swiper/css'
 import 'swiper/css/effect-coverflow'
 import 'swiper/css/pagination'
 
-import { useProducts } from '../../hooks/useProducts'
 import styles from './ClothingCarousel.module.css'
 
 export default function ClothingCarousel() {
-  const addItem = useCartStore((s) => s.addItem)
+  const navigate = useNavigate()
   const { products, loading } = useProducts({ limit: 10 })
-  const [selectedProduct, setSelectedProduct] = useState(null)
-  const [justAdded, setJustAdded] = useState(false)
 
-  const handleAdd = (product, size) => {
-    addItem(product, size)
-    setJustAdded(true)
-    setTimeout(() => {
-      setJustAdded(false)
-      setSelectedProduct(null)
-    }, 1500)
+  const availableProducts = useMemo(() => {
+    return products.filter((p) => getVariantModels(p).length > 0)
+  }, [products])
+
+  const handleViewProduct = (id) => {
+    navigate(`/product/${id}`)
   }
 
   return (
@@ -41,7 +38,7 @@ export default function ClothingCarousel() {
         <p className={styles.subtitle}>Prendas pensadas para ti, diseñadas para resaltar tu belleza</p>
       </motion.div>
 
-      {!loading && products.length > 0 ? (
+      {!loading && availableProducts.length > 0 ? (
         <Swiper
           effect="coverflow"
           grabCursor
@@ -60,64 +57,67 @@ export default function ClothingCarousel() {
           modules={[EffectCoverflow, Pagination, Autoplay]}
           className={styles.swiper}
         >
-          {products.map((item) => (
-            <SwiperSlide key={item.id} className={styles.slide}>
-              <motion.div
-                className={styles.card}
-                whileHover={{ y: -8 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              >
-                {/* Tag */}
-                {item.featured && <div className={styles.tag}>Destacado</div>}
+          {availableProducts.map((item) => {
+            const models = getVariantModels(item)
+            const firstModel = models[0] || null
+            const image = firstModel?.image || item.images?.[0] || null
+            const priceRange = getProductPriceRange(item)
+            const variantLabel = models.length > 1
+              ? `${models.length} modelos`
+              : firstModel?.key || null
 
-                {/* Image */}
-                <div className={styles.imageWrap} onClick={() => setSelectedProduct(item)} style={{ cursor: 'pointer' }}>
-                  {item.images?.[0] ? (
-                    <img src={item.images[0]} alt={item.name} className={styles.image} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                      <ShoppingBag size={40} />
-                    </div>
-                  )}
-                </div>
+            return (
+              <SwiperSlide key={item.id} className={styles.slide}>
+                <div className={styles.card}>
+                  {item.featured && <div className={styles.tag}>Destacado</div>}
 
-                {/* Info */}
-              <div className={styles.info}>
-                <h3 className={styles.name}>{item.name}</h3>
-                <p className={styles.category}>{item.categories?.name || 'Ropa'}</p>
-                <div className={styles.footer}>
-                  <span className={styles.price}>${item.price?.toFixed(2)}</span>
-                  <motion.button
-                    className={styles.addBtn}
-                    onClick={(e) => { e.stopPropagation(); setSelectedProduct(item); }}
-                    whileTap={{ scale: 0.9 }}
-                    aria-label={`Ver ${item.name} y agregar al carrito`}
+                  <div
+                    className={styles.imageWrap}
+                    onClick={() => handleViewProduct(item.id)}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <ShoppingBag size={16} />
-                    Agregar
-                  </motion.button>
+                    {image ? (
+                      <img
+                        src={image}
+                        alt={item.name}
+                        className={styles.image}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <div className={styles.placeholder}>
+                        <ShoppingBag size={40} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={styles.info}>
+                    <h3 className={styles.name}>{item.name}</h3>
+                    <p className={styles.category}>{item.categories?.name || 'Ropa'}</p>
+                    {variantLabel && <span className={styles.variantLabel}>{variantLabel}</span>}
+                    <div className={styles.footer}>
+                      <span className={styles.price}>Desde ${priceRange.min.toFixed(2)}</span>
+                      <button
+                        type="button"
+                        className={styles.addBtn}
+                        onClick={(e) => { e.stopPropagation(); handleViewProduct(item.id) }}
+                        aria-label={`Ver ${item.name}`}
+                      >
+                        <Eye size={16} />
+                        Ver producto
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              </motion.div>
-            </SwiperSlide>
-          ))}
+              </SwiperSlide>
+            )
+          })}
         </Swiper>
       ) : (
-        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+        <div className={styles.loadingMsg}>
           {loading ? 'Cargando colección...' : 'Aún no hay productos en la tienda.'}
         </div>
       )}
-
-      <AnimatePresence>
-        {selectedProduct && (
-          <ProductDetailModal
-            product={selectedProduct}
-            onClose={() => setSelectedProduct(null)}
-            onAdd={handleAdd}
-            justAdded={justAdded}
-          />
-        )}
-      </AnimatePresence>
     </section>
   )
 }

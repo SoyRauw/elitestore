@@ -3,7 +3,6 @@ import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { Calendar, FileSpreadsheet, FileText, Filter, TrendingUp, DollarSign, ShoppingBag, CreditCard, Package } from 'lucide-react'
 import { formatVariantLabel } from '../../lib/sku'
-import { exportMovementsToExcel, exportMovementsToPDF } from '../../lib/reports'
 import AdminLayout from '../../components/admin/AdminLayout'
 import styles from './AdminReports.module.css'
 
@@ -166,11 +165,13 @@ export default function AdminReports() {
     return `Reporte Elite Store (${date})`
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const { exportMovementsToExcel } = await import('../../lib/reports')
     exportMovementsToExcel(filteredMovements, movementItems, getExportFilename())
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    const { exportMovementsToPDF } = await import('../../lib/reports')
     exportMovementsToPDF(filteredMovements, summary, getExportFilename())
   }
 

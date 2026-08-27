@@ -9,16 +9,14 @@
 }
 
 .navbar.scrolled {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid rgba(196, 120, 138, 0.15);
   box-shadow: var(--shadow-md);
 }
 
 .navbar.menuOpenState {
-  background: var(--bg);
-  border-bottom: 1px solid var(--glass-border);
+  background: var(--color-white);
+  border-bottom: 1px solid rgba(196, 120, 138, 0.15);
 }
 
 .inner {

@@ -4,6 +4,8 @@ import { Sparkles, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import styles from './HeroSection.module.css'
 
+const HERO_VIDEO_URL = 'https://soivtyndamuzbdtwfvza.supabase.co/storage/v1/object/public/assets/video_2026-08-26_21-58-01.mp4'
+
 const containerVariants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.15, delayChildren: 0.3 } },
@@ -22,6 +24,18 @@ export default function HeroSection() {
 
   return (
     <section className={styles.hero} ref={ref}>
+      {/* Background video */}
+      <video
+        className={styles.videoBg}
+        src={HERO_VIDEO_URL}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        aria-hidden="true"
+      />
+      <div className={styles.videoOverlay} aria-hidden="true" />
 
       {/* Content */}
       <motion.div

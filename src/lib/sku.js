@@ -149,3 +149,55 @@ export const getVariantImage = (product, variant) => {
   if (product?.images?.length) return product.images[0]
   return null
 }
+
+export const getVariantModels = (product) => {
+  const { variants } = getVariantOptions(product)
+  const groups = {}
+
+  variants.forEach((v) => {
+    const modelKey = [v.color, v.variant_name].filter(Boolean).join(' / ') || 'Estándar'
+    if (!groups[modelKey]) {
+      groups[modelKey] = {
+        key: modelKey,
+        color: v.color || null,
+        variantName: v.variant_name || null,
+        image: v.image || null,
+        variants: [],
+      }
+    }
+    groups[modelKey].variants.push(v)
+    if (v.image && !groups[modelKey].image) {
+      groups[modelKey].image = v.image
+    }
+  })
+
+  return Object.values(groups).map((g) => {
+    const prices = g.variants.map((v) => v.price || 0).filter(Boolean)
+    return {
+      ...g,
+      image: g.image || product?.images?.[0] || null,
+      sizes: [...new Set(g.variants.map((v) => v.size || 'Única').filter(Boolean))],
+      firstVariant: g.variants[0],
+      minPrice: prices.length ? Math.min(...prices) : 0,
+      maxPrice: prices.length ? Math.max(...prices) : 0,
+    }
+  })
+}
+
+export const getProductPriceRange = (product) => {
+  const { variants } = getVariantOptions(product)
+  const prices = variants.length
+    ? variants.map((v) => v.price).filter(Boolean)
+    : [product?.price].filter(Boolean)
+  if (prices.length === 0) return { min: 0, max: 0 }
+  return { min: Math.min(...prices), max: Math.max(...prices) }
+}
+
+export const findVariantByModelAndSize = (product, modelKey, size) => {
+  const { variants } = getVariantOptions(product)
+  return variants.find((v) => {
+    const vModelKey = [v.color, v.variant_name].filter(Boolean).join(' / ') || 'Estándar'
+    const vSize = v.size || 'Única'
+    return vModelKey === modelKey && vSize === size
+  }) || null
+}

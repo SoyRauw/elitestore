@@ -35,6 +35,39 @@ export const useProducts = ({ category_id, featured, limit } = {}) => {
   return { products, loading, error }
 }
 
+export const useProduct = (id) => {
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (!id) {
+      setLoading(false)
+      return
+    }
+    const fetch = async () => {
+      setLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*, categories(*), product_variants(*)')
+          .eq('id', id)
+          .eq('active', true)
+          .single()
+        if (error) throw error
+        setProduct(data)
+      } catch (e) {
+        setError(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetch()
+  }, [id])
+
+  return { product, loading, error }
+}
+
 export const useCategories = () => {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
