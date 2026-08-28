@@ -53,11 +53,10 @@ export default function ProductDetailPage() {
 
   const galleryImages = useMemo(() => {
     const list = []
-    if (selectedModel?.image) list.push(selectedModel.image)
-    if (selectedVariant?.image && !list.includes(selectedVariant.image)) {
-      list.push(selectedVariant.image)
-    }
-    if (product?.images?.length) {
+    if (selectedVariant?.image) list.push(selectedVariant.image)
+    else if (selectedModel?.image) list.push(selectedModel.image)
+
+    if (list.length === 0 && product?.images?.length) {
       product.images.forEach((img) => {
         if (!list.includes(img)) list.push(img)
       })
