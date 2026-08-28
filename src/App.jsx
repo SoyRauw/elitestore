@@ -75,9 +75,8 @@ function AdminFallback() {
 function App() {
   return (
     <AuthProvider>
-      <HashRouter>
-        <ScrollToTop />
-        <Routes>
+      <ScrollToTop />
+      <Routes>
         {/* Store Routes */}
         <Route element={<StoreLayout />}>
           <Route path="/" element={<Home />} />
@@ -107,7 +106,6 @@ function App() {
           <Route path="/admin/users" element={<AdminUsers />} />
         </Route>
       </Routes>
-      </HashRouter>
     </AuthProvider>
   )
 }
