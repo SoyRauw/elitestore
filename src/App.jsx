@@ -107,6 +107,7 @@ function App() {
           <Route path="/admin/users" element={<AdminUsers />} />
         </Route>
       </Routes>
+      </HashRouter>
     </AuthProvider>
   )
 }
