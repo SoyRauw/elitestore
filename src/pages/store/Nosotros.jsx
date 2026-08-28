@@ -69,7 +69,7 @@ export default function Nosotros() {
             <strong className={styles.locationName}>Centro Comercial Lago Mall</strong>
             <span className={styles.locationCity}>Maracaibo, Venezuela</span>
           </div>
-          <span className={styles.soon}>Próximamente</span>
+          <span className={styles.soon}>Te esperamos</span>
         </motion.div>
 
         {/* ─── ENVÍOS ─── */}
@@ -146,7 +146,7 @@ export default function Nosotros() {
               <MessageCircle size={18} /> Escribir al WhatsApp
             </motion.button>
             <a href="https://www.instagram.com/elitestoremcbo_/" target="_blank" rel="noopener noreferrer" className={styles.btnIg}>
-              @elitestore
+              @elitestoremcbo_
             </a>
           </div>
         </motion.div>
