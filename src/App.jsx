@@ -10,6 +10,8 @@ import ProductDetailPage from './pages/store/ProductDetailPage'
 import Nosotros from './pages/store/Nosotros'
 import Footer from './components/store/Footer'
 
+import ScrollToTop from './components/store/ScrollToTop'
+
 /* Admin Components — lazy loaded to keep public bundle small */
 import AdminLogin from './pages/admin/AdminLogin'
 
@@ -73,7 +75,9 @@ function AdminFallback() {
 function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <HashRouter>
+        <ScrollToTop />
+        <Routes>
         {/* Store Routes */}
         <Route element={<StoreLayout />}>
           <Route path="/" element={<Home />} />
