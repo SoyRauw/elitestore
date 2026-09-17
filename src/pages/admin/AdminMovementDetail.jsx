@@ -17,6 +17,7 @@ const PAYMENT_METHODS = {
   punto: 'Punto de Venta',
   pendiente: 'Pendiente',
   multiple: 'Múltiple',
+  credito: 'Crédito en cuenta',
 }
 
 const SALE_TYPE_LABELS = {
@@ -86,8 +87,10 @@ export default function AdminMovementDetail() {
     text += `Fecha: ${new Date(movement.created_at).toLocaleDateString()}\n`
     text += `Estado: ${movement.status.toUpperCase()}\n\n`
 
-    if (payments.length > 0) {
+    const creditAmount = parseFloat(movement.credit_amount || 0)
+    if (payments.length > 0 || creditAmount > 0) {
       text += `*Pagos:*\n`
+      if (creditAmount > 0) text += `- Crédito en cuenta: $${creditAmount.toFixed(2)}\n`
       payments.forEach(p => {
         text += `- ${PAYMENT_METHODS[p.method] || p.method}: $${p.amount}\n`
       })
@@ -136,7 +139,8 @@ export default function AdminMovementDetail() {
   if (!movement) return <div className={styles.page}>Movimiento no encontrado</div>
 
   const invoiceId = movement.id.slice(0, 8)
-  const totalPaid = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+  const creditAmount = parseFloat(movement.credit_amount || 0)
+  const totalPaid = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) + creditAmount
   const change = Math.max(0, totalPaid - movement.total_amount)
   const status = movement.status
   const statusColor = STATUS_COLORS[status] || 'secondary'
@@ -183,8 +187,16 @@ export default function AdminMovementDetail() {
 
           <div className={styles.card}>
             <h3 className={styles.cardTitle}><CreditCard size={18} /> Pagos</h3>
-            {payments.length > 0 ? (
+            {payments.length > 0 || creditAmount > 0 ? (
               <div className={styles.paymentsList}>
+                {creditAmount > 0 && (
+                  <div className={`${styles.paymentItem} ${styles.creditRow}`}>
+                    <div className={styles.paymentInfo}>
+                      <strong>Crédito en cuenta</strong>
+                    </div>
+                    <span className={styles.paymentAmount}>${creditAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 {payments.map(p => (
                   <div key={p.id} className={styles.paymentItem}>
                     <div className={styles.paymentInfo}>

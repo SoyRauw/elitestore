@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { Eye, Store } from 'lucide-react'
+import { revertReturnMovement } from '../../lib/returns'
+import { Eye, Store, Undo2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
+import ConfirmModal from '../../components/admin/ConfirmModal'
 import styles from './AdminMovements.module.css'
 
 const PAYMENT_METHODS = {
@@ -16,27 +18,53 @@ const PAYMENT_METHODS = {
   punto: 'Punto de Venta',
   pendiente: 'Pendiente',
   multiple: 'Múltiple',
+  credito: 'Crédito en cuenta',
 }
 
 export default function AdminMovements() {
   const [movements, setMovements] = useState([])
   const [loading, setLoading] = useState(true)
+  const [includeReturns, setIncludeReturns] = useState(false)
+  const [returnToRevert, setReturnToRevert] = useState(null)
+  const [reverting, setReverting] = useState(false)
+  const [revertError, setRevertError] = useState('')
 
-  const fetchMovements = async () => {
+  const fetchMovements = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
+    let query = supabase
       .from('movements')
       .select('*, cash_sessions(opened_at), movement_payments(method, amount), customer_coupons(*, reward_coupons(*))')
       .order('created_at', { ascending: false })
+
+    if (!includeReturns) {
+      query = query.eq('movement_type', 'venta')
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error('Error cargando movimientos:', error)
     }
     setMovements(data || [])
     setLoading(false)
-  }
+  }, [includeReturns])
 
-  useEffect(() => { fetchMovements() }, [])
+  useEffect(() => { fetchMovements() }, [fetchMovements])
+
+  const executeRevert = async () => {
+    setReverting(true)
+    try {
+      await revertReturnMovement(returnToRevert)
+      setReturnToRevert(null)
+      fetchMovements()
+    } catch (e) {
+      console.error(e)
+      setRevertError(e.message || 'Error revirtiendo la devolución')
+      alert(e.message || 'Error revirtiendo la devolución')
+    } finally {
+      setReverting(false)
+    }
+  }
 
   return (
     <AdminLayout>
@@ -45,7 +73,15 @@ export default function AdminMovements() {
             <h1 className={styles.pageTitle}>Historial de Movimientos</h1>
             <p className={styles.pageSubtitle}>Ventas y recibos</p>
           </div>
-          <div style={{display:'flex', gap:'1rem'}}>
+          <div style={{display:'flex', gap:'1rem', alignItems:'center'}}>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={includeReturns}
+                onChange={(e) => setIncludeReturns(e.target.checked)}
+              />
+              Incluir devoluciones
+            </label>
             <Link to="/admin/pos" className="btn btn-primary">
               <Store size={16} /> Ir al POS
             </Link>
@@ -77,15 +113,20 @@ export default function AdminMovements() {
                   <motion.tr key={m.id} className={styles.tableRow} initial={{opacity:0}} animate={{opacity:1}}>
                     <td data-label="Fecha">{new Date(m.created_at).toLocaleDateString()}</td>
                     <td data-label="Tipo">
-                      <span className={`badge ${m.movement_type === 'venta' ? 'badge-primary' : 'badge-secondary'}`}>
+                      <span className={`badge ${m.movement_type === 'venta' ? 'badge-primary' : m.movement_type === 'devolucion' ? 'badge-warning' : 'badge-secondary'}`}>
                         {m.movement_type}
                       </span>
                     </td>
                     <td data-label="Cliente">{m.customer_name || 'Sin nombre'}</td>
                     <td data-label="Método">
-                      {m.movement_payments && m.movement_payments.length > 0 ? (
+                      {m.movement_payments && m.movement_payments.length > 0 || (parseFloat(m.credit_amount) || 0) > 0 ? (
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none', fontSize: '0.85rem' }}>
-                          {m.movement_payments.map((p, idx) => (
+                          {(parseFloat(m.credit_amount) || 0) > 0 && (
+                            <li key="credit" style={{ color: '#166534', fontWeight: 500 }}>
+                              Crédito en cuenta (${(parseFloat(m.credit_amount)).toFixed(2)})
+                            </li>
+                          )}
+                          {(m.movement_payments || []).map((p, idx) => (
                             <li key={idx}>{PAYMENT_METHODS[p.method] || p.method} (${p.amount})</li>
                           ))}
                         </ul>
@@ -96,8 +137,8 @@ export default function AdminMovements() {
                     <td data-label="Turno">{m.cash_sessions ? new Date(m.cash_sessions.opened_at).toLocaleDateString() : <span style={{color:'var(--color-dark-soft)'}}>Sin turno</span>}</td>
                     <td data-label="Estado">
                       <span className={`badge ${
-                        m.status === 'pagado' || m.status === 'vendido' ? 'badge-success' : 
-                        m.status === 'devuelto' || m.status === 'anulado' ? 'badge-danger' : 
+                        m.status === 'pagado' || m.status === 'vendido' || m.status === 'completada' ? 'badge-success' :
+                        m.status === 'devuelto' || m.status === 'anulado' ? 'badge-danger' :
                         'badge-secondary'
                       }`}>
                         {m.status}
@@ -119,9 +160,21 @@ export default function AdminMovements() {
                     </td>
                     <td data-label="Total" style={{fontWeight:600, color:'var(--color-gold)'}}>${m.total_amount}</td>
                     <td data-label="Acciones">
-                      <Link to={`/admin/movements/${m.id}`} className={styles.editBtn}>
-                        <Eye size={15}/>
-                      </Link>
+                      <div style={{display:'flex', gap:'0.4rem'}}>
+                        <Link to={`/admin/movements/${m.id}`} className={styles.editBtn}>
+                          <Eye size={15}/>
+                        </Link>
+                        {m.movement_type === 'devolucion' && m.status === 'completada' && (
+                          <button
+                            className={styles.revertBtn}
+                            onClick={() => setReturnToRevert(m)}
+                            disabled={reverting}
+                            title="Revertir devolución"
+                          >
+                            <Undo2 size={15}/>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </motion.tr>
                 ))}
@@ -136,7 +189,25 @@ export default function AdminMovements() {
           </div>
   )
 }
-      
+
+      <ConfirmModal
+        isOpen={!!returnToRevert}
+        title="¿Revertir devolución?"
+        onCancel={() => { setReturnToRevert(null); setRevertError('') }}
+        onConfirm={executeRevert}
+        confirmText="Sí, revertir"
+        disabled={reverting}
+      >
+        <p>Se deshará la devolución de <strong>{returnToRevert?.customer_name}</strong> de <strong>${(parseFloat(returnToRevert?.total_amount) || 0).toFixed(2)}</strong>:</p>
+        <ul style={{margin:'0.75rem 0 0', paddingLeft:'1.2rem', fontSize:'0.9rem'}}>
+          <li>El stock de los productos volverá a quitarse</li>
+          <li>La factura original volverá a permitir devolverlas</li>
+          <li>El saldo del cliente bajará (puede quedar negativo)</li>
+          <li>Los puntos deducidos serán devueltos</li>
+        </ul>
+        {revertError && <p style={{color:'#b91c1c', marginTop:'0.75rem'}}>{revertError}</p>}
+      </ConfirmModal>
+
     </AdminLayout>
   )
 }

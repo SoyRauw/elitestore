@@ -36,7 +36,7 @@ export default function AdminPOS() {
 
   const [items, setItems] = useState([])
   const [wholesaleMode, setWholesaleMode] = useState(false)
-  const [customer, setCustomer] = useState({ id: '', id_number: '', name: '', phone: '', points: 0 })
+  const [customer, setCustomer] = useState({ id: '', id_number: '', name: '', phone: '', points: 0, balance: 0 })
   const [payments, setPayments] = useState([])
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -80,11 +80,17 @@ export default function AdminPOS() {
 
   const total = subtotal - discount
 
+  const creditApplied = useMemo(() => {
+    return Math.min(customer.balance || 0, total)
+  }, [customer.balance, total])
+
+  const totalToPay = total - creditApplied
+
   const totalPaid = useMemo(() => {
     return payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
   }, [payments])
 
-  const difference = totalPaid - total
+  const difference = totalPaid - totalToPay
 
   useEffect(() => {
     const id = customer.id_number?.trim()
@@ -104,6 +110,7 @@ export default function AdminPOS() {
           name: data[0].name || '',
           phone: data[0].phone || '',
           points: data[0].points || 0,
+          balance: data[0].balance || 0,
         }))
       }
     }, 300)
@@ -167,7 +174,7 @@ export default function AdminPOS() {
 
   const clearCart = useCallback(() => {
     setItems([])
-    setCustomer({ id: '', id_number: '', name: '', phone: '', points: 0 })
+    setCustomer({ id: '', id_number: '', name: '', phone: '', points: 0, balance: 0 })
     setPayments([])
     setAppliedCoupon(null)
     setError('')
@@ -304,8 +311,8 @@ export default function AdminPOS() {
       setError('Agrega al menos un producto al carrito')
       return
     }
-    if (totalPaid < total) {
-      setError(`Faltan $${(total - totalPaid).toFixed(2)} para completar el pago`)
+    if (totalPaid < totalToPay) {
+      setError(`Faltan $${(totalToPay - totalPaid).toFixed(2)} para completar el pago`)
       return
     }
     setError('')
@@ -413,6 +420,17 @@ export default function AdminPOS() {
         }
       }
 
+      // Allocate discount proportionally per item line for accurate returns
+      const lineSubtotals = items.map((item) => item.price * item.quantity)
+      const allocatedDiscounts = lineSubtotals.map((lineSub) =>
+        subtotal > 0 ? Number((discount * (lineSub / subtotal)).toFixed(2)) : 0
+      )
+      // Ensure allocated discount sums exactly to discount (adjust last line)
+      const allocatedSum = allocatedDiscounts.reduce((a, b) => a + b, 0)
+      if (allocatedDiscounts.length > 0 && Math.abs(allocatedSum - discount) > 0.001) {
+        allocatedDiscounts[allocatedDiscounts.length - 1] += Number((discount - allocatedSum).toFixed(2))
+      }
+
       const { data: movement, error: movError } = await supabase
         .from('movements')
         .insert([{
@@ -426,6 +444,7 @@ export default function AdminPOS() {
           payment_method: payments.length === 1 ? payments[0].method : 'multiple',
           total_amount: total,
           discount_amount: discount,
+          credit_amount: creditApplied,
           customer_coupon_id: customerCouponId,
           points_earned: earned,
           notes: notes || null,
@@ -436,13 +455,14 @@ export default function AdminPOS() {
 
       if (movError) throw movError
 
-      const movementItems = items.map((item) => ({
+      const movementItems = items.map((item, index) => ({
         movement_id: movement.id,
         product_id: item.product.id,
         variant_id: item.variant.id,
         size: item.variant.size || '',
         quantity: item.quantity,
         unit_price: item.price,
+        discount_amount: allocatedDiscounts[index] || 0,
       }))
 
       const { error: itemsError } = await supabase
@@ -498,6 +518,30 @@ export default function AdminPOS() {
             reason: 'Puntos ganados por compra',
           }])
         if (historyError) throw historyError
+      }
+
+      if (customerId && creditApplied > 0) {
+        const { data: current } = await supabase
+          .from('customers')
+          .select('balance')
+          .eq('id', customerId)
+          .single()
+        const newBalance = Math.max(0, (current?.balance || 0) - creditApplied)
+        const { error: balanceError } = await supabase
+          .from('customers')
+          .update({ balance: newBalance })
+          .eq('id', customerId)
+        if (balanceError) throw balanceError
+
+        const { error: creditHistoryError } = await supabase
+          .from('customer_credit_history')
+          .insert([{
+            customer_id: customerId,
+            movement_id: movement.id,
+            amount: -creditApplied,
+            reason: 'Usado en compra',
+          }])
+        if (creditHistoryError) throw creditHistoryError
       }
 
       setCompletedSale({
@@ -590,6 +634,8 @@ export default function AdminPOS() {
                 subtotal={subtotal}
                 discount={discount}
                 total={total}
+                totalToPay={totalToPay}
+                creditApplied={creditApplied}
                 customer={customer}
                 onCustomerChange={setCustomer}
                 payments={payments}
@@ -688,6 +734,8 @@ export default function AdminPOS() {
             <li><span className={styles.summaryLabel}>Subtotal</span><span className={styles.summaryValue}>${subtotal.toFixed(2)}</span></li>
             {discount > 0 && <li><span className={styles.summaryLabel}>Descuento</span><span className={styles.summaryValue}>-${discount.toFixed(2)}</span></li>}
             <li><span className={styles.summaryLabel}>Total</span><span className={styles.summaryValue}>${total.toFixed(2)}</span></li>
+            {creditApplied > 0 && <li><span className={styles.summaryLabel}>Crédito usado</span><span className={styles.summaryValue}>-${creditApplied.toFixed(2)}</span></li>}
+            <li><span className={styles.summaryLabel}>A pagar</span><span className={styles.summaryValue}>${totalToPay.toFixed(2)}</span></li>
             <li><span className={styles.summaryLabel}>Recibido</span><span className={styles.summaryValue}>${totalPaid.toFixed(2)}</span></li>
             <li><span className={styles.summaryLabel}>Cambio</span><span className={styles.summaryValue}>${Math.max(0, difference).toFixed(2)}</span></li>
           </ul>

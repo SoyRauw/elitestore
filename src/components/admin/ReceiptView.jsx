@@ -121,11 +121,23 @@ export default function ReceiptView({ movement, items, payments, customer, subto
           <span>Total</span>
           <strong>${(total || 0).toFixed(2)}</strong>
         </div>
+        {(movement?.credit_amount || 0) > 0 && (
+          <div className={`${styles.totalRow} ${styles.discountRow}`}>
+            <span>Crédito usado</span>
+            <strong>-${(movement.credit_amount || 0).toFixed(2)}</strong>
+          </div>
+        )}
       </div>
 
-      {payments && payments.length > 0 && (
+      {(payments && payments.length > 0) || (movement?.credit_amount || 0) > 0 && (
         <div className={styles.section}>
           <div className={styles.sectionTitle}>Pagos</div>
+          {(movement?.credit_amount || 0) > 0 && (
+            <div className={styles.paymentRow}>
+              <span>Crédito en cuenta</span>
+              <strong>${(movement.credit_amount || 0).toFixed(2)}</strong>
+            </div>
+          )}
           {payments.map((p, i) => (
             <div key={i} className={styles.paymentRow}>
               <span>{PAYMENT_METHODS[p.method] || p.method}</span>
@@ -192,6 +204,7 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
   const customerId = customer?.id_number || null
   const customerPhone = customer?.phone || movement?.customer_phone || null
   const discountAmount = discount || movement?.discount_amount || 0
+  const creditAmount = movement?.credit_amount || 0
   const couponName = getAppliedCouponName(appliedCoupon) || movement?.customer_coupons?.reward_coupons?.name
 
   const productsHTML = (items || []).map(item => {
@@ -214,25 +227,32 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
     `
   }).join('')
 
-  const paymentsHTML = (payments || []).length > 0
-    ? (payments || []).map(p => `
+  const paymentsHTML = (payments || []).length > 0 || creditAmount > 0
+    ? `
+      ${creditAmount > 0 ? `
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;">
+          <span>Crédito en cuenta</span>
+          <strong>${formatMoney(creditAmount)}</strong>
+        </div>
+      ` : ''}
+      ${(payments || []).map(p => `
         <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;">
           <span>${PAYMENT_METHODS_INLINE[p.method] || p.method}</span>
           <strong>${formatMoney(p.amount)}</strong>
         </div>
         ${p.reference ? `<div style="font-size:11px; color:#6b7280; margin-bottom:6px;">Ref: ${p.reference}</div>` : ''}
-      `).join('') + `
-        <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid #f0f0f0; font-size:13px;">
-          <span>Total pagado</span>
-          <strong>${formatMoney(totalPaid)}</strong>
+      `).join('')}
+      <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid #f0f0f0; font-size:13px;">
+        <span>Total pagado</span>
+        <strong>${formatMoney(totalPaid + creditAmount)}</strong>
+      </div>
+      ${change > 0 ? `
+        <div style="display:flex; justify-content:space-between; margin-top:6px; color:#166534; font-size:13px; background:#dcfce7; padding:6px 8px; border-radius:6px;">
+          <span>Vuelto</span>
+          <strong>${formatMoney(change)}</strong>
         </div>
-        ${change > 0 ? `
-          <div style="display:flex; justify-content:space-between; margin-top:6px; color:#166534; font-size:13px; background:#dcfce7; padding:6px 8px; border-radius:6px;">
-            <span>Vuelto</span>
-            <strong>${formatMoney(change)}</strong>
-          </div>
-        ` : ''}
-      `
+      ` : ''}
+    `
     : ''
 
   const customerHTML = customerName
@@ -323,12 +343,18 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
                 <span>-${formatMoney(discountAmount)}</span>
               </div>
             ` : ''}
+            ${creditAmount > 0 ? `
+              <div class="total-row" style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:#166534;">
+                <span>Crédito usado</span>
+                <span>-${formatMoney(creditAmount)}</span>
+              </div>
+            ` : ''}
             <div class="total-box">
               <span>Total</span>
               <span>${formatMoney(total)}</span>
             </div>
           </div>
-          ${payments ? `<div style="border-top:1px dashed #d1d5db; padding-top:14px; margin-top:14px;"><div class="section-title">Pagos</div>${paymentsHTML}</div>` : ''}
+          ${payments || creditAmount > 0 ? `<div style="border-top:1px dashed #d1d5db; padding-top:14px; margin-top:14px;"><div class="section-title">Pagos</div>${paymentsHTML}</div>` : ''}
           ${notesHTML}
           <div class="footer">¡Gracias por su compra!</div>
         </div>

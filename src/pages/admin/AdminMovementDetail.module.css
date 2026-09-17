@@ -25,6 +25,9 @@
 .paymentInfo strong { color:var(--color-dark); font-weight:600; }
 .paymentRef { font-size:var(--text-xs); color:var(--color-dark-soft); }
 .paymentAmount { font-weight:700; color:var(--color-dark); }
+.creditRow { background:#dcfce7; padding:var(--space-3); border-radius:var(--radius-md); }
+.creditRow .paymentInfo strong { color:#166534; }
+.creditRow .paymentAmount { color:#166534; }
 .totalPaid { display:flex; justify-content:space-between; margin-top:var(--space-3); padding-top:var(--space-3); border-top:1px solid rgba(0,0,0,0.08); font-size:var(--text-sm); }
 .totalPaid strong { color:var(--color-dark); }
 .change { display:flex; justify-content:space-between; color:#166534; font-size:var(--text-sm); background:#dcfce7; padding:var(--space-2) var(--space-3); border-radius:var(--radius-md); margin-top:var(--space-2); }

@@ -1,4 +1,4 @@
-import { ShoppingBag, Trash2, Minus, Plus, Ticket } from 'lucide-react'
+import { ShoppingBag, Trash2, Minus, Plus, Ticket, Wallet } from 'lucide-react'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
 import POSPaymentPanel from './POSPaymentPanel'
 import CouponSelector from './CouponSelector'
@@ -8,7 +8,8 @@ export default function POSCart({
   items,
   subtotal,
   discount,
-  total,
+  totalToPay,
+  creditApplied,
   customer,
   onCustomerChange,
   payments,
@@ -30,8 +31,8 @@ export default function POSCart({
 }) {
   const handleApplyCustomer = (coupon) => onApplyCoupon({ type: 'customer', coupon })
   const handleRedeemReward = (coupon) => onRedeemCoupon(coupon)
-  const isComplete = totalPaid >= total && items.length > 0
-  const isMissing = totalPaid < total && items.length > 0
+  const isComplete = items.length > 0 && (totalToPay === 0 || totalPaid >= totalToPay)
+  const isMissing = items.length > 0 && totalToPay > 0 && totalPaid < totalToPay
   const customerDraft = customer || { id: '', id_number: '', name: '', phone: '' }
 
   const handleIdNumberChange = (value) => {
@@ -88,6 +89,12 @@ export default function POSCart({
                 disabled={disabled}
               />
             </div>
+            {(customerDraft.id || customerDraft.balance > 0) && (
+              <div className={styles.balanceRow}>
+                <span><Wallet size={14} /> Saldo disponible</span>
+                <strong>${(customerDraft.balance || 0).toFixed(2)}</strong>
+              </div>
+            )}
           </div>
 
           <div className={styles.section}>
@@ -105,7 +112,7 @@ export default function POSCart({
 
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Pagos</div>
-            <POSPaymentPanel totalAmount={total} payments={payments} onChange={onPaymentsChange} />
+            <POSPaymentPanel totalAmount={totalToPay} payments={payments} onChange={onPaymentsChange} />
           </div>
         </div>
 
@@ -172,9 +179,15 @@ export default function POSCart({
                 <strong>-${discount.toFixed(2)}</strong>
               </div>
             )}
+            {creditApplied > 0 && (
+              <div className={`${styles.summaryRow} ${styles.discountRow}`}>
+                <span><Wallet size={12} /> Crédito usado</span>
+                <strong>-${creditApplied.toFixed(2)}</strong>
+              </div>
+            )}
             <div className={styles.totalBox}>
               <span className={styles.totalLabel}>Total a pagar</span>
-              <strong className={styles.totalValue}>${total.toFixed(2)}</strong>
+              <strong className={styles.totalValue}>${totalToPay.toFixed(2)}</strong>
             </div>
             <div className={styles.summaryRow}>
               <span>Total pagado</span>
@@ -189,7 +202,7 @@ export default function POSCart({
             {isMissing && (
               <div className={styles.summaryHighlight} style={{ background: '#fee2e2', color: '#991b1b' }}>
                 <span>Faltante</span>
-                <strong>${(total - totalPaid).toFixed(2)}</strong>
+                <strong>${(totalToPay - totalPaid).toFixed(2)}</strong>
               </div>
             )}
           </div>
@@ -205,7 +218,7 @@ export default function POSCart({
             onClick={onPay}
             disabled={disabled || !isComplete}
           >
-            {disabled ? 'Procesando...' : isComplete ? 'Finalizar venta' : `Faltan $${Math.max(0, total - totalPaid).toFixed(2)}`}
+            {disabled ? 'Procesando...' : isComplete ? 'Finalizar venta' : `Faltan $${Math.max(0, totalToPay - totalPaid).toFixed(2)}`}
           </button>
 
           {items.length > 0 && (

@@ -199,6 +199,21 @@ h1, h2, h3, h4, h5, h6 {
   color: #065f46;
 }
 
+.badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-secondary {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 /* === CARDS === */
 .card {
   background: var(--color-white);

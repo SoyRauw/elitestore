@@ -1,0 +1,148 @@
+.receipt {
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--color-dark);
+}
+
+.brand {
+  text-align: center;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.brandName {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.brandSubtitle {
+  font-size: 0.75rem;
+  color: var(--color-dark-soft);
+}
+
+.meta {
+  margin-bottom: 1rem;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.metaRow span {
+  color: var(--color-dark-soft);
+}
+
+.section {
+  border-top: 1px dashed var(--border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.sectionTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-dark-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
+}
+
+.customerName {
+  font-weight: 600;
+}
+
+.customerMeta {
+  font-size: 0.8rem;
+  color: var(--color-dark-soft);
+  margin-top: 0.2rem;
+}
+
+.item {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.itemMain {
+  display: flex;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.itemQty {
+  font-weight: 700;
+  min-width: 1.5rem;
+}
+
+.itemName {
+  flex: 1;
+}
+
+.itemVariantLabel {
+  font-size: 0.75rem;
+  color: var(--color-dark-soft);
+  margin-top: 0.2rem;
+  margin-left: 2rem;
+}
+
+.itemInvoice {
+  font-size: 0.7rem;
+  color: var(--color-primary);
+  margin-top: 0.15rem;
+  margin-left: 2rem;
+}
+
+.itemPrice {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  margin-left: 2rem;
+  font-size: 0.85rem;
+}
+
+.totals {
+  border-top: 2px dashed var(--border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.totalFinal {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.balanceRow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #166534;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+  font-size: 0.75rem;
+  color: var(--color-dark-soft);
+}
+
+@media print {
+  .receipt {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+}

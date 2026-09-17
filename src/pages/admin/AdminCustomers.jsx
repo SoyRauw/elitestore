@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { Plus, Edit2, Trash2, Search, X, User, Phone, Mail, MapPin, Cake, Eye, Gift, Coins, History } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, X, User, Phone, Mail, MapPin, Cake, Eye, Gift, Coins, History, Wallet } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import * as V from '../../lib/validation'
@@ -29,6 +29,7 @@ export default function AdminCustomers() {
   const [detailCustomer, setDetailCustomer] = useState(null)
   const [customerCoupons, setCustomerCoupons] = useState([])
   const [pointsHistory, setPointsHistory] = useState([])
+  const [creditHistory, setCreditHistory] = useState([])
   const [detailLoading, setDetailLoading] = useState(false)
 
   const fetchCustomers = async () => {
@@ -47,12 +48,14 @@ export default function AdminCustomers() {
   const openDetail = async (customer) => {
     setDetailCustomer(customer)
     setDetailLoading(true)
-    const [couponsRes, historyRes] = await Promise.all([
+    const [couponsRes, historyRes, creditRes] = await Promise.all([
       supabase.from('customer_coupons').select('*, reward_coupons(*)').eq('customer_id', customer.id).order('created_at', { ascending: false }),
-      supabase.from('customer_points_history').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false })
+      supabase.from('customer_points_history').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }),
+      supabase.from('customer_credit_history').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false })
     ])
     setCustomerCoupons(couponsRes.data || [])
     setPointsHistory(historyRes.data || [])
+    setCreditHistory(creditRes.data || [])
     setDetailLoading(false)
   }
 
@@ -388,8 +391,30 @@ export default function AdminCustomers() {
                     <span className={styles.detailPoints}>
                       <Coins size={18} /> {detailCustomer.points || 0} puntos
                     </span>
+                    <span className={styles.detailBalance}>
+                      <Wallet size={18} /> Saldo: ${(detailCustomer.balance || 0).toFixed(2)}
+                    </span>
                     {detailCustomer.id_number && <p>Cédula: {detailCustomer.id_number}</p>}
                     {detailCustomer.phone && <p>Teléfono: {detailCustomer.phone}</p>}
+                  </div>
+
+                  <div className={styles.detailSection}>
+                    <h3><Wallet size={14} /> Historial de crédito</h3>
+                    {creditHistory.length === 0 ? (
+                      <p className={styles.detailEmpty}>Sin movimientos de crédito</p>
+                    ) : (
+                      <div className={styles.detailList}>
+                        {creditHistory.map((h) => (
+                          <div key={h.id} className={styles.detailRow}>
+                            <span className={styles.detailReason}>{h.reason}</span>
+                            <span className={`${styles.detailChange} ${h.amount > 0 ? styles.positive : styles.negative}`}>
+                              {h.amount > 0 ? '+' : ''}${(h.amount || 0).toFixed(2)}
+                            </span>
+                            <span className={styles.detailDate}>{new Date(h.created_at).toLocaleDateString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className={styles.detailSection}>
