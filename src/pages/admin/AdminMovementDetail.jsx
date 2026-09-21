@@ -12,6 +12,8 @@ const PAYMENT_METHODS = {
   pago_movil: 'Pago Móvil',
   zelle: 'Zelle',
   zinli: 'Zinli',
+  rapikom: 'Rapikom',
+  efectivo_bs: 'Efectivo Bs',
   binance: 'Binance',
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
@@ -38,6 +40,8 @@ export default function AdminMovementDetail() {
   const [movement, setMovement] = useState(null)
   const [items, setItems] = useState([])
   const [payments, setPayments] = useState([])
+  const [abonos, setAbonos] = useState([])
+  const [parentApartado, setParentApartado] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showReceipt, setShowReceipt] = useState(false)
 
@@ -48,9 +52,29 @@ export default function AdminMovementDetail() {
       supabase.from('movement_items').select('*, products(name, categories(*)), product_variants(*)').eq('movement_id', id),
       supabase.from('movement_payments').select('*').eq('movement_id', id)
     ])
-    setMovement(movRes.data)
+    const mov = movRes.data
+    setMovement(mov)
     setItems(itemsRes.data || [])
     setPayments(paymentsRes.data || [])
+
+    setAbonos([])
+    setParentApartado(null)
+    if (mov?.movement_type === 'apartado') {
+      const { data } = await supabase
+        .from('movements')
+        .select('*, movement_payments(*), cash_sessions(opened_at)')
+        .eq('reference_movement_id', mov.id)
+        .eq('movement_type', 'abono')
+        .order('created_at', { ascending: true })
+      setAbonos(data || [])
+    } else if (mov?.movement_type === 'abono' && mov.reference_movement_id) {
+      const { data } = await supabase
+        .from('movements')
+        .select('id, total_amount, paid_amount, status, due_date')
+        .eq('id', mov.reference_movement_id)
+        .single()
+      setParentApartado(data || null)
+    }
     setLoading(false)
   }, [id])
 
@@ -140,8 +164,11 @@ export default function AdminMovementDetail() {
 
   const invoiceId = movement.id.slice(0, 8)
   const creditAmount = parseFloat(movement.credit_amount || 0)
-  const totalPaid = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) + creditAmount
-  const change = Math.max(0, totalPaid - movement.total_amount)
+  const isApartado = movement.movement_type === 'apartado'
+  const totalPaid = isApartado
+    ? (parseFloat(movement.paid_amount) || 0)
+    : payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) + creditAmount
+  const change = isApartado ? 0 : Math.max(0, totalPaid - movement.total_amount)
   const status = movement.status
   const statusColor = STATUS_COLORS[status] || 'secondary'
 
@@ -154,12 +181,19 @@ export default function AdminMovementDetail() {
           <p>{new Date(movement.created_at).toLocaleString()}</p>
         </div>
         <div className={styles.badges}>
-          <span className={`badge ${movement.movement_type === 'venta' ? 'badge-primary' : 'badge-secondary'}`}>
+          <span className={`badge ${movement.movement_type === 'venta' ? 'badge-primary' : movement.movement_type === 'abono' ? 'badge-success' : movement.movement_type === 'apartado' ? 'badge-info' : 'badge-secondary'}`}>
             {movement.movement_type.toUpperCase()}
           </span>
           {movement.sale_type && (
             <span className={`badge ${movement.sale_type === 'wholesale' ? 'badge-success' : 'badge-info'}`}>
               {SALE_TYPE_LABELS[movement.sale_type] || movement.sale_type}
+            </span>
+          )}
+          {movement.movement_type === 'apartado' && movement.due_date && (
+            <span className={`badge ${new Date(movement.due_date) < new Date() ? 'badge-danger' : 'badge-warning'}`}>
+              {movement.status === 'activo'
+                ? `vence ${new Date(movement.due_date).toLocaleDateString()}`
+                : `vencía ${new Date(movement.due_date).toLocaleDateString()}`}
             </span>
           )}
           <span className={`badge badge-${statusColor}`}>
@@ -186,8 +220,19 @@ export default function AdminMovementDetail() {
           </div>
 
           <div className={styles.card}>
-            <h3 className={styles.cardTitle}><CreditCard size={18} /> Pagos</h3>
-            {payments.length > 0 || creditAmount > 0 ? (
+            <h3 className={styles.cardTitle}><CreditCard size={18} /> {isApartado ? 'Estado de cuenta' : 'Pagos'}</h3>
+            {isApartado ? (
+              <div className={styles.paymentsList}>
+                <div className={styles.paymentItem}>
+                  <div className={styles.paymentInfo}><strong>Abonado</strong></div>
+                  <span className={styles.paymentAmount}>${totalPaid.toFixed(2)}</span>
+                </div>
+                <div className={styles.totalPaid}>
+                  <span>Pendiente</span>
+                  <strong>${Math.max(0, (parseFloat(movement.total_amount) || 0) - totalPaid).toFixed(2)}</strong>
+                </div>
+              </div>
+            ) : payments.length > 0 || creditAmount > 0 ? (
               <div className={styles.paymentsList}>
                 {creditAmount > 0 && (
                   <div className={`${styles.paymentItem} ${styles.creditRow}`}>
@@ -223,6 +268,49 @@ export default function AdminMovementDetail() {
               </p>
             )}
           </div>
+
+          {parentApartado && (
+            <div className={styles.card}>
+              <h3 className={styles.cardTitle}><Store size={18} /> Apartado</h3>
+              <p className={styles.customerMeta}>
+                <Link to={`/admin/movements/${parentApartado.id}`}>Apartado #{parentApartado.id.slice(0, 8)}</Link>
+              </p>
+              <div className={styles.breakdownRow}>
+                <span>Pendiente</span>
+                <strong>${Math.max(0, (parseFloat(parentApartado.total_amount) || 0) - (parseFloat(parentApartado.paid_amount) || 0)).toFixed(2)}</strong>
+              </div>
+            </div>
+          )}
+
+          {isApartado && (
+            <div className={styles.card}>
+              <h3 className={styles.cardTitle}><Banknote size={18} /> Abonos ({abonos.length})</h3>
+              {abonos.length === 0 ? (
+                <p className={styles.emptyText}>Sin abonos aún</p>
+              ) : (
+                <div className={styles.paymentsList}>
+                  {abonos.map((ab) => (
+                    <div key={ab.id} className={styles.paymentItem}>
+                      <div className={styles.paymentInfo}>
+                        <Link to={`/admin/movements/${ab.id}`}>
+                          <strong>
+                            {(ab.movement_payments || []).map((p) => PAYMENT_METHODS[p.method] || p.method).join(' + ')
+                              || PAYMENT_METHODS[ab.payment_method] || '—'}
+                          </strong>
+                        </Link>
+                        <span className={styles.paymentRef}>
+                          {new Date(ab.created_at).toLocaleString()}
+                          {ab.cash_sessions?.opened_at ? ` · turno ${new Date(ab.cash_sessions.opened_at).toLocaleDateString()}` : ''}
+                          {ab.notes ? ` · ${ab.notes}` : ''}
+                        </span>
+                      </div>
+                      <span className={styles.paymentAmount}>${(parseFloat(ab.total_amount) || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className={styles.card}>
             <h3 className={styles.cardTitle}><Banknote size={18} /> Totales</h3>

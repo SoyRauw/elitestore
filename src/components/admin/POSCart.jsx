@@ -1,6 +1,8 @@
 import { ShoppingBag, Trash2, Minus, Plus, Ticket, Wallet } from 'lucide-react'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
+import { usdToBs, bsCeilFromUsd, formatBs } from '../../lib/rate'
 import POSPaymentPanel from './POSPaymentPanel'
+import VueltoMixto from './VueltoMixto'
 import CouponSelector from './CouponSelector'
 import styles from './POSCart.module.css'
 
@@ -28,16 +30,27 @@ export default function POSCart({
   onRedeemCoupon,
   wholesaleMode = false,
   onToggleWholesale,
+  exchangeRate,
+  sessionDrawer,
+  onAbastecer,
+  summaryTopNode,
 }) {
+  const totalToPayNum = parseFloat(totalToPay) || 0
+  const totalPaidNum = parseFloat(totalPaid) || 0
+  const differenceNum = parseFloat(difference) || 0
+  const rate = parseFloat(exchangeRate) || 0
   const handleApplyCustomer = (coupon) => onApplyCoupon({ type: 'customer', coupon })
   const handleRedeemReward = (coupon) => onRedeemCoupon(coupon)
-  const isComplete = items.length > 0 && (totalToPay === 0 || totalPaid >= totalToPay)
-  const isMissing = items.length > 0 && totalToPay > 0 && totalPaid < totalToPay
+  // Tolerance of half a cent to absorb float residuals from Bs conversions
+  const PAID_TOLERANCE = 0.005
+  const isComplete = items.length > 0 && (totalToPayNum === 0 || totalPaidNum + PAID_TOLERANCE >= totalToPayNum)
+  const isMissing = items.length > 0 && totalToPayNum > totalPaidNum + PAID_TOLERANCE
   const customerDraft = customer || { id: '', id_number: '', name: '', phone: '' }
 
   const handleIdNumberChange = (value) => {
     onCustomerChange({ ...customerDraft, id_number: value })
   }
+
 
   return (
     <div className={styles.cart}>
@@ -56,10 +69,10 @@ export default function POSCart({
         {/* Columna izquierda: Cliente + Pagos */}
         <div className={styles.leftCol}>
           <div className={styles.section}>
-            <div className={styles.sectionTitle}>Cliente</div>
+            <div className={styles.sectionTitle}>Cliente (obligatorio)</div>
             <div className={styles.row}>
               <div className={styles.field}>
-                <label>Cédula / RIF</label>
+                <label>Cédula / RIF *</label>
                 <input
                   className={styles.input}
                   value={customerDraft.id_number || ''}
@@ -80,7 +93,7 @@ export default function POSCart({
               </div>
             </div>
             <div className={styles.field} style={{ marginTop: '0.5rem' }}>
-              <label>Nombre</label>
+              <label>Nombre *</label>
               <input
                 className={styles.input}
                 value={customerDraft.name || ''}
@@ -112,7 +125,14 @@ export default function POSCart({
 
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Pagos</div>
-            <POSPaymentPanel totalAmount={totalToPay} payments={payments} onChange={onPaymentsChange} />
+            <POSPaymentPanel
+              totalAmount={totalToPayNum}
+              payments={payments}
+              onChange={onPaymentsChange}
+              exchangeRate={rate}
+              sessionDrawer={sessionDrawer}
+              onAbastecer={onAbastecer}
+            />
           </div>
         </div>
 
@@ -139,7 +159,7 @@ export default function POSCart({
                     <div className={styles.itemInfo}>
                       <p className={styles.itemName}>{item.product.name}</p>
                       <p className={styles.itemVariant}>{formatVariantLabel(item.variant, item.product?.categories?.size_label)}</p>
-                      <p className={styles.itemPrice}>${item.price.toFixed(2)} c/u</p>
+                      <p className={styles.itemPrice}>${item.price.toFixed(2)} c/u {rate > 0 && <span className={styles.bsPrice}>· {formatBs(usdToBs(item.price, rate))}</span>}</p>
                       <div className={styles.qtyRow}>
                         <button
                           className={styles.qtyBtn}
@@ -169,6 +189,9 @@ export default function POSCart({
 
           <div className={`${styles.section} ${styles.summarySection}`}>
             <div className={styles.sectionTitle}>Resumen</div>
+            {summaryTopNode && (
+              <div style={{ marginBottom: '0.5rem' }}>{summaryTopNode}</div>
+            )}
             <div className={styles.summaryRow}>
               <span>Subtotal</span>
               <strong>${subtotal.toFixed(2)}</strong>
@@ -189,20 +212,32 @@ export default function POSCart({
               <span className={styles.totalLabel}>Total a pagar</span>
               <strong className={styles.totalValue}>${totalToPay.toFixed(2)}</strong>
             </div>
+            {rate > 0 && (
+              <p className={styles.totalBs}>≈ {formatBs(bsCeilFromUsd(totalToPayNum, rate))} (tasa euro)</p>
+            )}
             <div className={styles.summaryRow}>
               <span>Total pagado</span>
-              <strong>${totalPaid.toFixed(2)}</strong>
+              <strong>${totalPaidNum.toFixed(2)}</strong>
             </div>
-            {difference > 0 && (
+            {differenceNum > 0 && (
               <div className={styles.summaryHighlight} style={{ background: '#dcfce7', color: '#166534' }}>
                 <span>Vuelto</span>
-                <strong>${difference.toFixed(2)}</strong>
+                <strong>${differenceNum.toFixed(2)}{rate > 0 && ` · ≈ ${formatBs(usdToBs(differenceNum, rate))}`}</strong>
               </div>
             )}
+
+            <VueltoMixto
+              difference={differenceNum}
+              payments={payments}
+              onPaymentsChange={onPaymentsChange}
+              exchangeRate={rate}
+              sessionDrawer={sessionDrawer}
+              customer={customerDraft}
+            />
             {isMissing && (
               <div className={styles.summaryHighlight} style={{ background: '#fee2e2', color: '#991b1b' }}>
                 <span>Faltante</span>
-                <strong>${(totalToPay - totalPaid).toFixed(2)}</strong>
+                <strong>${(totalToPayNum - totalPaidNum).toFixed(2)}{rate > 0 && ` · ≈ ${formatBs(bsCeilFromUsd(totalToPayNum - totalPaidNum, rate))}`}</strong>
               </div>
             )}
           </div>
@@ -218,7 +253,7 @@ export default function POSCart({
             onClick={onPay}
             disabled={disabled || !isComplete}
           >
-            {disabled ? 'Procesando...' : isComplete ? 'Finalizar venta' : `Faltan $${Math.max(0, totalToPay - totalPaid).toFixed(2)}`}
+            {disabled ? 'Procesando...' : isComplete ? 'Finalizar venta' : `Faltan $${Math.max(0, totalToPayNum - totalPaidNum).toFixed(2)}`}
           </button>
 
           {items.length > 0 && (

@@ -303,7 +303,11 @@
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
   color: var(--color-dark-soft);
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  cursor: default;
 }
 
 .variantMeta {
@@ -321,14 +325,15 @@
 
 .variantActions {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   flex-shrink: 0;
 }
 
 .variantQtyInput {
-  width: 60px;
-  padding: 0.4rem 0.25rem;
+  width: 56px;
+  padding: 0.45rem 0.25rem;
   border: 1.5px solid rgba(196, 120, 138, 0.25);
   border-radius: 0.4rem;
   font-size: 0.9rem;
@@ -478,6 +483,7 @@
 
   .variantActions {
     width: 100%;
+    flex-direction: row;
     justify-content: flex-end;
   }
 }

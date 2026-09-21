@@ -335,7 +335,7 @@ export default function AdminInventory() {
                                     <div className={styles.variantName}>
                                       {formatVariantLabel(variant, product.categories?.size_label)}
                                     </div>
-                                    <div className={styles.variantId}>{variant.id}</div>
+                                    <div className={styles.variantId} title={variant.id}>{variant.id.slice(0, 8)}…</div>
                                     <div className={styles.variantMeta}>
                                       <span>Cantidad: <strong>{qty}</strong></span>
                                       <span>Precio: <strong>${price}</strong></span>

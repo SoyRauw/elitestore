@@ -155,6 +155,16 @@
   color: var(--color-dark);
 }
 
+.variantBs {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #d4a017;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .variantStock {
   font-size: 0.65rem;
   color: var(--color-dark-soft);

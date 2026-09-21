@@ -1,4 +1,5 @@
 import { formatVariantLabel } from '../../lib/sku'
+import { formatBillsList } from '../../lib/bills'
 import styles from './ReceiptView.module.css'
 
 const PAYMENT_METHODS = {
@@ -6,10 +7,13 @@ const PAYMENT_METHODS = {
   pago_movil: 'Pago Móvil',
   zelle: 'Zelle',
   zinli: 'Zinli',
+  rapikom: 'Rapikom',
+  efectivo_bs: 'Efectivo Bs',
   binance: 'Binance',
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
   pendiente: 'Pendiente',
+  credito: 'Crédito en cuenta',
   multiple: 'Múltiple',
 }
 
@@ -140,7 +144,10 @@ export default function ReceiptView({ movement, items, payments, customer, subto
           )}
           {payments.map((p, i) => (
             <div key={i} className={styles.paymentRow}>
-              <span>{PAYMENT_METHODS[p.method] || p.method}</span>
+              <span>
+                {PAYMENT_METHODS[p.method] || p.method}
+                {p.bs && <span className={styles.paymentBs}> (Bs {Math.round(parseFloat(p.bs)).toLocaleString('es-VE')})</span>}
+              </span>
               <strong>${(parseFloat(p.amount) || 0).toFixed(2)}</strong>
               {p.reference && <div className={styles.paymentRef}>Ref: {p.reference}</div>}
             </div>
@@ -153,6 +160,17 @@ export default function ReceiptView({ movement, items, payments, customer, subto
             <div className={styles.changeRow}>
               <span>Vuelto</span>
               <strong>${change.toFixed(2)}</strong>
+              {payments && (() => {
+                const cash = payments.find((p) => p.method === 'efectivo') || {}
+                const parts = []
+                if (cash.changeBills) parts.push(formatBillsList(cash.changeBills))
+                if (parseFloat(cash.vueltoBs) > 0) parts.push(`Bs ${Math.round(parseFloat(cash.vueltoBs)).toLocaleString('es-VE')} efectivo`)
+                if (parseFloat(cash.vueltoPm) > 0) parts.push(`$${parseFloat(cash.vueltoPm).toFixed(2)} pago móvil${cash.vueltoPmReference ? ` (Ref: ${cash.vueltoPmReference})` : ''}`)
+                if (parseFloat(cash.vueltoCredito) > 0) parts.push(`$${parseFloat(cash.vueltoCredito).toFixed(2)} crédito en tienda`)
+                return parts.length > 0 ? (
+                  <div className={styles.paymentRef} style={{ width: '100%' }}>{parts.join(' · ')}</div>
+                ) : null
+              })()}
             </div>
           )}
         </div>
@@ -175,10 +193,13 @@ const PAYMENT_METHODS_INLINE = {
   pago_movil: 'Pago Móvil',
   zelle: 'Zelle',
   zinli: 'Zinli',
+  rapikom: 'Rapikom',
+  efectivo_bs: 'Efectivo Bs',
   binance: 'Binance',
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
   pendiente: 'Pendiente',
+  credito: 'Crédito en cuenta',
   multiple: 'Múltiple',
 }
 
@@ -237,7 +258,7 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
       ` : ''}
       ${(payments || []).map(p => `
         <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;">
-          <span>${PAYMENT_METHODS_INLINE[p.method] || p.method}</span>
+          <span>${PAYMENT_METHODS_INLINE[p.method] || p.method}${p.bs ? ` (Bs ${Math.round(parseFloat(p.bs)).toLocaleString('es-VE')})` : ''}</span>
           <strong>${formatMoney(p.amount)}</strong>
         </div>
         ${p.reference ? `<div style="font-size:11px; color:#6b7280; margin-bottom:6px;">Ref: ${p.reference}</div>` : ''}
@@ -251,6 +272,17 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
           <span>Vuelto</span>
           <strong>${formatMoney(change)}</strong>
         </div>
+        ${(() => {
+          const cash = (payments || []).find((p) => p.method === 'efectivo') || {}
+          const parts = []
+          if (cash.changeBills) parts.push(formatBillsList(cash.changeBills))
+          if (parseFloat(cash.vueltoBs) > 0) parts.push(`Bs ${Math.round(parseFloat(cash.vueltoBs)).toLocaleString('es-VE')} efectivo`)
+          if (parseFloat(cash.vueltoPm) > 0) parts.push(`$${parseFloat(cash.vueltoPm).toFixed(2)} pago móvil${cash.vueltoPmReference ? ` (Ref: ${cash.vueltoPmReference})` : ''}`)
+          if (parseFloat(cash.vueltoCredito) > 0) parts.push(`$${parseFloat(cash.vueltoCredito).toFixed(2)} crédito en tienda`)
+          return parts.length > 0 ? `
+            <div style="margin-top:4px; font-size:11px; color:#374151;">${parts.join(' · ')}</div>
+          ` : ''
+        })()}
       ` : ''}
     `
     : ''

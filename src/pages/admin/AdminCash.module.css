@@ -168,3 +168,155 @@
   margin-top: 0.25rem;
 }
 
+.rateField {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rateField .input {
+  flex: 1;
+}
+
+.rateBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(212, 160, 23, 0.4);
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-left: 0.75rem;
+}
+
+/* === BILLS (kajón de efectivo $) === */
+.billsOpenRow {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.billsLabel {
+  display: block;
+  font-weight: 500;
+  color: var(--color-dark);
+  font-size: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.billsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.billTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--color-cream);
+  border: 1px solid rgba(196, 120, 138, 0.15);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.5rem;
+  min-width: 74px;
+}
+
+.billTileMini {
+  background: #1a6b3c;
+  color: #e7f6ec;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.4rem;
+  text-align: center;
+  min-width: 44px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+.billTileDanger .billTileMini {
+  background: #991b1b;
+}
+
+.billTileMismatch {
+  outline: 2px dashed #d97706;
+}
+
+.billStepper {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.billStepper button {
+  width: 22px;
+  height: 22px;
+  border-radius: 0.35rem;
+  border: none;
+  background: var(--color-primary);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.billStepper button:hover {
+  background: #a85d6f;
+}
+
+.billStepper span {
+  min-width: 22px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-dark);
+  font-size: 0.9rem;
+}
+
+.billExpected {
+  font-size: 0.7rem;
+  color: #92400e;
+}
+
+.billCount {
+  font-weight: 700;
+  color: var(--color-dark);
+  font-size: 0.95rem;
+}
+
+.billTileDanger .billCount {
+  color: #991b1b;
+}
+
+.billsActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.billsTotal {
+  font-weight: 700;
+  color: var(--color-dark);
+}
+
+.billTileDanger {
+  border-color: #991b1b;
+}
+
+.drawerTotal {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: var(--color-dark);
+  padding: 0.45rem 0.8rem;
+  border-radius: 0.5rem;
+  background: #dcfce7;
+  color: #166534;
+}
+

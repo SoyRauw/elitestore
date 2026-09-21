@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Search, ShoppingBag, Package, Tag } from 'lucide-react'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
+import { usdToBs, formatBs } from '../../lib/rate'
 import styles from './POSProductSearch.module.css'
 
-export default function POSProductSearch({ onAdd, wholesaleMode = false }) {
+export default function POSProductSearch({ onAdd, wholesaleMode = false, exchangeRate = 0 }) {
   const [query, setQuery] = useState('')
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -165,12 +166,19 @@ export default function POSProductSearch({ onAdd, wholesaleMode = false }) {
                       </div>
                       <div className={styles.variantCardInfo}>
                         <span className={styles.variantLabel}>{formatVariantLabel(variant, product.categories?.size_label)}</span>
-                        <span className={styles.variantPrice}>
+                                              <span className={styles.variantPrice}>
                           ${wholesaleMode
                             ? (variant.wholesale_price || product.wholesale_price || variant.price || product.price || 0)
                             : (variant.price || product.price || 0)}
                           {wholesaleMode && <span className={styles.wholesaleTag}> Mayor</span>}
                         </span>
+                        {exchangeRate > 0 && (
+                          <span className={styles.variantBs}>
+                            {formatBs(usdToBs(wholesaleMode
+                              ? (variant.wholesale_price || product.wholesale_price || variant.price || product.price || 0)
+                              : (variant.price || product.price || 0), exchangeRate))}
+                          </span>
+                        )}
                         <span className={styles.variantStock}>Stock {variant.stock}</span>
                       </div>
                     </button>

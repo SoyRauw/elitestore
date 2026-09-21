@@ -27,6 +27,7 @@ const AdminCustomers = lazy(() => import('./pages/admin/AdminCustomers'))
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
 const AdminReturns = lazy(() => import('./pages/admin/AdminReturns'))
+const AdminApartados = lazy(() => import('./pages/admin/AdminApartados'))
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'))
 
 const ADMIN_ONLY_ROUTES = [
@@ -100,6 +101,7 @@ function App() {
           <Route path="/admin/movements" element={<AdminMovements />} />
           <Route path="/admin/movements/:id" element={<AdminMovementDetail />} />
           <Route path="/admin/returns" element={<AdminReturns />} />
+          <Route path="/admin/apartados" element={<AdminApartados />} />
           <Route path="/admin/pos" element={<AdminPOS />} />
           <Route path="/admin/cash" element={<AdminCash />} />
           <Route path="/admin/reports" element={<AdminReports />} />

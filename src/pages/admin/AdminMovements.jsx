@@ -13,6 +13,8 @@ const PAYMENT_METHODS = {
   pago_movil: 'Pago Móvil',
   zelle: 'Zelle',
   zinli: 'Zinli',
+  rapikom: 'Rapikom',
+  efectivo_bs: 'Efectivo Bs',
   binance: 'Binance',
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
@@ -80,7 +82,7 @@ export default function AdminMovements() {
                 checked={includeReturns}
                 onChange={(e) => setIncludeReturns(e.target.checked)}
               />
-              Incluir devoluciones
+              Incluir devoluciones, apartados y abonos
             </label>
             <Link to="/admin/pos" className="btn btn-primary">
               <Store size={16} /> Ir al POS
@@ -113,7 +115,7 @@ export default function AdminMovements() {
                   <motion.tr key={m.id} className={styles.tableRow} initial={{opacity:0}} animate={{opacity:1}}>
                     <td data-label="Fecha">{new Date(m.created_at).toLocaleDateString()}</td>
                     <td data-label="Tipo">
-                      <span className={`badge ${m.movement_type === 'venta' ? 'badge-primary' : m.movement_type === 'devolucion' ? 'badge-warning' : 'badge-secondary'}`}>
+                      <span className={`badge ${m.movement_type === 'venta' ? 'badge-primary' : m.movement_type === 'devolucion' ? 'badge-warning' : m.movement_type === 'apartado' ? 'badge-info' : m.movement_type === 'abono' ? 'badge-success' : 'badge-secondary'}`}>
                         {m.movement_type}
                       </span>
                     </td>

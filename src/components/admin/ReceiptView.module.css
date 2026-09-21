@@ -166,6 +166,11 @@
   margin-top: 0.1rem;
 }
 
+.paymentBs {
+  color: #d4a017;
+  font-weight: 600;
+}
+
 .totalPaidRow,
 .changeRow {
   display: flex;

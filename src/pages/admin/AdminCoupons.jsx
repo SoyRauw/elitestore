@@ -18,6 +18,7 @@ const emptyForm = {
   usage_limit: 1,
   end_date: '',
   is_active: true,
+  store_scope: 'ambos',
 }
 
 export default function AdminCoupons() {
@@ -62,6 +63,7 @@ export default function AdminCoupons() {
       usage_limit: coupon.usage_limit || 1,
       end_date: coupon.end_date ? coupon.end_date.slice(0, 10) : '',
       is_active: coupon.is_active !== false,
+      store_scope: coupon.store_scope || 'ambos',
     })
     setShowForm(true)
   }
@@ -114,6 +116,7 @@ export default function AdminCoupons() {
       usage_limit: parseInt(form.usage_limit) || 1,
       end_date: form.end_date || null,
       is_active: form.is_active,
+      store_scope: form.store_scope || 'ambos',
     }
     try {
       if (editCoupon) {
@@ -227,6 +230,9 @@ export default function AdminCoupons() {
                   {!coupon.is_active && <span className={`${styles.badge} ${styles.badgeInactive}`}>Inactivo</span>}
                   {isExpired(coupon) && <span className={`${styles.badge} ${styles.badgeExpired}`}>Vencido</span>}
                   {coupon.is_active && !isExpired(coupon) && <span className={`${styles.badge} ${styles.badgeActive}`}>Activo</span>}
+                  <span className={`${styles.badge} ${coupon.store_scope === 'usa' ? 'badge-info' : coupon.store_scope === 'elite' ? 'badge-primary' : 'badge-warning'}`}>
+                    {coupon.store_scope === 'usa' ? 'USA' : coupon.store_scope === 'elite' ? 'Elite' : 'Elite + USA'}
+                  </span>
                   {coupon.end_date && (
                     <span className={styles.validUntil}>Vence: {new Date(coupon.end_date).toLocaleDateString()}</span>
                   )}
@@ -303,6 +309,14 @@ export default function AdminCoupons() {
                     <label>Compra mínima ($)</label>
                     <input type="number" step="0.01" className={`${styles.input} ${validationErrors.min_purchase_amount ? styles.inputError : ''}`} value={form.min_purchase_amount} onChange={(e) => setForm({ ...form, min_purchase_amount: e.target.value })} placeholder="0" />
                     {validationErrors.min_purchase_amount && <span className={styles.fieldError}>{validationErrors.min_purchase_amount}</span>}
+                  </div>
+                  <div className={styles.field}>
+                    <label>Aplicar en</label>
+                    <select className={styles.input} value={form.store_scope} onChange={(e) => setForm({ ...form, store_scope: e.target.value })}>
+                      <option value="ambos">Elite + USA (ambas)</option>
+                      <option value="elite">Solo Elite Store</option>
+                      <option value="usa">Solo USA Super Store</option>
+                    </select>
                   </div>
                 </div>
 

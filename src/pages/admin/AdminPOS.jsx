@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { useCashSession } from '../../hooks/useCashSession'
+import { useCashSession, fetchSessionDrawer, insertBillMovements } from '../../hooks/useCashSession'
 import { formatWhatsAppReceipt } from '../../lib/whatsapp'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
@@ -10,15 +10,19 @@ import POSProductSearch from '../../components/admin/POSProductSearch'
 import POSCart from '../../components/admin/POSCart'
 import ReceiptView, { printReceipt } from '../../components/admin/ReceiptView'
 import { formatVariantLabel } from '../../lib/sku'
-import { Lock, CheckCircle, Printer, MessageCircle, X, LockOpen } from 'lucide-react'
+import { fetchEuroRate, formatRate } from '../../lib/rate'
+import { sumBills } from '../../lib/bills'
+import { Lock, CheckCircle, Printer, MessageCircle, X, LockOpen, ArrowDownUp, Loader2 } from 'lucide-react'
 import styles from './AdminPOS.module.css'
 
 const PAYMENT_METHODS = {
   efectivo: 'Efectivo',
+  efectivo_bs: 'Efectivo Bs',
   pago_movil: 'Pago Móvil',
   zelle: 'Zelle',
   zinli: 'Zinli',
   binance: 'Binance',
+  rapikom: 'Rapikom',
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
 }
@@ -32,7 +36,30 @@ function calculateItemPrice(product, variant, isWholesale) {
 
 export default function AdminPOS() {
   const { user } = useAuth()
-  const { session, loading: sessionLoading } = useCashSession(user?.id)
+  const { session, loading: sessionLoading, updateSessionRate } = useCashSession(user?.id)
+
+  // Cash drawer (bill-level) for the open session
+  const [sessionDrawer, setSessionDrawer] = useState(null)
+  const sessionId = session?.id || null
+
+  const refreshDrawer = useCallback(async () => {
+    if (!sessionId) { setSessionDrawer(null); return }
+    try {
+      setSessionDrawer(await fetchSessionDrawer(sessionId))
+    } catch (e) {
+      console.error('Error cargando cajón:', e)
+    }
+  }, [sessionId])
+
+  useEffect(() => {
+    refreshDrawer()
+  }, [refreshDrawer])
+
+  const handleAbastecer = useCallback(async (counts, note) => {
+    if (!sessionId) return
+    await insertBillMovements(sessionId, 'ajuste', counts, { note })
+    setSessionDrawer(await fetchSessionDrawer(sessionId))
+  }, [sessionId])
 
   const [items, setItems] = useState([])
   const [wholesaleMode, setWholesaleMode] = useState(false)
@@ -46,6 +73,7 @@ export default function AdminPOS() {
   const [barcodeBuffer, setBarcodeBuffer] = useState('')
   const barcodeInputRef = useRef(null)
   const lastScanRef = useRef({ code: '', time: 0 })
+  const [rateLoading, setRateLoading] = useState(false)
 
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -91,6 +119,32 @@ export default function AdminPOS() {
   }, [payments])
 
   const difference = totalPaid - totalToPay
+
+  const handleRefreshRate = useCallback(async () => {
+    setRateLoading(true)
+    try {
+      const { rate } = await fetchEuroRate()
+      await updateSessionRate(rate)
+    } catch (e) {
+      console.error('No se pudo actualizar la tasa:', e)
+    } finally {
+      setRateLoading(false)
+    }
+  }, [updateSessionRate])
+
+  // Keep the euro rate fresh: poll every 5 min and on window focus
+  useEffect(() => {
+    if (!session) return
+    const interval = setInterval(handleRefreshRate, 5 * 60 * 1000)
+    window.addEventListener('focus', handleRefreshRate)
+    return () => { clearInterval(interval); window.removeEventListener('focus', handleRefreshRate) }
+  }, [session?.exchange_rate, session?.id, handleRefreshRate])
+
+  // Auto-fill the rate if the session was opened without one
+  useEffect(() => {
+    if (!session || session.exchange_rate) return
+    handleRefreshRate()
+  }, [session?.exchange_rate, session?.id, handleRefreshRate])
 
   useEffect(() => {
     const id = customer.id_number?.trim()
@@ -311,10 +365,40 @@ export default function AdminPOS() {
       setError('Agrega al menos un producto al carrito')
       return
     }
-    if (totalPaid < totalToPay) {
+    // Datos del cliente obligatorios: cédula + nombre
+    const idNumber = customer?.id_number?.trim()
+    const customerNameField = customer?.name?.trim()
+    if (!idNumber || !customerNameField) {
+      setError('Datos del cliente son obligatorios: cédula y nombre')
+      return
+    }
+    // Half-cent tolerance absorbs float residuals from Bs conversions
+    if (totalPaid + 0.005 < totalToPay) {
       setError(`Faltan $${(totalToPay - totalPaid).toFixed(2)} para completar el pago`)
       return
     }
+
+    // Option A: if there is a change to give, bills + Bs vuelto + PM vuelto + crédito must cover it exactly
+    const differenceDue = Math.round((totalPaid - totalToPay) * 100) / 100
+    if (differenceDue > 0) {
+      const hasCash = payments.some((p) => p.method === 'efectivo')
+      if (hasCash) {
+        const mixCovered = payments
+          .filter((p) => p.method === 'efectivo')
+          .reduce((sum, p) => {
+            const bills = sumBills(p.changeBills || {})
+            const bsCovered = (parseFloat(p.vueltoBs) || 0) / (session.exchange_rate || 1)
+            const pm = parseFloat(p.vueltoPm) || 0
+            const credito = parseFloat(p.vueltoCredito) || 0
+            return sum + bills + bsCovered + pm + credito
+          }, 0)
+        if (Math.abs(differenceDue - mixCovered) > 0.004) {
+          setError(`El vuelto no cuadra: falta $${(differenceDue - mixCovered).toFixed(2)} — completa el resto con billetes, Bs efectivo, pago móvil o crédito`)
+          return
+        }
+      }
+    }
+
     setError('')
     setConfirmPayOpen(true)
   }
@@ -475,9 +559,12 @@ export default function AdminPOS() {
         .filter((p) => parseFloat(p.amount) > 0)
         .map((p) => ({
           movement_id: movement.id,
+          cash_session_id: session.id,
           method: p.method,
           amount: parseFloat(p.amount),
-          reference: p.reference?.trim() || null,
+          reference: p.reference?.trim() || (p.bs ? `Bs ${Math.round(p.bs).toLocaleString('es-VE')} @ ${(session.exchange_rate || 0).toLocaleString('es-VE')}` : null),
+          bs_amount: p.bs ? Math.round(p.bs * 100) / 100 : null,
+          bs_rate: p.bs ? (session.exchange_rate || null) : null,
         }))
 
       if (movementPayments.length > 0) {
@@ -486,6 +573,89 @@ export default function AdminPOS() {
           .insert(movementPayments)
         if (paymentsError) throw paymentsError
       }
+
+      // Save the mixed change (Bs efectivo / pago móvil / crédito) on the cash payment row
+      const cashPayments = payments.filter((p) => p.method === 'efectivo' && (
+        (parseFloat(p.vueltoBs) || 0) > 0 ||
+        (parseFloat(p.vueltoPm) || 0) > 0 ||
+        (parseFloat(p.vueltoCredito) || 0) > 0
+      ))
+      for (const p of cashPayments) {
+        await supabase
+          .from('movement_payments')
+          .update({
+            vuelto_bs: p.vueltoBs ? Math.round(parseFloat(p.vueltoBs) * 100) / 100 : null,
+            vuelto_pm_amount: p.vueltoPm ? parseFloat(p.vueltoPm) : null,
+            vuelto_pm_reference: p.vueltoPmReference?.trim() || null,
+            vuelto_credito: p.vueltoCredito ? Math.round(parseFloat(p.vueltoCredito) * 100) / 100 : null,
+          })
+          .eq('movement_id', movement.id)
+          .eq('method', 'efectivo')
+      }
+
+      // Vuelto left as store credit: add to the customer's balance + history
+      const vueltoCreditoTotal = cashPayments.reduce((sum, p) => sum + (parseFloat(p.vueltoCredito) || 0), 0)
+      if (vueltoCreditoTotal > 0 && customerId) {
+        const { data: currentCustomer, error: custErr } = await supabase
+          .from('customers')
+          .select('balance')
+          .eq('id', customerId)
+          .single()
+        if (custErr) throw custErr
+        const vueltoCreditoBalance = (currentCustomer?.balance || 0) + vueltoCreditoTotal
+        const { error: balErr } = await supabase
+          .from('customers')
+          .update({ balance: vueltoCreditoBalance })
+          .eq('id', customerId)
+        if (balErr) throw balErr
+        const { error: histErr } = await supabase
+          .from('customer_credit_history')
+          .insert([{
+            customer_id: customerId,
+            movement_id: movement.id,
+            amount: vueltoCreditoTotal,
+            reason: 'Vuelto dejado en la tienda (crédito)',
+          }])
+        if (histErr) throw histErr
+      }
+
+      // Cash drawer ledger: bills received (venta) + bills given as change (vuelto)
+      const billRows = []
+      for (const p of payments) {
+        if (p.method === 'efectivo' && p.bills) {
+          for (const [denom, qty] of Object.entries(p.bills)) {
+            if (parseInt(qty, 10) > 0) {
+              billRows.push({
+                session_id: session.id,
+                movement_id: movement.id,
+                type: 'venta',
+                denomination: parseFloat(denom),
+                quantity: parseInt(qty, 10),
+              })
+            }
+          }
+        }
+        if (p.method === 'efectivo' && p.changeBills) {
+          for (const [denom, qty] of Object.entries(p.changeBills)) {
+            if (parseInt(qty, 10) > 0) {
+              billRows.push({
+                session_id: session.id,
+                movement_id: movement.id,
+                type: 'vuelto',
+                denomination: parseFloat(denom),
+                quantity: parseInt(qty, 10),
+              })
+            }
+          }
+        }
+      }
+      if (billRows.length > 0) {
+        const { error: billsError } = await supabase
+          .from('cash_bill_movements')
+          .insert(billRows)
+        if (billsError) throw billsError
+      }
+      refreshDrawer()
 
       for (const item of items) {
         const newStock = Math.max(0, item.variant.stock - item.quantity)
@@ -589,8 +759,29 @@ export default function AdminPOS() {
       <div className={styles.page}>
         <div className={styles.topBar}>
           <h1 className={styles.pageTitle}>Punto de Venta</h1>
-          <div className={`${styles.sessionBadge} ${session ? styles.sessionOpen : styles.sessionClosed}`}>
-            {session ? <><LockOpen size={14} /> Caja abierta</> : <><Lock size={14} /> Caja cerrada</>}
+          <div className={styles.topBarRight}>
+            {session && !rateLoading && (
+              <button
+                className={`${styles.ratePill} ${session.exchange_rate ? '' : styles.ratePillMissing}`}
+                onClick={handleRefreshRate}
+                disabled={rateLoading}
+                title="Tasa euro — clic para actualizar"
+              >
+                {session.exchange_rate ? (
+                  <><ArrowDownUp size={13} /> Tasa Euro: {formatRate(session.exchange_rate)} Bs/$</>
+                ) : (
+                  <>Sin tasa — clic para actualizar</>
+                )}
+              </button>
+            )}
+            {session && rateLoading && (
+              <span className={`${styles.ratePill} ${styles.ratePillLoading}`}>
+                <Loader2 size={13} className={styles.spin} /> Buscando tasa...
+              </span>
+            )}
+            <div className={`${styles.sessionBadge} ${session ? styles.sessionOpen : styles.sessionClosed}`}>
+              {session ? <><LockOpen size={14} /> Caja abierta</> : <><Lock size={14} /> Caja cerrada</>}
+            </div>
           </div>
         </div>
 
@@ -626,7 +817,7 @@ export default function AdminPOS() {
 
           <div className={styles.layout}>
             <div className={styles.leftPanel}>
-              <POSProductSearch onAdd={addItem} wholesaleMode={wholesaleMode} />
+              <POSProductSearch onAdd={addItem} wholesaleMode={wholesaleMode} exchangeRate={session.exchange_rate ? parseFloat(session.exchange_rate) : 0} />
             </div>
             <div className={styles.rightPanel}>
               <POSCart
@@ -654,6 +845,9 @@ export default function AdminPOS() {
                 onRedeemCoupon={redeemCoupon}
                 wholesaleMode={wholesaleMode}
                 onToggleWholesale={toggleWholesaleMode}
+                exchangeRate={session.exchange_rate}
+                sessionDrawer={sessionDrawer}
+                onAbastecer={handleAbastecer}
               />
             </div>
           </div>

@@ -288,6 +288,22 @@
   color: var(--color-dark);
 }
 
+.totalBs {
+  margin: -0.25rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #92400e;
+  background: #fffbeb;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+  text-align: right;
+}
+
+.bsPrice {
+  color: #d4a017;
+  font-weight: 600;
+}
+
 .summaryRow {
   display: flex;
   justify-content: space-between;
@@ -371,6 +387,7 @@
     max-height: 320px;
     flex: none;
   }
+}
 
 .balanceRow {
   display: flex;
@@ -390,8 +407,189 @@
   gap: 0.35rem;
 }
 
-.actionsRow {
+/* Selector de billetes de vuelto (en el summary) — mismo look del picker */
+.changePickBlock {
+  border: 1px solid rgba(22, 101, 52, 0.25);
+  background: #f4fbf6;
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.changePickTitle {
+  margin: 0 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #166534;
+}
+
+.changeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.changeChipRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+/* Billete verde idéntico al picker de Efectivo */
+.changeBill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: #1a6b3c;
+  color: #e7f6ec;
+  border: none;
+  border-radius: 0.35rem;
+  padding: 0.32rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+.changeBill:hover {
+  transform: scale(1.06);
+}
+
+.changeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: #fbbf24;
+  color: #78350f;
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-left: 0.15rem;
+}
+
+.changeMinus {
+  width: 16px;
+  height: 16px;
+  border-radius: 0.3rem;
+  border: none;
+  background: rgba(196, 120, 138, 0.2);
+  color: #991b1b;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.changeExact,
+.changeMismatch {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.changeExact {
+  color: #166534;
+}
+
+.changeMismatch {
+  color: #991b1b;
+}
+
+/* Vuelo mixto: Bs efectivo / pago móvil */
+.changeRestBox {
+  border-top: 1px dashed rgba(22, 101, 52, 0.3);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.changeRestRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-dark);
+  flex-wrap: wrap;
+}
+
+.changeRestActions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.changeRestBtn {
+  background: white;
+  border: 1px solid rgba(22, 101, 52, 0.35);
+  color: #166534;
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.changeRestBtn:hover {
+  background: #dcfce7;
+}
+
+.changeRestInput {
+  padding: 0.25rem 0.45rem;
+  border: 1px solid rgba(22, 101, 52, 0.3);
+  border-radius: 0.35rem;
+  font-size: 0.8rem;
+  width: 110px;
+  background: white;
+  color: var(--color-dark);
+}
+
+.changeRestRemove {
+  background: none;
+  border: none;
+  color: #991b1b;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 0.2rem;
+}
+
+.changeRef {
+  color: var(--color-dark-soft);
+  font-size: 0.7rem;
+}
+
+.changePmBox {
+  background: #f8f9fa;
+  border: 1px dashed rgba(99, 27, 27, 0.25);
+  border-radius: 0.45rem;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.changeRestConfirm {
+  background: #166534;
+  color: white;
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .actionsRow {
+    display: flex;
     flex-direction: column;
+    gap: 0.5rem;
   }
 
   .clearBtn {
