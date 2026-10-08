@@ -34,6 +34,7 @@ export default function POSCart({
   sessionDrawer,
   onAbastecer,
   summaryTopNode,
+  disableGiftcard = false,
 }) {
   const totalToPayNum = parseFloat(totalToPay) || 0
   const totalPaidNum = parseFloat(totalPaid) || 0
@@ -132,6 +133,7 @@ export default function POSCart({
               exchangeRate={rate}
               sessionDrawer={sessionDrawer}
               onAbastecer={onAbastecer}
+              disableGiftcard={disableGiftcard}
             />
           </div>
         </div>

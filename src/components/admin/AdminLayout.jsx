@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X, Store, Banknote, Users, Gift, FileText, Shield, RotateCcw, Bookmark } from 'lucide-react'
+import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X, Store, Banknote, Users, Gift, FileText, Shield, RotateCcw, Bookmark, CreditCard } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import styles from './AdminLayout.module.css'
 
@@ -46,6 +46,7 @@ export default function AdminLayout({ children }) {
           <Link onClick={() => setMenuOpen(false)} to="/admin/movements" className={`${styles.navItem} ${location.pathname==='/admin/movements'?styles.navActive:''}`}><ShoppingBag size={18} /> Movimientos</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/returns" className={`${styles.navItem} ${location.pathname==='/admin/returns'?styles.navActive:''}`}><RotateCcw size={18} /> Devoluciones</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/apartados" className={`${styles.navItem} ${location.pathname==='/admin/apartados'?styles.navActive:''}`}><Bookmark size={18} /> Apartados</Link>
+          <Link onClick={() => setMenuOpen(false)} to="/admin/giftcards" className={`${styles.navItem} ${location.pathname==='/admin/giftcards'?styles.navActive:''}`}><CreditCard size={18} /> Giftcards</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/pos" className={`${styles.navItem} ${location.pathname==='/admin/pos'?styles.navActive:''}`}><Store size={18} /> POS</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/cash" className={`${styles.navItem} ${location.pathname==='/admin/cash'?styles.navActive:''}`}><Banknote size={18} /> Caja</Link>
           {isAdmin && (

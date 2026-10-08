@@ -25,6 +25,7 @@ const PAYMENT_METHODS = {
   rapikom: 'Rapikom',
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
+  giftcard: 'Giftcard',
 }
 
 function calculateItemPrice(product, variant, isWholesale) {
@@ -251,8 +252,9 @@ export default function AdminPOS() {
   }, [])
 
   const redeemCoupon = useCallback(async (coupon) => {
-    if (!customer?.id) throw new Error('Selecciona un cliente')
-    if ((customer.points || 0) < coupon.points_cost) throw new Error('Puntos insuficientes')
+    const isFree = (coupon.points_cost || 0) === 0
+    if (!isFree && !customer?.id) throw new Error('Este cupón requiere cliente registrado (puntos)')
+    if (!isFree && (customer?.points || 0) < coupon.points_cost) throw new Error('Puntos insuficientes')
     const min = parseFloat(coupon.min_purchase_amount) || 0
     if (subtotal < min) throw new Error(`Requiere compra mínima de $${min.toFixed(2)}`)
 
@@ -712,6 +714,46 @@ export default function AdminPOS() {
             reason: 'Usado en compra',
           }])
         if (creditHistoryError) throw creditHistoryError
+      }
+
+      // Giftcard como método de pago: marcar usada y sobrante → saldo
+      const giftPayment = payments.find((p) => p.method === 'giftcard' && p.giftcard)
+      if (giftPayment) {
+        const applied = Math.round((parseFloat(giftPayment.amount) || 0) * 100) / 100
+        const cardValue = parseFloat(giftPayment.giftcard.amount) || 0
+        const excess = Math.max(0, Math.round((cardValue - applied) * 100) / 100)
+
+        const { error: giftErr } = await supabase
+          .from('gift_cards')
+          .update({
+            status: 'usada',
+            used_movement_id: movement.id,
+            used_customer_id: customerId || null,
+            used_amount: applied,
+            balance_to_credit: excess,
+            used_at: new Date().toISOString(),
+          })
+          .eq('id', giftPayment.giftcard.id)
+          .eq('status', 'activa')
+        if (giftErr) throw giftErr
+
+        if (excess > 0 && customerId) {
+          const { data: cur } = await supabase.from('customers').select('balance').eq('id', customerId).single()
+          const { error: balErr } = await supabase
+            .from('customers')
+            .update({ balance: (cur?.balance || 0) + excess })
+            .eq('id', customerId)
+          if (balErr) throw balErr
+          const { error: histErr } = await supabase
+            .from('customer_credit_history')
+            .insert([{
+              customer_id: customerId,
+              movement_id: movement.id,
+              amount: excess,
+              reason: `Sobrante de giftcard ${giftPayment.reference || ''}`.trim(),
+            }])
+          if (histErr) throw histErr
+        }
       }
 
       setCompletedSale({

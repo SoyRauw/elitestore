@@ -14,6 +14,7 @@ const PAYMENT_METHODS = {
   transferencia: 'Transferencia',
   punto: 'Punto de Venta',
   credito: 'Crédito en cuenta',
+  giftcard: 'Giftcard',
   multiple: 'Múltiple',
 }
 

@@ -28,6 +28,7 @@ const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
 const AdminReturns = lazy(() => import('./pages/admin/AdminReturns'))
 const AdminApartados = lazy(() => import('./pages/admin/AdminApartados'))
+const AdminGiftCards = lazy(() => import('./pages/admin/AdminGiftCards'))
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'))
 
 const ADMIN_ONLY_ROUTES = [
@@ -102,6 +103,7 @@ function App() {
           <Route path="/admin/movements/:id" element={<AdminMovementDetail />} />
           <Route path="/admin/returns" element={<AdminReturns />} />
           <Route path="/admin/apartados" element={<AdminApartados />} />
+          <Route path="/admin/giftcards" element={<AdminGiftCards />} />
           <Route path="/admin/pos" element={<AdminPOS />} />
           <Route path="/admin/cash" element={<AdminCash />} />
           <Route path="/admin/reports" element={<AdminReports />} />

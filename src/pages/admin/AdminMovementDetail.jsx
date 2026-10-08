@@ -5,6 +5,7 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, RotateCcw, Copy, XCircle, Printer, MessageCircle, FileText, X, Calendar, User, Phone, CreditCard, Banknote, Store, ShoppingBag } from 'lucide-react'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
 import ReceiptView, { printReceipt } from '../../components/admin/ReceiptView'
+import { reverseSaleEffects, annulGiftcardPurchase } from '../../lib/movementReversal'
 import styles from './AdminMovementDetail.module.css'
 
 const PAYMENT_METHODS = {
@@ -20,6 +21,7 @@ const PAYMENT_METHODS = {
   pendiente: 'Pendiente',
   multiple: 'Múltiple',
   credito: 'Crédito en cuenta',
+  giftcard: 'Giftcard',
 }
 
 const SALE_TYPE_LABELS = {
@@ -141,19 +143,31 @@ export default function AdminMovementDetail() {
   }
 
   const cancelMovement = async () => {
-    if(!confirm('¿Estás seguro de que deseas ANULAR este recibo? Los productos volverán al inventario y el estado cambiará a "anulado".')) return
+    if (movement.status === 'anulado') return
+    if (!confirm('¿Anular este recibo? Se revertirán los efectos (crédito, puntos, giftcard) y los productos volverán al inventario.')) return
 
-    await supabase.from('movements').update({ status: 'anulado', updated_at: new Date().toISOString() }).eq('id', id)
+    try {
+      if (movement.movement_type === 'venta') {
+        await reverseSaleEffects(movement)
+      } else if (movement.movement_type === 'giftcard') {
+        await annulGiftcardPurchase(movement)
+      }
 
-    if (movement.status !== 'devuelto' && movement.status !== 'anulado') {
-      for (const item of items) {
-        const variantId = item.variant_id
-        if (!variantId) continue
-        const { data: variantData } = await supabase.from('product_variants').select('stock').eq('id', variantId).single()
-        if (variantData) {
-          await supabase.from('product_variants').update({ stock: variantData.stock + item.quantity }).eq('id', variantId)
+      await supabase.from('movements').update({ status: 'anulado', updated_at: new Date().toISOString() }).eq('id', id)
+
+      if (movement.status !== 'devuelto') {
+        for (const item of items) {
+          const variantId = item.variant_id
+          if (!variantId) continue
+          const { data: variantData } = await supabase.from('product_variants').select('stock').eq('id', variantId).single()
+          if (variantData) {
+            await supabase.from('product_variants').update({ stock: variantData.stock + item.quantity }).eq('id', variantId)
+          }
         }
       }
+    } catch (e) {
+      console.error(e)
+      alert(e.message || 'Error anulando el recibo')
     }
 
     fetchDetail()
@@ -181,7 +195,7 @@ export default function AdminMovementDetail() {
           <p>{new Date(movement.created_at).toLocaleString()}</p>
         </div>
         <div className={styles.badges}>
-          <span className={`badge ${movement.movement_type === 'venta' ? 'badge-primary' : movement.movement_type === 'abono' ? 'badge-success' : movement.movement_type === 'apartado' ? 'badge-info' : 'badge-secondary'}`}>
+          <span className={`badge ${movement.movement_type === 'venta' ? 'badge-primary' : movement.movement_type === 'abono' ? 'badge-success' : movement.movement_type === 'apartado' ? 'badge-info' : movement.movement_type === 'giftcard' ? 'badge-warning' : 'badge-secondary'}`}>
             {movement.movement_type.toUpperCase()}
           </span>
           {movement.sale_type && (

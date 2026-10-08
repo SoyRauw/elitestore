@@ -20,27 +20,23 @@ export default function CouponSelector({
   const [error, setError] = useState('')
 
   const fetchData = useCallback(async () => {
-    if (!customer?.id) {
-      setCustomerCoupons([])
-      setRewardCoupons([])
-      return
-    }
     setLoading(true)
-    const [couponsRes, rewardsRes] = await Promise.all([
-      supabase
+    const rewardsPromise = supabase
+      .from('reward_coupons')
+      .select('*')
+      .eq('is_active', true)
+    const couponsPromise = customer?.id
+      ? supabase
         .from('customer_coupons')
         .select('*, reward_coupons(*)')
         .eq('customer_id', customer.id)
-        .eq('status', 'active'),
-      supabase
-        .from('reward_coupons')
-        .select('*')
-        .eq('is_active', true),
-    ])
+        .eq('status', 'active')
+      : Promise.resolve({ data: [] })
+    const [couponsRes, rewardsRes] = await Promise.all([couponsPromise, rewardsPromise])
     setCustomerCoupons(couponsRes.data || [])
     setRewardCoupons(rewardsRes.data || [])
     setLoading(false)
-  }, [customer])
+  }, [customer?.id])
 
   useEffect(() => {
     fetchData()
@@ -58,15 +54,23 @@ export default function CouponSelector({
 
   const handleRedeem = async (coupon) => {
     setError('')
+    const isFree = (coupon.points_cost || 0) === 0
     if (!checkMinPurchase(coupon)) {
       setError(`Requiere compra mínima de $${coupon.min_purchase_amount}`)
+      return
+    }
+    if (!isFree && !customer?.id) {
+      setError('Este cupón requiere cliente registrado (puntos)')
       return
     }
     if ((customer?.points || 0) < coupon.points_cost) {
       setError(`Puntos insuficientes. Necesita ${coupon.points_cost} pts.`)
       return
     }
-    if (!confirm(`¿Canjear ${coupon.points_cost} puntos y aplicar el cupón "${coupon.name}" a esta venta?`)) return
+    const msg = isFree
+      ? `¿Aplicar el cupón "${coupon.name}" a esta venta?`
+      : `¿Canjear ${coupon.points_cost} puntos y aplicar el cupón "${coupon.name}" a esta venta?`
+    if (!confirm(msg)) return
     try {
       await onRedeemRewardCoupon(coupon)
       setShowRedeem(false)
@@ -105,6 +109,9 @@ export default function CouponSelector({
   }
 
   const info = getCouponInfo()
+  const registered = !!customer?.id
+  const typed = !!((customer?.id_number || '').trim() && (customer?.name || '').trim())
+  const canUseCoupons = registered || typed
 
   return (
     <div className={styles.container}>
@@ -114,15 +121,17 @@ export default function CouponSelector({
           <span>Cupones y puntos</span>
         </div>
         <div className={styles.headerMeta}>
-          <span className={styles.points}><Coins size={12} /> {customer?.points || 0} pts</span>
+          <span className={styles.points}>
+            <Coins size={12} /> {registered ? `${customer?.points || 0} pts` : 'Nuevo cliente'}
+          </span>
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </div>
 
       {expanded && (
         <div className={styles.body}>
-          {!customer?.id ? (
-            <p className={styles.emptyText}>Selecciona un cliente para ver cupones y puntos.</p>
+          {!canUseCoupons ? (
+            <p className={styles.emptyText}>Escribe la cédula y el nombre del cliente para aplicar cupones.</p>
           ) : loading ? (
             <p className={styles.emptyText}>Cargando...</p>
           ) : (
@@ -169,41 +178,46 @@ export default function CouponSelector({
                     </div>
                   )}
 
-                  <button className={styles.redeemBtn} onClick={() => setShowRedeem(!showRedeem)} disabled={disabled}>
-                    <Coins size={14} /> Canjear puntos por cupón
-                  </button>
+                  {rewardCoupons.length > 0 && (
+                    <>
+                      <button className={styles.redeemBtn} onClick={() => setShowRedeem(!showRedeem)} disabled={disabled}>
+                        <Gift size={14} /> {registered ? 'Cupones y puntos' : 'Cupones especiales'}
+                      </button>
 
-                  {showRedeem && (
-                    <div className={styles.redeemList}>
-                      <div className={styles.sectionLabel}>Canjear puntos</div>
-                      {rewardCoupons.length === 0 ? (
-                        <p className={styles.emptyText}>No hay cupones para canjear.</p>
-                      ) : (
-                        rewardCoupons.map((coupon) => {
-                          const qualifies = checkMinPurchase(coupon)
-                          const enoughPoints = (customer?.points || 0) >= coupon.points_cost
-                          return (
-                            <button
-                              key={coupon.id}
-                              className={styles.redeemOption}
-                              onClick={() => handleRedeem(coupon)}
-                              disabled={disabled || !qualifies || !enoughPoints}
-                            >
-                              <div className={styles.redeemInfo}>
-                                <strong>{coupon.name}</strong>
-                                <span>{formatDiscount(coupon)} de descuento · {coupon.applies_to === 'sale' ? 'Venta' : 'Producto'}</span>
-                                {!qualifies && (
-                                  <span className={styles.minWarning}>Compra mínima: ${coupon.min_purchase_amount || 0}</span>
-                                )}
-                              </div>
-                              <span className={`${styles.redeemCost} ${!enoughPoints ? styles.insufficient : ''}`}>
-                                {coupon.points_cost} pts
-                              </span>
-                            </button>
-                          )
-                        })
+                      {showRedeem && (
+                        <div className={styles.redeemList}>
+                          <div className={styles.sectionLabel}>{registered ? 'Cupones disponibles' : 'Cupones sin puntos'}</div>
+                          {rewardCoupons.map((coupon) => {
+                            const qualifies = checkMinPurchase(coupon)
+                            const isFree = (parseFloat(coupon.points_cost) || 0) === 0
+                            const enoughPoints = registered && (customer?.points || 0) >= coupon.points_cost
+                            const canUse = qualifies && (isFree || enoughPoints)
+                            return (
+                              <button
+                                key={coupon.id}
+                                className={styles.redeemOption}
+                                onClick={() => handleRedeem(coupon)}
+                                disabled={disabled || !canUse}
+                              >
+                                <div className={styles.redeemInfo}>
+                                  <strong>{coupon.name}</strong>
+                                  <span>{formatDiscount(coupon)} de descuento · {coupon.applies_to === 'sale' ? 'Venta' : 'Producto'}</span>
+                                  {!qualifies && (
+                                    <span className={styles.minWarning}>Compra mínima: ${coupon.min_purchase_amount || 0}</span>
+                                  )}
+                                  {!isFree && !registered && (
+                                    <span className={styles.minWarning}>Requiere cliente registrado</span>
+                                  )}
+                                </div>
+                                <span className={`${styles.redeemCost} ${!canUse ? styles.insufficient : ''}`}>
+                                  {isFree ? 'Sin puntos' : `${coupon.points_cost} pts`}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
                 </>
               )}

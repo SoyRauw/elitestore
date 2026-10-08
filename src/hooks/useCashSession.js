@@ -116,7 +116,7 @@ async function getSessionMovementIds(sessionId) {
     .select('id')
     .eq('cash_session_id', sessionId)
     .eq('status', 'pagado')
-    .in('movement_type', ['venta', 'abono'])
+    .in('movement_type', ['venta', 'abono', 'giftcard'])
 
   if (error) throw error
   return (data || []).map(m => m.id)
@@ -213,7 +213,7 @@ export async function getSessionTotalsByMethod(sessionId) {
     .select('payment_method, total_amount')
     .eq('cash_session_id', sessionId)
     .eq('status', 'pagado')
-    .in('movement_type', ['venta', 'abono'])
+    .in('movement_type', ['venta', 'abono', 'giftcard'])
 
   if (error) throw error
 

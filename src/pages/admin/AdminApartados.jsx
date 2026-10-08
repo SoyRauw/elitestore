@@ -1050,6 +1050,7 @@ export default function AdminApartados() {
                 exchangeRate={session.exchange_rate}
                 sessionDrawer={sessionDrawer}
                 onAbastecer={handleAbastecer}
+                disableGiftcard
                 summaryTopNode={(
                   <div className={styles.inicialBox}>
                     <div className={styles.inicialRow}>
@@ -1367,6 +1368,7 @@ export default function AdminApartados() {
                               exchangeRate={session.exchange_rate}
                               sessionDrawer={sessionDrawer}
                               onAbastecer={handleAbastecer}
+                              disableGiftcard
                             />
                             <VueltoMixto
                               difference={totalPaidAbono - totalDueAbono}

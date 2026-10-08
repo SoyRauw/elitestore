@@ -1,13 +1,17 @@
 import { useMemo, useState, useEffect } from 'react'
-import { DollarSign, Smartphone, CreditCard, Banknote, Wallet, Bitcoin, Zap, Coins, X, PackagePlus } from 'lucide-react'
+import { DollarSign, Smartphone, CreditCard, Banknote, Wallet, Bitcoin, Zap, Coins, X, PackagePlus, Gift, Camera } from 'lucide-react'
 import { bsToUsd } from '../../lib/rate'
+import { supabase } from '../../lib/supabase'
 import { BILL_DENOMINATIONS, emptyBillCounts, sumBills, proposeChange, formatBillsList } from '../../lib/bills'
+import { normalizeGiftCode, isExpired, formatMoney } from '../../lib/giftcards'
+import CodeScannerModal from './CodeScannerModal'
 import styles from './POSPaymentPanel.module.css'
 
 // currency: 'usd' => se paga en dólares; 'bs' => se paga en bolívares.
 // bills: true => el monto SIEMPRE sale de los billetes entregados (picker)
 const PAYMENT_METHODS = [
   { value: 'efectivo', label: 'Efectivo', icon: Banknote, currency: 'usd', bills: true },
+  { value: 'giftcard', label: 'Giftcard', icon: Gift, currency: 'usd', giftcard: true },
   { value: 'efectivo_bs', label: 'Efectivo Bs', icon: Coins, currency: 'bs' },
   { value: 'pago_movil', label: 'Pago Móvil', icon: Smartphone, currency: 'bs' },
   { value: 'zelle', label: 'Zelle', icon: DollarSign, currency: 'usd' },
@@ -25,8 +29,10 @@ export default function POSPaymentPanel({
   exchangeRate,
   sessionDrawer,
   onAbastecer,
+  disableGiftcard = false,
 }) {
   const rate = parseFloat(exchangeRate) || 0
+  const methods = disableGiftcard ? PAYMENT_METHODS.filter((m) => !m.giftcard) : PAYMENT_METHODS
 
   // Drafts while typing: { [method]: { amount, bs, reference, receivedBills } }
   const [drafts, setDrafts] = useState({})
@@ -34,6 +40,55 @@ export default function POSPaymentPanel({
   const [abastecerCounts, setAbastecerCounts] = useState(emptyBillCounts())
   const [abastecerNote, setAbastecerNote] = useState('')
   const [savingAbastecer, setSavingAbastecer] = useState(false)
+
+  // Giftcard
+  const [giftOpen, setGiftOpen] = useState(false)
+  const [giftManual, setGiftManual] = useState('')
+  const [giftError, setGiftError] = useState('')
+  const [giftLoading, setGiftLoading] = useState(false)
+
+  const giftEntry = payments.find((p) => p.method === 'giftcard') || null
+
+  const applyGiftCode = async (rawCode) => {
+    const code = normalizeGiftCode(rawCode)
+    if (!code) return
+    setGiftLoading(true)
+    setGiftError('')
+    try {
+      const { data, error } = await supabase.from('gift_cards').select('*').eq('code', code).maybeSingle()
+      if (error) throw error
+      if (!data) throw new Error('Giftcard no encontrada')
+      if (data.status !== 'activa') throw new Error(`Giftcard ${data.status}`)
+      if (isExpired(data)) throw new Error('Giftcard vencida')
+
+      const otherPaid = payments
+        .filter((p) => p.method !== 'giftcard')
+        .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+      const due = Math.max(0, Math.round((totalAmount - otherPaid) * 100) / 100)
+      const applied = Math.min(parseFloat(data.amount) || 0, due)
+
+      const entry = {
+        method: 'giftcard',
+        amount: applied.toFixed(2),
+        reference: normalizeGiftCode(data.code),
+        giftcard: data,
+        bs: '',
+      }
+      onChange([...payments.filter((p) => p.method !== 'giftcard'), entry])
+      setGiftOpen(false)
+      setGiftManual('')
+    } catch (e) {
+      setGiftError(e.message || 'Error leyendo la giftcard')
+    } finally {
+      setGiftLoading(false)
+    }
+  }
+
+  const removeGiftcard = () => {
+    onChange(payments.filter((p) => p.method !== 'giftcard'))
+    setGiftError('')
+    setGiftManual('')
+  }
 
   useEffect(() => {
     if (payments.length === 0) setDrafts({})
@@ -188,7 +243,7 @@ export default function POSPaymentPanel({
     <div className={styles.panel}>
       <p className={styles.title}>Métodos de pago</p>
 
-      {PAYMENT_METHODS.map((method) => {
+      {methods.map((method) => {
         const Icon = method.icon
         const amount = getValue(method.value, 'amount')
         const bs = getValue(method.value, 'bs')
@@ -197,6 +252,69 @@ export default function POSPaymentPanel({
         const isDraft = hasDraft(method.value)
         const bsNum = parseFloat(bs) || 0
         const usdEquiv = method.currency === 'bs' && rate > 0 && bsNum > 0 ? bsToUsd(bs, rate) : null
+
+        // Giftcard: escanear QR o ingresar el código
+        if (method.giftcard) {
+          const applied = giftEntry ? (parseFloat(giftEntry.amount) || 0) : 0
+          const cardValue = giftEntry?.giftcard ? (parseFloat(giftEntry.giftcard.amount) || 0) : 0
+          const excess = Math.max(0, Math.round((cardValue - applied) * 100) / 100)
+          return (
+            <div key={method.value} className={styles.giftBlock}>
+              <p className={`${styles.methodLabel} ${giftEntry ? styles.methodLabelDraft : ''}`}>
+                <Icon size={14} /> {method.label}
+              </p>
+              {giftEntry ? (
+                <div className={styles.giftApplied}>
+                  <div className={styles.giftRow}>
+                    <span>Giftcard</span>
+                    <strong>{giftEntry.reference}</strong>
+                  </div>
+                  <div className={styles.giftRow}>
+                    <span>Valor de la tarjeta</span>
+                    <strong>+{formatMoney(cardValue)}</strong>
+                  </div>
+                  <div className={styles.giftRow}>
+                    <span>Aplicado a esta venta</span>
+                    <span>{formatMoney(applied)}</span>
+                  </div>
+                  {excess > 0 && (
+                    <div className={styles.giftRow}>
+                      <span>Saldo a favor</span>
+                      <strong className={styles.giftExcess}>+{formatMoney(excess)}</strong>
+                    </div>
+                  )}
+                  <div className={styles.giftActions}>
+                    <button type="button" className={styles.giftBtn} onClick={() => setGiftOpen(true)}>Cambiar</button>
+                    <button type="button" className={styles.giftBtnDanger} onClick={removeGiftcard}>Quitar</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button type="button" className={styles.giftScanBtn} onClick={() => setGiftOpen(true)}>
+                    <Camera size={14} /> Escanear QR
+                  </button>
+                  <div className={styles.giftManualRow}>
+                    <input
+                      type="text"
+                      className={styles.giftInput}
+                      placeholder="GIFT-XXXX-XXXX"
+                      value={giftManual}
+                      onChange={(e) => setGiftManual(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyGiftCode(giftManual) } }}
+                    />
+                    <button type="button" className={styles.giftBtn} onClick={() => applyGiftCode(giftManual)} disabled={giftLoading}>
+                      {giftLoading ? '...' : 'Aplicar'}
+                    </button>
+                  </div>
+                </>
+              )}
+              {giftError && <p className={styles.changeWarn}>⚠️ {giftError}</p>}
+              {giftOpen && (
+                <CodeScannerModal title="Escanear giftcard" onResult={applyGiftCode} onClose={() => setGiftOpen(false)} />
+              )}
+            </div>
+          )
+        }
 
         // Efectivo: bill picker (solo entrega del cliente)
         if (method.bills) {

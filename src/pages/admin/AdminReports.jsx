@@ -73,7 +73,7 @@ export default function AdminReports() {
       let query = supabase
         .from('movements')
         .select('*, movement_payments(method, amount), movement_items(*, products(name, category_id, categories(name)), product_variants(*))')
-        .eq('movement_type', 'venta')
+        .in('movement_type', ['venta', 'giftcard'])
         .eq('status', 'pagado')
         .order('created_at', { ascending: false })
 

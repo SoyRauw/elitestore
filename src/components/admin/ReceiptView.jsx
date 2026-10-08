@@ -14,6 +14,7 @@ const PAYMENT_METHODS = {
   punto: 'Punto de Venta',
   pendiente: 'Pendiente',
   credito: 'Crédito en cuenta',
+  giftcard: 'Giftcard',
   multiple: 'Múltiple',
 }
 
@@ -200,6 +201,7 @@ const PAYMENT_METHODS_INLINE = {
   punto: 'Punto de Venta',
   pendiente: 'Pendiente',
   credito: 'Crédito en cuenta',
+  giftcard: 'Giftcard',
   multiple: 'Múltiple',
 }
 
