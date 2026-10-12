@@ -27,6 +27,7 @@ const PAYMENT_METHODS = {
 const SALE_TYPE_LABELS = {
   retail: 'Venta al detal',
   wholesale: 'Venta al mayor',
+  mixed: 'Venta mixta',
 }
 
 const STATUS_COLORS = {
@@ -199,7 +200,7 @@ export default function AdminMovementDetail() {
             {movement.movement_type.toUpperCase()}
           </span>
           {movement.sale_type && (
-            <span className={`badge ${movement.sale_type === 'wholesale' ? 'badge-success' : 'badge-info'}`}>
+            <span className={`badge ${movement.sale_type === 'wholesale' ? 'badge-success' : movement.sale_type === 'mixed' ? 'badge-warning' : 'badge-info'}`}>
               {SALE_TYPE_LABELS[movement.sale_type] || movement.sale_type}
             </span>
           )}
@@ -386,7 +387,10 @@ export default function AdminMovementDetail() {
                     </div>
                     <span className={styles.productQty}>{item.quantity}x</span>
                     <div>
-                      <p className={styles.productName}>{item.products?.name}</p>
+                      <p className={styles.productName}>
+                        {item.products?.name}
+                        {item.is_wholesale && <span className={`badge badge-success`} style={{ marginLeft: '0.4rem', fontSize: '0.6rem' }}>mayor</span>}
+                      </p>
                       <p className={styles.productVariant}>{formatVariantLabel(item.product_variants, item.products?.categories?.size_label)}</p>
                     </div>
                   </div>

@@ -602,3 +602,25 @@
     min-height: auto;
   }
 }
+
+.modeBadge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.42rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.modeBadgeWholesale {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.modeBadgeRetail {
+  background: rgba(196, 120, 138, 0.16);
+  color: #a85f72;
+}

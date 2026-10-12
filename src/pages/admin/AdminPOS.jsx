@@ -199,12 +199,12 @@ export default function AdminPOS() {
         if (item.quantity >= variant.stock) return prev
         return prev.map((i, idx) =>
           idx === existingIndex
-            ? { ...i, quantity: i.quantity + 1, price: calculateItemPrice(i.product, i.variant, wholesaleMode) }
+            ? { ...i, quantity: i.quantity + 1, wholesale: wholesaleMode, price: calculateItemPrice(i.product, i.variant, wholesaleMode) }
             : i
         )
       }
 
-      return [...prev, { product, variant, quantity: 1, price: calculateItemPrice(product, variant, wholesaleMode) }]
+      return [...prev, { product, variant, quantity: 1, wholesale: wholesaleMode, price: calculateItemPrice(product, variant, wholesaleMode) }]
     })
   }, [wholesaleMode])
 
@@ -217,11 +217,11 @@ export default function AdminPOS() {
       if (quantity > item.variant.stock) return prev
       return prev.map((i, idx) =>
         idx === index
-          ? { ...i, quantity, price: calculateItemPrice(i.product, i.variant, wholesaleMode) }
+          ? { ...i, quantity, price: calculateItemPrice(i.product, i.variant, !!i.wholesale) }
           : i
       )
     })
-  }, [wholesaleMode])
+  }, [])
 
   const removeItem = useCallback((index) => {
     setItems((prev) => prev.filter((_, i) => i !== index))
@@ -236,12 +236,9 @@ export default function AdminPOS() {
   }, [])
 
   const toggleWholesaleMode = useCallback(() => {
-    if (items.length > 0) {
-      clearCart()
-    }
     setWholesaleMode((prev) => !prev)
     setError('')
-  }, [items.length, clearCart])
+  }, [])
 
   const applyCoupon = useCallback((coupon) => {
     setAppliedCoupon(coupon)
@@ -517,6 +514,10 @@ export default function AdminPOS() {
         allocatedDiscounts[allocatedDiscounts.length - 1] += Number((discount - allocatedSum).toFixed(2))
       }
 
+      const hasWholesale = items.some((i) => !!i.wholesale)
+      const hasRetail = items.some((i) => !i.wholesale)
+      const saleType = hasWholesale && hasRetail ? 'mixed' : hasWholesale ? 'wholesale' : 'retail'
+
       const { data: movement, error: movError } = await supabase
         .from('movements')
         .insert([{
@@ -534,7 +535,7 @@ export default function AdminPOS() {
           customer_coupon_id: customerCouponId,
           points_earned: earned,
           notes: notes || null,
-          sale_type: wholesaleMode ? 'wholesale' : 'retail',
+          sale_type: saleType,
         }])
         .select()
         .single()
@@ -549,6 +550,7 @@ export default function AdminPOS() {
         quantity: item.quantity,
         unit_price: item.price,
         discount_amount: allocatedDiscounts[index] || 0,
+        is_wholesale: !!item.wholesale,
       }))
 
       const { error: itemsError } = await supabase

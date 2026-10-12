@@ -21,6 +21,7 @@ const PAYMENT_METHODS = {
 const SALE_TYPE_LABELS = {
   retail: 'Venta al detal',
   wholesale: 'Venta al mayor',
+  mixed: 'Venta mixta (detal + mayor)',
 }
 
 function getAppliedCouponName(appliedCoupon) {
@@ -91,7 +92,10 @@ export default function ReceiptView({ movement, items, payments, customer, subto
           <div key={i} className={styles.item}>
             <div className={styles.itemMain}>
               <span className={styles.itemQty}>{item.quantity}x</span>
-              <span className={styles.itemName}>{item.product?.name || item.products?.name}</span>
+              <span className={styles.itemName}>
+                {item.product?.name || item.products?.name}
+                {(item.is_wholesale || item.wholesale) && <span className={styles.wholesaleTag}> (mayor)</span>}
+              </span>
             </div>
             <div className={styles.itemVariantLabel}>
               {formatVariantLabel(item.variant || item.product_variants, item.product?.categories?.size_label || item.products?.categories?.size_label)}
@@ -235,11 +239,12 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
     const variant = item.variant || item.product_variants
     const unitPrice = item.price || item.unit_price || 0
     const qty = item.quantity || 1
+    const wsTag = (item.is_wholesale || item.wholesale) ? ' <span style="color:#166534; font-weight:700;">(mayor)</span>' : ''
     return `
       <div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f0f0f0;">
         <div style="display:flex; gap:6px; font-weight:500; color:#1f2937;">
           <span style="font-weight:700; min-width:24px;">${qty}x</span>
-          <span>${name}</span>
+          <span>${name}${wsTag}</span>
         </div>
         <div style="font-size:12px; color:#6b7280; margin-top:3px; margin-left:30px;">${formatInlineVariantLabel(variant)}</div>
         <div style="display:flex; justify-content:space-between; margin-top:4px; margin-left:30px; font-size:13px;">
@@ -360,6 +365,7 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
             <div class="meta-row"><span>Fecha</span><strong>${date.toLocaleString()}</strong></div>
             ${movement?.movement_type ? `<div class="meta-row"><span>Tipo</span><strong>${movement.movement_type.toUpperCase()}</strong></div>` : ''}
             ${movement?.status ? `<div class="meta-row"><span>Estado</span><strong>${movement.status.toUpperCase()}</strong></div>` : ''}
+            ${movement?.sale_type ? `<div class="meta-row"><span>Tipo de venta</span><strong>${(SALE_TYPE_LABELS[movement.sale_type] || movement.sale_type).toUpperCase()}</strong></div>` : ''}
           </div>
           ${customerHTML}
           <div style="border-top:1px dashed #d1d5db; padding-top:14px; margin-top:14px;">

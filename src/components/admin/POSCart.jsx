@@ -61,8 +61,9 @@ export default function POSCart({
           type="button"
           className={`${styles.modeBtn} ${wholesaleMode ? styles.modeWholesale : styles.modeRetail}`}
           onClick={onToggleWholesale}
+          title="Define el precio con el que se agregan los productos nuevos"
         >
-          {wholesaleMode ? 'Venta al mayor' : 'Venta al detal'}
+          {wholesaleMode ? 'Agregar: Al mayor' : 'Agregar: Al detal'}
         </button>
       </div>
 
@@ -149,7 +150,9 @@ export default function POSCart({
                   <p>El carrito está vacío</p>
                 </div>
               ) : (
-                items.map((item, index) => (
+                items.map((item, index) => {
+                  const hasWsPrice = !!(item.variant.wholesale_price || item.product.wholesale_price)
+                  return (
                   <div key={item.variant.id} className={styles.item}>
                     <div className={styles.itemThumb}>
                       {getVariantImage(item.product, item.variant) ? (
@@ -159,7 +162,14 @@ export default function POSCart({
                       )}
                     </div>
                     <div className={styles.itemInfo}>
-                      <p className={styles.itemName}>{item.product.name}</p>
+                      <p className={styles.itemName}>
+                        {item.product.name}
+                        {hasWsPrice && (
+                          <span className={`${styles.modeBadge} ${item.wholesale ? styles.modeBadgeWholesale : styles.modeBadgeRetail}`}>
+                            {item.wholesale ? 'Mayor' : 'Detal'}
+                          </span>
+                        )}
+                      </p>
                       <p className={styles.itemVariant}>{formatVariantLabel(item.variant, item.product?.categories?.size_label)}</p>
                       <p className={styles.itemPrice}>${item.price.toFixed(2)} c/u {rate > 0 && <span className={styles.bsPrice}>· {formatBs(usdToBs(item.price, rate))}</span>}</p>
                       <div className={styles.qtyRow}>
@@ -184,7 +194,8 @@ export default function POSCart({
                       <Trash2 size={14} />
                     </button>
                   </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>

@@ -22,6 +22,7 @@ const PAYMENT_METHODS = {
 const SALE_TYPE_LABELS = {
   retail: 'Al detal',
   wholesale: 'Al mayor',
+  mixed: 'Mixta',
 }
 
 function pad(n) {
