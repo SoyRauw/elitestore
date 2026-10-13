@@ -1,4 +1,4 @@
-export const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '584246594559'
+export const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '584226594559'
 
 const formatVariant = (item) => {
   const parts = []

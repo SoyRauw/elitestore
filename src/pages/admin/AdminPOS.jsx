@@ -783,7 +783,7 @@ export default function AdminPOS() {
     if (!completedSale) return
     const message = formatWhatsAppReceipt(completedSale.items, completedSale.total, completedSale.movement.id)
     const encoded = encodeURIComponent(message)
-    window.open(`https://wa.me/${completedSale.customer?.phone || '584246594559'}?text=${encoded}`, '_blank')
+    window.open(`https://wa.me/${completedSale.customer?.phone || '584226594559'}?text=${encoded}`, '_blank')
   }
 
   if (sessionLoading) {
