@@ -112,13 +112,29 @@ export default function AdminReports() {
 
     const byMethod = {}
     filteredMovements.forEach(m => {
-      if (m.payment_method === 'multiple' && m.movement_payments?.length) {
-        m.movement_payments.forEach(p => {
-          byMethod[p.method] = (byMethod[p.method] || 0) + (parseFloat(p.amount) || 0)
-        })
-      } else {
-        byMethod[m.payment_method] = (byMethod[m.payment_method] || 0) + (parseFloat(m.total_amount) || 0)
+      const total = parseFloat(m.total_amount) || 0
+      const pays = (m.movement_payments || [])
+        .map(p => ({ method: p.method, amount: parseFloat(p.amount) || 0 }))
+        .filter(p => p.amount > 0)
+
+      if (pays.length === 0) {
+        const key = m.payment_method || 'pendiente'
+        byMethod[key] = (byMethod[key] || 0) + total
+        return
       }
+
+      // Cobros brutos menos el vuelto (se descuenta primero del efectivo):
+      // así la suma por método nunca supera el total de la venta.
+      let excess = Math.round((pays.reduce((s, p) => s + p.amount, 0) - total) * 100) / 100
+      const ordered = [...pays].sort((a, b) => (b.method === 'efectivo' ? 1 : 0) - (a.method === 'efectivo' ? 1 : 0))
+      for (const p of ordered) {
+        const cut = excess > 0 ? Math.min(p.amount, excess) : 0
+        p.net = Math.round((p.amount - cut) * 100) / 100
+        excess = Math.round((excess - cut) * 100) / 100
+      }
+      ordered.forEach(p => {
+        if (p.net > 0) byMethod[p.method] = (byMethod[p.method] || 0) + p.net
+      })
     })
 
     const bySaleType = {}
@@ -148,6 +164,13 @@ export default function AdminReports() {
       const cat = item.products?.categories?.name || 'Sin categoría'
       categorySales[cat] = (categorySales[cat] || 0) + ((item.quantity || 0) * (item.unit_price || 0))
     })
+
+    // Las ventas de giftcard no tienen productos: se muestran como categoría propia
+    filteredMovements
+      .filter(m => m.movement_type === 'giftcard')
+      .forEach(m => {
+        categorySales['Giftcard'] = (categorySales['Giftcard'] || 0) + (parseFloat(m.total_amount) || 0)
+      })
 
     return {
       totalSales,

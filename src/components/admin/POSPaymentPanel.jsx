@@ -22,6 +22,25 @@ const PAYMENT_METHODS = [
   { value: 'punto', label: 'Punto de Venta', icon: CreditCard, currency: 'bs' },
 ]
 
+/**
+ * Parsea montos en Bs escritos en formato venezolano:
+ * "5.843,57" -> 5843.57 · "5843,57" -> 5843.57 · "5843.57" -> 5843.57
+ * (evita que la coma decimal se pierda y quede 584357 = 100x)
+ */
+function parseBsInput(value) {
+  if (value === '' || value === null || value === undefined) return 0
+  let s = String(value).trim().replace(/\s+/g, '')
+  if (s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.')
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, '')
+  } else {
+    s = s.replace(/,/g, '')
+  }
+  const n = parseFloat(s)
+  return Number.isFinite(n) ? n : 0
+}
+
 export default function POSPaymentPanel({
   totalAmount,
   payments,
@@ -89,7 +108,6 @@ export default function POSPaymentPanel({
     setGiftError('')
     setGiftManual('')
   }
-
   useEffect(() => {
     if (payments.length === 0) setDrafts({})
   }, [payments.length])
@@ -127,8 +145,14 @@ export default function POSPaymentPanel({
     merged.vueltoPmReference = draft.vueltoPmReference !== undefined ? draft.vueltoPmReference : entry.vueltoPmReference
     merged.vueltoCredito = draft.vueltoCredito !== undefined ? draft.vueltoCredito : entry.vueltoCredito
 
-    if (currency === 'bs' && merged.bs !== '' && merged.bs !== null && parseFloat(merged.bs) > 0 && rate > 0) {
-      merged.amount = bsToUsd(merged.bs, rate).toFixed(4)
+    if (currency === 'bs' && merged.bs !== '' && merged.bs !== null) {
+      const bsNumValue = parseBsInput(merged.bs)
+      if (bsNumValue > 0) {
+        merged.bs = bsNumValue
+        if (rate > 0) merged.amount = bsToUsd(bsNumValue, rate).toFixed(4)
+      } else {
+        merged.bs = ''
+      }
     }
 
     if (method === 'efectivo' && merged.receivedBills) {
@@ -250,8 +274,11 @@ export default function POSPaymentPanel({
         const reference = getValue(method.value, 'reference')
         const receivedBills = getValue(method.value, 'receivedBills')
         const isDraft = hasDraft(method.value)
-        const bsNum = parseFloat(bs) || 0
-        const usdEquiv = method.currency === 'bs' && rate > 0 && bsNum > 0 ? bsToUsd(bs, rate) : null
+        const bsNum = parseBsInput(bs)
+        const usdEquiv = method.currency === 'bs' && rate > 0 && bsNum > 0 ? bsToUsd(bsNum, rate) : null
+        const amountNum = parseFloat(amount) || 0
+        const pendingForMethod = Math.round((totalAmount - (totalPaid - amountNum)) * 100) / 100
+        const bsOvershoot = method.currency === 'bs' && usdEquiv !== null && usdEquiv > pendingForMethod + 0.01
 
         // Giftcard: escanear QR o ingresar el código
         if (method.giftcard) {
@@ -431,8 +458,8 @@ export default function POSPaymentPanel({
                 />
               ) : rate > 0 ? (
                 <input
-                  type="number"
-                  min={0}
+                  type="text"
+                  inputMode="decimal"
                   className={`${styles.input} ${styles.bsInput}`}
                   placeholder="Bs 0"
                   value={bs}
@@ -448,6 +475,11 @@ export default function POSPaymentPanel({
               <div className={styles.bsEquiv}>
                 ≈ ${usdEquiv?.toFixed(2)} @ {rate.toLocaleString('es-VE')}
               </div>
+            )}
+            {bsOvershoot && (
+              <p className={styles.changeWarn}>
+                ⚠️ Bs {bsNum.toLocaleString('es-VE')} ≈ ${usdEquiv.toFixed(2)} — supera lo que falta (${pendingForMethod.toFixed(2)}). Revisa el monto en Bs.
+              </p>
             )}
             {parseFloat(amount) > 0 && method.currency !== 'bs' && (
               <input

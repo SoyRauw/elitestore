@@ -46,6 +46,10 @@ export default function POSCart({
   const PAID_TOLERANCE = 0.005
   const isComplete = items.length > 0 && (totalToPayNum === 0 || totalPaidNum + PAID_TOLERANCE >= totalToPayNum)
   const isMissing = items.length > 0 && totalToPayNum > totalPaidNum + PAID_TOLERANCE
+  // Un pago electrónico en Bs (punto / pago móvil) mayor que toda la venta = casi seguro error de dedo
+  const bsOverpay = (payments || []).some(
+    (p) => (p.method === 'punto' || p.method === 'pago_movil') && (parseFloat(p.amount) || 0) > totalToPayNum + 0.01
+  )
   const customerDraft = customer || { id: '', id_number: '', name: '', phone: '' }
 
   const handleIdNumberChange = (value) => {
@@ -264,9 +268,9 @@ export default function POSCart({
           <button
             className={`btn btn-primary ${styles.payBtn}`}
             onClick={onPay}
-            disabled={disabled || !isComplete}
+            disabled={disabled || !isComplete || bsOverpay}
           >
-            {disabled ? 'Procesando...' : isComplete ? 'Finalizar venta' : `Faltan $${Math.max(0, totalToPayNum - totalPaidNum).toFixed(2)}`}
+            {disabled ? 'Procesando...' : bsOverpay ? 'Revisa los montos en Bs' : isComplete ? 'Finalizar venta' : `Faltan $${Math.max(0, totalToPayNum - totalPaidNum).toFixed(2)}`}
           </button>
 
           {items.length > 0 && (

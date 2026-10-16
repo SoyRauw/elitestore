@@ -53,6 +53,13 @@ export default function AdminMovements() {
 
   useEffect(() => { fetchMovements() }, [fetchMovements])
 
+  // Vuelto entregado = (pagos + crédito usado) − total de la venta
+  const changeOf = (m) => {
+    const paid = (m.movement_payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+      + (parseFloat(m.credit_amount) || 0)
+    return Math.max(0, Math.round((paid - (parseFloat(m.total_amount) || 0)) * 100) / 100)
+  }
+
   const executeRevert = async () => {
     setReverting(true)
     try {
@@ -131,6 +138,11 @@ export default function AdminMovements() {
                           {(m.movement_payments || []).map((p, idx) => (
                             <li key={idx}>{PAYMENT_METHODS[p.method] || p.method} (${p.amount})</li>
                           ))}
+                          {changeOf(m) > 0 && (
+                            <li key="change" style={{ color: '#166534', fontWeight: 600 }}>
+                              Vuelto (${changeOf(m).toFixed(2)})
+                            </li>
+                          )}
                         </ul>
                       ) : (
                         PAYMENT_METHODS[m.payment_method] || m.payment_method || '—'
