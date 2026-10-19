@@ -7,6 +7,7 @@ import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
 import {
   fetchCategories, fetchExpenses, money, toISODate, monthStart, addMonths,
+  occurrencesInRange, recurrenceOf, recurrenceLabel,
 } from '../../../lib/finance'
 
 const PAYMENT_METHODS = [
@@ -30,7 +31,7 @@ const emptyForm = (date) => ({
   amount: '',
   payment_method: '',
   notes: '',
-  is_recurring: false,
+  recurrence: 'once',
   recurring_start: date || toISODate(new Date()),
   recurring_end: '',
   active: true,
@@ -71,11 +72,10 @@ export default function ExpensesTab() {
   const monthTo = toISODate(new Date(month.getFullYear(), month.getMonth() + 1, 0))
 
   const expensesThisMonth = useMemo(() => expenses.filter((e) => {
-    if (e.is_recurring || e.recurrence === 'monthly') {
+    const rec = recurrenceOf(e)
+    if (rec !== 'once') {
       if (!e.active) return false
-      const start = e.recurring_start || e.expense_date
-      const end = e.recurring_end
-      return start <= monthTo && (!end || end >= monthFrom)
+      return occurrencesInRange(e, monthFrom, monthTo).length > 0
     }
     return e.expense_date >= monthFrom && e.expense_date <= monthTo
   }), [expenses, monthFrom, monthTo])
@@ -83,32 +83,37 @@ export default function ExpensesTab() {
   const byDate = useMemo(() => {
     const map = {}
     for (const e of expenses) {
-      if (e.is_recurring || e.recurrence === 'monthly') {
+      const rec = recurrenceOf(e)
+      if (rec !== 'once') {
         if (!e.active) continue
-        const start = e.recurring_start || e.expense_date
-        const end = e.recurring_end
-        if (start > monthTo || (end && end < monthFrom)) continue
-        const key = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`
-        if (!map[key]) map[key] = []
-        map[key].push({ ...e, _fixed: true })
+        for (const dateISO of occurrencesInRange(e, monthFrom, monthTo)) {
+          if (!map[dateISO]) map[dateISO] = []
+          map[dateISO].push({ ...e, _fixed: true })
+        }
       } else {
+        if (e.expense_date < monthFrom || e.expense_date > monthTo) continue
         if (!map[e.expense_date]) map[e.expense_date] = []
         map[e.expense_date].push(e)
       }
     }
     return map
-  }, [expenses, month, monthFrom, monthTo])
+  }, [expenses, monthFrom, monthTo])
 
   const totals = useMemo(() => {
     let variable = 0
     let fixed = 0
-    for (const e of expensesThisMonth) {
+    for (const e of expenses) {
       const amount = parseFloat(e.amount) || 0
-      if (e.is_recurring || e.recurrence === 'monthly') fixed += amount
-      else variable += amount
+      if (!amount) continue
+      if (recurrenceOf(e) !== 'once') {
+        if (!e.active) continue
+        fixed += amount * occurrencesInRange(e, monthFrom, monthTo).length
+      } else if (e.expense_date >= monthFrom && e.expense_date <= monthTo) {
+        variable += amount
+      }
     }
     return { variable, fixed, total: variable + fixed }
-  }, [expensesThisMonth])
+  }, [expenses, monthFrom, monthTo])
 
   const catName = (id) => categories.find((c) => c.id === id)?.name || 'Otros'
   const catColor = (id) => categories.find((c) => c.id === id)?.color || '#C4788A'
@@ -128,7 +133,8 @@ export default function ExpensesTab() {
       amount: e.amount ?? '',
       payment_method: e.payment_method || '',
       notes: e.notes || '',
-      is_recurring: !!e.is_recurring,
+      recurrence: recurrenceOf(e),
+      is_recurring: recurrenceOf(e) !== 'once',
       recurring_start: e.recurring_start || e.expense_date || toISODate(new Date()),
       recurring_end: e.recurring_end || '',
       active: e.active !== false,
@@ -150,10 +156,10 @@ export default function ExpensesTab() {
         amount,
         payment_method: form.payment_method || null,
         notes: form.notes?.trim() || null,
-        is_recurring: !!form.is_recurring,
-        recurrence: form.is_recurring ? 'monthly' : 'once',
-        recurring_start: form.is_recurring ? (form.recurring_start || form.expense_date) : null,
-        recurring_end: form.is_recurring && form.recurring_end ? form.recurring_end : null,
+        is_recurring: (form.recurrence || 'once') !== 'once',
+        recurrence: form.recurrence || 'once',
+        recurring_start: (form.recurrence || 'once') !== 'once' ? (form.recurring_start || form.expense_date) : null,
+        recurring_end: (form.recurrence || 'once') !== 'once' && form.recurring_end ? form.recurring_end : null,
         active: form.active !== false,
       }
       if (form.id) {
@@ -262,27 +268,35 @@ export default function ExpensesTab() {
             <p className={styles.empty}>Sin gastos este mes. Haz clic en un día del calendario para agregar.</p>
           ) : (
             <div className={styles.list}>
-              {expensesThisMonth.map((e) => (
-                <div key={e.id} className={styles.row}>
-                  <div>
-                    <p className={styles.rowTitle}>
-                      <span className={styles.colorDot} style={{ background: catColor(e.category_id) }} />
-                      {e.description || catName(e.category_id)}
-                      {(e.is_recurring || e.recurrence === 'monthly') && <span className={styles.pill} style={{ marginLeft: '0.4rem' }}>fijo</span>}
-                    </p>
-                    <p className={styles.rowMeta}>
-                      {e.expense_date} · {catName(e.category_id)}
-                      {e.payment_method ? ` · ${e.payment_method}` : ''}
-                      {e.is_recurring ? ' · mensual' : ''}
-                    </p>
+              {expensesThisMonth.map((e) => {
+                const rec = recurrenceOf(e)
+                const occCount = rec !== 'once' ? occurrencesInRange(e, monthFrom, monthTo).length : 1
+                const amount = parseFloat(e.amount) || 0
+                const shortLabel = rec === 'weekly' ? 'semanal' : rec === 'semimonthly' ? 'quincenal' : rec === 'yearly' ? 'anual' : 'mensual'
+                return (
+                  <div key={e.id} className={styles.row}>
+                    <div>
+                      <p className={styles.rowTitle}>
+                        <span className={styles.colorDot} style={{ background: catColor(e.category_id) }} />
+                        {e.description || catName(e.category_id)}
+                        {rec !== 'once' && <span className={styles.pill} style={{ marginLeft: '0.4rem' }}>{shortLabel}</span>}
+                        {rec !== 'once' && !e.active && <span className={styles.pill} style={{ marginLeft: '0.4rem' }}>inactivo</span>}
+                      </p>
+                      <p className={styles.rowMeta}>
+                        {rec === 'once' ? e.expense_date : `${recurrenceLabel(e)} · desde ${e.recurring_start || e.expense_date}`}
+                        {' · '}{catName(e.category_id)}
+                        {e.payment_method ? ` · ${e.payment_method}` : ''}
+                        {rec !== 'once' && occCount > 1 ? ` · ×${occCount} este mes = ${money(amount * occCount)}` : ''}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <span className={`${styles.rowValue} ${styles.profitNeg}`}>{money(e.amount)}</span>
+                      <button type="button" className={styles.monthBtn} title="Editar" onClick={() => openEdit(e)}><Pencil size={13} /></button>
+                      <button type="button" className={styles.monthBtn} title="Borrar" onClick={() => remove(e)}><Trash2 size={13} /></button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span className={`${styles.rowValue} ${styles.profitNeg}`}>{money(e.amount)}</span>
-                    <button type="button" className={styles.monthBtn} title="Editar" onClick={() => openEdit(e)}><Pencil size={13} /></button>
-                    <button type="button" className={styles.monthBtn} title="Borrar" onClick={() => remove(e)}><Trash2 size={13} /></button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -328,15 +342,19 @@ export default function ExpensesTab() {
                   <textarea className={styles.textarea} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
                 <div className={`${styles.field} ${styles.fieldFull}`}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                    <input type="checkbox" className={styles.checkbox} checked={form.is_recurring} onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })} />
-                    Gasto fijo mensual (se repite cada mes)
-                  </label>
+                  <label>Repetición</label>
+                  <select className={styles.select} value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value })}>
+                    <option value="once">No se repite</option>
+                    <option value="weekly">Semanal (cada 7 días)</option>
+                    <option value="semimonthly">Quincenal (15 y último día)</option>
+                    <option value="monthly">Mensual (mismo día del mes)</option>
+                    <option value="yearly">Anual (mismo día y mes)</option>
+                  </select>
                 </div>
-                {form.is_recurring && (
+                {form.recurrence !== 'once' && (
                   <>
                     <div className={styles.field}>
-                      <label>Desde</label>
+                      <label>Desde (define el día)</label>
                       <input type="date" className={styles.input} value={form.recurring_start} onChange={(e) => setForm({ ...form, recurring_start: e.target.value })} />
                     </div>
                     <div className={styles.field}>
@@ -348,6 +366,14 @@ export default function ExpensesTab() {
                         <input type="checkbox" className={styles.checkbox} checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
                         Activo
                       </label>
+                    </div>
+                    <div className={`${styles.field} ${styles.fieldFull}`}>
+                      <p className={styles.statHint}>
+                        {form.recurrence === 'weekly' && 'Se repetirá cada 7 días, el mismo día de la fecha "Desde" (ej. si empieza un viernes, todos los viernes).'}
+                        {form.recurrence === 'semimonthly' && 'Se repetirá el 15 y el último día de cada mes.'}
+                        {form.recurrence === 'monthly' && 'Se repetirá el mismo día de cada mes (si el mes es más corto, se usa el último día).'}
+                        {form.recurrence === 'yearly' && 'Se repetirá cada año en la misma fecha.'}
+                      </p>
                     </div>
                   </>
                 )}

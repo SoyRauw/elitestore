@@ -50,10 +50,104 @@ export function presetRange(preset) {
   }
 }
 
-function monthsBetween(fromISO, toISO) {
-  const a = new Date(`${fromISO}T00:00:00`)
-  const b = new Date(`${toISO}T00:00:00`)
-  return Math.max(1, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1)
+export function lastDayOfMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate()
+}
+
+const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+export function recurrenceOf(expense) {
+  const e = expense || {}
+  return e.recurrence || (e.is_recurring ? 'monthly' : 'once')
+}
+
+export function recurrenceLabel(expense) {
+  const e = expense || {}
+  const rec = recurrenceOf(e)
+  if (rec === 'once') return 'No se repite'
+  const startISO = e.recurring_start || e.expense_date
+  const start = startISO ? new Date(`${startISO}T00:00:00`) : null
+  if (rec === 'weekly') return `Semanal (${start ? WEEKDAYS[start.getDay()] : 'cada 7 días'})`
+  if (rec === 'semimonthly') return 'Quincenal (15 y último día)'
+  if (rec === 'monthly') return `Mensual (día ${start ? start.getDate() : '—'})`
+  if (rec === 'yearly') return `Anual (${start ? `${start.getDate()} de ${MONTHS[start.getMonth()]}` : '—'})`
+  return rec
+}
+
+/** Fechas (YYYY-MM-DD) en que ocurre un gasto dentro de [fromISO, toISO] */
+export function occurrencesInRange(expense, fromISO, toISO) {
+  const e = expense || {}
+  const rec = recurrenceOf(e)
+  const from = new Date(`${fromISO}T00:00:00`)
+  const to = new Date(`${toISO}T00:00:00`)
+  const startISO = e.recurring_start || e.expense_date
+  if (!startISO) return []
+  const start = new Date(`${startISO}T00:00:00`)
+  const end = e.recurring_end ? new Date(`${e.recurring_end}T00:00:00`) : null
+  const out = []
+
+  if (rec === 'once') {
+    if (!e.expense_date) return []
+    const d = new Date(`${e.expense_date}T00:00:00`)
+    if (d >= from && d <= to) out.push(e.expense_date)
+    return out
+  }
+
+  const push = (d) => {
+    if (d < start) return
+    if (end && d > end) return
+    if (d < from || d > to) return
+    out.push(toISODate(d))
+  }
+
+  if (rec === 'weekly') {
+    const STEP = 7 * 24 * 60 * 60 * 1000
+    let d = new Date(start)
+    if (d < from) {
+      const steps = Math.ceil((from - d) / STEP)
+      d = new Date(d.getTime() + steps * STEP)
+    }
+    while (d <= to && (!end || d <= end)) {
+      out.push(toISODate(d))
+      d = new Date(d.getTime() + STEP)
+    }
+    return out
+  }
+
+  if (rec === 'semimonthly') {
+    let y = from.getFullYear()
+    let m = from.getMonth()
+    while (y < to.getFullYear() || (y === to.getFullYear() && m <= to.getMonth())) {
+      push(new Date(y, m, 15))
+      push(new Date(y, m, lastDayOfMonth(y, m)))
+      m++
+      if (m > 11) { m = 0; y++ }
+    }
+    return out
+  }
+
+  if (rec === 'yearly') {
+    const anchorMonth = start.getMonth()
+    const anchorDay = start.getDate()
+    for (let y = from.getFullYear(); y <= to.getFullYear(); y++) {
+      const day = Math.min(anchorDay, lastDayOfMonth(y, anchorMonth))
+      push(new Date(y, anchorMonth, day))
+    }
+    return out
+  }
+
+  // Mensual (y compatibilidad con gastos fijos antiguos sin recurrence)
+  const anchorDay = start.getDate()
+  let y = from.getFullYear()
+  let m = from.getMonth()
+  while (y < to.getFullYear() || (y === to.getFullYear() && m <= to.getMonth())) {
+    const day = Math.min(anchorDay, lastDayOfMonth(y, m))
+    push(new Date(y, m, day))
+    m++
+    if (m > 11) { m = 0; y++ }
+  }
+  return out
 }
 
 function monthKey(iso) {
@@ -168,7 +262,6 @@ export async function fetchFinanceSummary(from, to) {
 
   // Gastos
   const expenses = expRes.data || []
-  const months = monthsBetween(from, to)
   let variableTotal = 0
   let fixedTotal = 0
   const byCategory = {}
@@ -177,22 +270,17 @@ export async function fetchFinanceSummary(from, to) {
   for (const e of expenses) {
     const amount = parseFloat(e.amount) || 0
     if (!amount) continue
-    if (e.is_recurring || e.recurrence === 'monthly') {
+    const rec = recurrenceOf(e)
+    if (rec !== 'once') {
       if (!e.active) continue
-      const start = e.recurring_start || e.expense_date
-      const end = e.recurring_end
-      if (start > to) continue
-      if (end && end < from) continue
-      const s = start > from ? start : from
-      const t = end && end < to ? end : to
-      const count = monthsBetween(s, t)
-      const total = amount * count
+      const dates = occurrencesInRange(e, from, to)
+      if (dates.length === 0) continue
+      const total = amount * dates.length
       fixedTotal += total
       const cat = catMap.get(e.category_id)?.name || 'Otros'
       byCategory[cat] = (byCategory[cat] || 0) + total
-      for (let i = 0; i < count; i++) {
-        const d = addMonths(new Date(`${s}T00:00:00`), i)
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      for (const dateISO of dates) {
+        const key = monthKey(`${dateISO}T12:00:00`)
         if (!byMonth[key]) byMonth[key] = { key, label: monthLabel(key), revenue: 0, cogs: 0, expenses: 0, purchases: 0 }
         byMonth[key].expenses += amount
       }
@@ -240,7 +328,6 @@ export async function fetchFinanceSummary(from, to) {
     roi,
     inventoryValue,
     giftcardsSold,
-    months,
     series,
     byCategory,
     topProducts,
@@ -302,23 +389,14 @@ export async function fetchDailyActivity(from, to) {
   for (const e of expRes.data || []) {
     const amount = parseFloat(e.amount) || 0
     if (!amount) continue
-    if (e.is_recurring || e.recurrence === 'monthly') {
+    const rec = recurrenceOf(e)
+    if (rec !== 'once') {
       if (!e.active) continue
-      // se muestra el día 1 de cada mes del rango
-      let d = new Date(`${from}T00:00:00`)
-      const end = new Date(`${to}T00:00:00`)
-      while (d <= end) {
-        const first = new Date(d.getFullYear(), d.getMonth(), 1)
-        const firstISO = toISODate(first)
-        const lastISO = toISODate(new Date(first.getFullYear(), first.getMonth() + 1, 0))
-        const start = e.recurring_start || e.expense_date
-        const finish = e.recurring_end
-        if (firstISO >= from && firstISO <= to && start <= lastISO && (!finish || finish >= firstISO)) {
-          const day = ensure(firstISO)
-          day.expenses.push({ ...e, is_fixed_day: true })
-          day.expensesTotal += amount
-        }
-        d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+      const dates = occurrencesInRange(e, from, to)
+      for (const dateISO of dates) {
+        const day = ensure(dateISO)
+        day.expenses.push({ ...e, is_fixed_day: true })
+        day.expensesTotal += amount
       }
       continue
     }
