@@ -429,14 +429,60 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     }
   }, [costPrice, shippingCost, freightCost, margin])
 
-  useEffect(() => {
-    if (product) return
-    if (priceTouched) return
-    const recommended = Number(pricing.recommended.toFixed(2))
-    if (recommended > 0 && form.price !== recommended) {
-      setForm(f => ({ ...f, price: recommended }))
-    }
-  }, [pricing.recommended, product, priceTouched, form.price])
+  const finalPrice = parseFloat(form.price) || 0
+  const realMargin = pricing.subtotal > 0 && finalPrice > 0
+    ? ((finalPrice - pricing.subtotal) / pricing.subtotal) * 100
+    : null
+
+  const round2 = (n) => Math.round(n * 100) / 100
+
+  // Precio final <-> % de ganancia, en ambos sentidos.
+  const handleMarginChange = (value) => {
+    setForm((f) => {
+      const next = { ...f, profit_margin: value }
+      const sub = (parseFloat(f.cost_price) || 0) + (parseFloat(f.shipping_cost) || 0) + (parseFloat(f.freight_cost) || 0)
+      const m = parseFloat(value)
+      if (sub > 0 && Number.isFinite(m)) {
+        next.price = String(round2(sub * (1 + m / 100)))
+      }
+      return next
+    })
+    setPriceTouched(false)
+  }
+
+  const handlePriceChange = (value) => {
+    setPriceTouched(true)
+    setForm((f) => {
+      const next = { ...f, price: value }
+      const sub = (parseFloat(f.cost_price) || 0) + (parseFloat(f.shipping_cost) || 0) + (parseFloat(f.freight_cost) || 0)
+      const p = parseFloat(value)
+      if (sub > 0 && Number.isFinite(p)) {
+        next.profit_margin = String(round2(((p - sub) / sub) * 100))
+      }
+      return next
+    })
+  }
+
+  const handleCostChange = (field, value) => {
+    setForm((f) => {
+      const next = { ...f, [field]: value }
+      const sub = (parseFloat(field === 'cost_price' ? value : f.cost_price) || 0)
+        + (parseFloat(field === 'shipping_cost' ? value : f.shipping_cost) || 0)
+        + (parseFloat(field === 'freight_cost' ? value : f.freight_cost) || 0)
+      if (sub > 0) {
+        if (!product && !priceTouched) {
+          const m = parseFloat(f.profit_margin) || 0
+          next.price = String(round2(sub * (1 + m / 100)))
+        } else {
+          const p = parseFloat(f.price)
+          if (Number.isFinite(p) && p > 0) {
+            next.profit_margin = String(round2(((p - sub) / sub) * 100))
+          }
+        }
+      }
+      return next
+    })
+  }
 
   const existingIds = useMemo(() => allProducts.map(p => p.id).filter(id => id !== product?.id), [allProducts, product])
   const existingSKUs = useMemo(() => {
@@ -471,12 +517,22 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     if (form.min_wholesale_qty !== '' && form.min_wholesale_qty != null) {
       errs.min_wholesale_qty = V.integer(form.min_wholesale_qty, 'La cantidad mínima al mayor', { min: 0, allowEmpty: true })
     }
-    ;['cost_price', 'shipping_cost', 'freight_cost', 'profit_margin'].forEach((field) => {
-      if (form[field] !== '' && form[field] != null) {
-        const err = V.number(form[field], fieldLabels[field], { min: 0, allowEmpty: true })
+    ;['cost_price', 'shipping_cost', 'freight_cost'].forEach((field) => {
+      const empty = form[field] === '' || form[field] == null
+      if (empty) {
+        // En productos nuevos el costo, envío y flete son obligatorios.
+        // En productos existentes se permite 0 (se completan luego en Finanzas → Costos).
+        if (!product) errs[field] = `${fieldLabels[field]} es obligatorio`
+      } else {
+        const err = V.number(form[field], fieldLabels[field], { min: 0 })
         if (err) errs[field] = err
       }
     })
+
+    if (form.profit_margin !== '' && form.profit_margin != null) {
+      const err = V.number(form.profit_margin, fieldLabels.profit_margin, { allowEmpty: true })
+      if (err) errs.profit_margin = err
+    }
     const totalImages = form.images.length + pendingFiles.length
     if (totalImages === 0) errs.images = 'Debe subir al menos una imagen principal'
     const visibleVariants = variants.filter((v) => !v.isDeleted)
@@ -509,7 +565,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     })
     Object.keys(errs).forEach((k) => { if (!errs[k]) delete errs[k] })
     return errs
-  }, [form, variants, existingIds, existingSKUs, pendingFiles.length])
+  }, [form, variants, existingIds, existingSKUs, pendingFiles.length, product])
 
   const hasErrors = useMemo(() => Object.keys(validationErrors).length > 0, [validationErrors])
   useEffect(() => {
@@ -848,6 +904,15 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
           </div>
 
           <div className={styles.field}>
+            <label className="label">Categoría</label>
+            <select className={`input ${validationErrors.category_id ? styles.inputError : ''}`} value={form.category_id} onChange={(e) => setForm({...form,category_id:e.target.value})}>
+              <option value="">Selecciona una categoría</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {validationErrors.category_id && <span className={styles.fieldError}>{validationErrors.category_id}</span>}
+          </div>
+
+          <div className={styles.field}>
             <label className="label">Descripción</label>
             <textarea className={`input ${styles.textarea}`} value={form.description} onChange={(e) => setForm({...form,description:e.target.value})} placeholder="Descripción..." rows={3} />
           </div>
@@ -920,14 +985,6 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
               <input type="number" className={`input ${validationErrors.min_wholesale_qty ? styles.inputError : ''}`} value={form.min_wholesale_qty} onChange={(e) => setForm({...form,min_wholesale_qty:e.target.value})} placeholder="3" />
               {validationErrors.min_wholesale_qty && <span className={styles.fieldError}>{validationErrors.min_wholesale_qty}</span>}
             </div>
-            <div className={styles.field}>
-              <label className="label">Categoría</label>
-              <select className={`input ${validationErrors.category_id ? styles.inputError : ''}`} value={form.category_id} onChange={(e) => setForm({...form,category_id:e.target.value})}>
-                <option value="">Selecciona una categoría</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              {validationErrors.category_id && <span className={styles.fieldError}>{validationErrors.category_id}</span>}
-            </div>
           </div>
 
           {/* ===== PRICING CALCULATOR ===== */}
@@ -935,26 +992,31 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
             <h3 className={styles.pricingTitle}>Calculadora de precios</h3>
             <div className={styles.pricingGrid}>
               <div className={styles.field}>
-                <label className="label">Costo ($)</label>
-                <input type="number" step="0.01" className={`input ${validationErrors.cost_price ? styles.inputError : ''}`} value={form.cost_price} onChange={(e) => setForm({...form,cost_price:e.target.value})} placeholder="0.00" />
+                <label className="label">Costo ($){!product ? ' *' : ''}</label>
+                <input type="number" step="0.01" className={`input ${validationErrors.cost_price ? styles.inputError : ''}`} value={form.cost_price} onChange={(e) => handleCostChange('cost_price', e.target.value)} placeholder="0.00" />
                 {validationErrors.cost_price && <span className={styles.fieldError}>{validationErrors.cost_price}</span>}
               </div>
               <div className={styles.field}>
-                <label className="label">Envío + com. tarjeta ($)</label>
-                <input type="number" step="0.01" className={`input ${validationErrors.shipping_cost ? styles.inputError : ''}`} value={form.shipping_cost} onChange={(e) => setForm({...form,shipping_cost:e.target.value})} placeholder="0.00" />
+                <label className="label">Envío + com. tarjeta ($){!product ? ' *' : ''}</label>
+                <input type="number" step="0.01" className={`input ${validationErrors.shipping_cost ? styles.inputError : ''}`} value={form.shipping_cost} onChange={(e) => handleCostChange('shipping_cost', e.target.value)} placeholder="0.00" />
                 {validationErrors.shipping_cost && <span className={styles.fieldError}>{validationErrors.shipping_cost}</span>}
               </div>
               <div className={styles.field}>
-                <label className="label">Flete ($)</label>
-                <input type="number" step="0.01" className={`input ${validationErrors.freight_cost ? styles.inputError : ''}`} value={form.freight_cost} onChange={(e) => setForm({...form,freight_cost:e.target.value})} placeholder="0.00" />
+                <label className="label">Flete ($){!product ? ' *' : ''}</label>
+                <input type="number" step="0.01" className={`input ${validationErrors.freight_cost ? styles.inputError : ''}`} value={form.freight_cost} onChange={(e) => handleCostChange('freight_cost', e.target.value)} placeholder="0.00" />
                 {validationErrors.freight_cost && <span className={styles.fieldError}>{validationErrors.freight_cost}</span>}
               </div>
               <div className={styles.field}>
                 <label className="label">% Ganancia</label>
-                <input type="number" step="0.01" className={`input ${validationErrors.profit_margin ? styles.inputError : ''}`} value={form.profit_margin} onChange={(e) => setForm({...form,profit_margin:e.target.value})} placeholder="50" />
+                <input type="number" step="0.01" className={`input ${validationErrors.profit_margin ? styles.inputError : ''}`} value={form.profit_margin} onChange={(e) => handleMarginChange(e.target.value)} placeholder="50" />
                 {validationErrors.profit_margin && <span className={styles.fieldError}>{validationErrors.profit_margin}</span>}
               </div>
             </div>
+            {!product && (
+              <p className={styles.pricingHint}>
+                Costo, envío y flete son obligatorios. Los productos viejos sin costo quedan en 0 y puedes completarlos en Finanzas → Costos.
+              </p>
+            )}
             <div className={styles.pricingResults}>
               <div className={styles.pricingResult}>
                 <span>Sub-total</span>
@@ -970,11 +1032,17 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
               </div>
               <div className={`${styles.pricingResult} ${styles.pricingFinal}`}>
                 <span>Precio final</span>
-                <input type="number" step="0.01" className={`input ${styles.pricingFinalInput} ${validationErrors.price ? styles.inputError : ''}`} value={form.price} onChange={(e) => { setPriceTouched(true); setForm({...form,price:e.target.value}) }} placeholder="0.00" />
+                <input type="number" step="0.01" className={`input ${styles.pricingFinalInput} ${validationErrors.price ? styles.inputError : ''}`} value={form.price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0.00" />
+              </div>
+              <div className={styles.pricingResult}>
+                <span>Margen real</span>
+                <strong style={{ color: realMargin === null ? undefined : realMargin < 0 ? '#dc2626' : '#166534' }}>
+                  {realMargin === null ? '—' : `${realMargin.toFixed(2)}%`}
+                </strong>
               </div>
             </div>
-            {!product && !priceTouched && pricing.recommended > 0 && (
-              <p className={styles.pricingHint}>El precio final se ajusta automáticamente al recomendado. Si lo editas, dejará de actualizarse.</p>
+            {pricing.subtotal > 0 && (
+              <p className={styles.pricingHint}>El precio final y el % de ganancia se calculan entre sí automáticamente.</p>
             )}
           </div>
 

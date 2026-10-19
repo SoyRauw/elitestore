@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, ShoppingBag, Home, ChevronRight as ChevronRightIcon, ArrowLeft } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ShoppingBag, Home, ChevronRight as ChevronRightIcon, ArrowLeft, Maximize2 } from 'lucide-react'
 import { useProduct } from '../../hooks/useProducts'
 import { useCartStore } from '../../store/cartStore'
+import ImageLightbox from '../../components/store/ImageLightbox'
 import {
   getVariantModels,
   getProductPriceRange,
@@ -23,6 +24,7 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState(null)
   const [activeImg, setActiveImg] = useState(0)
   const [added, setAdded] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -157,6 +159,8 @@ export default function ProductDetailPage() {
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.2 }}
                       fetchpriority="high"
+                      onClick={() => setLightboxOpen(true)}
+                      style={{ cursor: 'zoom-in' }}
                     />
                   </AnimatePresence>
 
@@ -172,6 +176,7 @@ export default function ProductDetailPage() {
                   )}
 
                   <div className={styles.imgCounter}>{activeImg + 1} / {galleryImages.length}</div>
+                  <div className={styles.zoomHint}><Maximize2 size={14} /> Ampliar</div>
                 </>
               ) : (
                 <div className={styles.noImage}>
@@ -302,6 +307,14 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      <ImageLightbox
+        open={lightboxOpen}
+        images={galleryImages}
+        index={activeImg}
+        alt={product.name}
+        onClose={() => setLightboxOpen(false)}
+      />
     </main>
   )
 }

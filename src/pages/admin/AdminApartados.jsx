@@ -292,6 +292,9 @@ export default function AdminApartados() {
         quantity: item.quantity,
         unit_price: item.price,
         discount_amount: 0,
+        unit_cost: (parseFloat(item.product.cost_price) || 0)
+          + (parseFloat(item.product.shipping_cost) || 0)
+          + (parseFloat(item.product.freight_cost) || 0),
       }))
       const { error: itemsError } = await supabase.from('movement_items').insert(movementItems)
       if (itemsError) throw itemsError

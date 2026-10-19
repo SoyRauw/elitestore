@@ -551,6 +551,9 @@ export default function AdminPOS() {
         unit_price: item.price,
         discount_amount: allocatedDiscounts[index] || 0,
         is_wholesale: !!item.wholesale,
+        unit_cost: (parseFloat(item.product.cost_price) || 0)
+          + (parseFloat(item.product.shipping_cost) || 0)
+          + (parseFloat(item.product.freight_cost) || 0),
       }))
 
       const { error: itemsError } = await supabase
