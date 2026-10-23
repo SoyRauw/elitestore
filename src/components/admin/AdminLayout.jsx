@@ -47,7 +47,9 @@ export default function AdminLayout({ children }) {
           <Link onClick={() => setMenuOpen(false)} to="/admin/returns" className={`${styles.navItem} ${location.pathname==='/admin/returns'?styles.navActive:''}`}><RotateCcw size={18} /> Devoluciones</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/apartados" className={`${styles.navItem} ${location.pathname==='/admin/apartados'?styles.navActive:''}`}><Bookmark size={18} /> Apartados</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/giftcards" className={`${styles.navItem} ${location.pathname==='/admin/giftcards'?styles.navActive:''}`}><CreditCard size={18} /> Giftcards</Link>
-          <Link onClick={() => setMenuOpen(false)} to="/admin/finance" className={`${styles.navItem} ${location.pathname==='/admin/finance'?styles.navActive:''}`}><Wallet size={18} /> Finanzas</Link>
+          {isAdmin && (
+            <Link onClick={() => setMenuOpen(false)} to="/admin/finance" className={`${styles.navItem} ${location.pathname==='/admin/finance'?styles.navActive:''}`}><Wallet size={18} /> Finanzas</Link>
+          )}
           <Link onClick={() => setMenuOpen(false)} to="/admin/pos" className={`${styles.navItem} ${location.pathname==='/admin/pos'?styles.navActive:''}`}><Store size={18} /> POS</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/cash" className={`${styles.navItem} ${location.pathname==='/admin/cash'?styles.navActive:''}`}><Banknote size={18} /> Caja</Link>
           {isAdmin && (

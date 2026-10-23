@@ -37,6 +37,7 @@ const ADMIN_ONLY_ROUTES = [
   '/admin/categories',
   '/admin/products',
   '/admin/reports',
+  '/admin/finance',
   '/admin/users',
 ]
 

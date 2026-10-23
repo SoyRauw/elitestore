@@ -12,7 +12,7 @@ import { Search, RotateCcw, X, CheckCircle, Printer, Plus, Minus, Trash2, Calend
 import { Link } from 'react-router-dom'
 import styles from './AdminReturns.module.css'
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000
 
 function formatMoney(value) {
   return `$${(parseFloat(value) || 0).toFixed(2)}`
@@ -75,7 +75,7 @@ export default function AdminReturns() {
 
   const loadRecentInvoices = useCallback(async (customerId) => {
     setLoadingInvoices(true)
-    const since = new Date(Date.now() - SEVEN_DAYS_MS).toISOString()
+    const since = new Date(Date.now() - FIFTEEN_DAYS_MS).toISOString()
     const { data, error } = await supabase
       .from('movements')
       .select(`
@@ -514,7 +514,7 @@ export default function AdminReturns() {
                 {loadingInvoices ? (
                   <p className={styles.empty}>Cargando...</p>
                 ) : recentInvoices.length === 0 ? (
-                  <p className={styles.empty}>No hay facturas en los últimos 7 días</p>
+                  <p className={styles.empty}>No hay facturas en los últimos 15 días</p>
                 ) : (
                   <div className={styles.invoiceList}>
                     {recentInvoices.map((inv) => {
