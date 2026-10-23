@@ -5,11 +5,15 @@ import { Html5QrcodeScanner } from 'html5-qrcode'
 import {
   Package, Plus, Edit2, Trash2,
   Camera, X, ShoppingBag, Save, AlertTriangle,
-  ImagePlus, Star, RefreshCw, Copy, Download, Search
+  ImagePlus, Star, RefreshCw, Copy, Download, Search,
+  Images, Layers, Check
 } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
-import { generateProductId, generateProductCode, generateVariantCode } from '../../lib/sku'
+import {
+  generateProductId, generateProductCode, generateVariantCode,
+  sortVariants, variantGroupKey
+} from '../../lib/sku'
 import * as V from '../../lib/validation'
 import styles from './AdminProducts.module.css'
 
@@ -27,11 +31,33 @@ function emptyVariant() {
     wholesale_price: null,
     stock: 0,
     image: null,
-    pendingImageFile: null,
-    pendingImagePreview: null,
+    images: [],
     isNew: true,
     isDeleted: false,
   }
+}
+
+function groupLabelOf(variant) {
+  const parts = [variant?.color, variant?.variant_name].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'Sin color / modelo'
+}
+
+function collectGalleryImages(variants = []) {
+  const list = []
+  const push = (url) => {
+    if (url && !list.includes(url)) list.push(url)
+  }
+  variants.forEach((variant) => {
+    if (Array.isArray(variant.images)) variant.images.forEach(push)
+    if (variant.image) push(variant.image)
+  })
+  return list
+}
+
+function sortVariantState(list, productId, sizeOptions) {
+  const visible = list.filter((v) => !v.isDeleted)
+  const deleted = list.filter((v) => v.isDeleted)
+  return [...sortVariants(visible, productId, sizeOptions), ...deleted]
 }
 
 export default function AdminProducts() {
@@ -40,6 +66,7 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editProduct, setEditProduct] = useState(null)
+  const [formTab, setFormTab] = useState('data')
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [scannerOpen, setScannerOpen] = useState(false)
@@ -70,7 +97,7 @@ export default function AdminProducts() {
 
   useEffect(() => { fetchData() }, [])
 
-  const handleEdit = async (product) => {
+  const handleEdit = async (product, initialTab = 'data') => {
     setLoadingEdit(product.id)
     const { data, error } = await supabase
       .from('products')
@@ -79,6 +106,7 @@ export default function AdminProducts() {
       .single()
     setLoadingEdit(false)
     setEditProduct(error ? product : data)
+    setFormTab(initialTab)
     setShowForm(true)
   }
 
@@ -189,7 +217,7 @@ export default function AdminProducts() {
               <Trash2 size={16} /> Eliminar {selectedIds.size}
             </button>
           )}
-          <button className="btn btn-primary" onClick={() => { setEditProduct(null); setShowForm(true) }}>
+          <button className="btn btn-primary" onClick={() => { setEditProduct(null); setFormTab('data'); setShowForm(true) }}>
             <Plus size={16} /> Nuevo
           </button>
         </div>
@@ -292,9 +320,22 @@ export default function AdminProducts() {
                     <td data-label="Acciones">
                       <div className={styles.actions}>
                         <button
+                          className={styles.photoBtn}
+                          onClick={() => handleEdit(p, 'photos')}
+                          aria-label="Fotos por color"
+                          title="Fotos por color"
+                          disabled={loadingEdit === p.id}
+                        >
+                          {loadingEdit === p.id
+                            ? <div className={styles.spinnerSm} />
+                            : <Images size={15} />
+                          }
+                        </button>
+                        <button
                           className={styles.editBtn}
                           onClick={() => handleEdit(p)}
                           aria-label="Editar"
+                          title="Editar producto"
                           disabled={loadingEdit === p.id}
                         >
                           {loadingEdit === p.id
@@ -333,6 +374,8 @@ export default function AdminProducts() {
             categories={categories}
             allProducts={products}
             scannedId={scannedId}
+            tab={formTab}
+            onTabChange={setFormTab}
             onClose={handleFormClose}
             onSaved={fetchData}
             onOpenScanner={() => setScannerOpen(true)}
@@ -369,12 +412,22 @@ export default function AdminProducts() {
   )
 }
 
-function ProductFormModal({ product, categories, allProducts, scannedId, onClose, onSaved, onOpenScanner, onScannedIdChange }) {
+function ProductFormModal({ product, categories, allProducts, scannedId, tab, onTabChange, onClose, onSaved, onOpenScanner, onScannedIdChange }) {
   const initialVariants = useMemo(() => {
     if (product?.product_variants?.length) {
-      return product.product_variants.map(v => ({ ...v, isNew: false, isDeleted: false }))
+      const sorted = sortVariants(
+        product.product_variants,
+        product.id,
+        product.categories?.size_options || []
+      )
+      return sorted.map(v => ({
+        ...v,
+        images: Array.isArray(v.images) && v.images.length ? v.images : (v.image ? [v.image] : []),
+        isNew: false,
+        isDeleted: false,
+      }))
     }
-    return [emptyVariant()]
+    return []
   }, [product])
 
   const [form, setForm] = useState({
@@ -384,7 +437,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     price: product?.price ?? '',
     wholesale_price: product?.wholesale_price ?? '',
     min_wholesale_qty: product?.min_wholesale_qty ?? 0,
-    category_id: product?.category_id || (categories[0]?.id || ''),
+    category_id: product?.category_id || '',
     featured: product?.featured || false,
     active: product?.active !== false,
     images: Array.isArray(product?.images) ? product.images : [],
@@ -394,8 +447,12 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     profit_margin: product?.profit_margin ?? 50,
   })
   const [priceTouched, setPriceTouched] = useState(false)
+  const [idTouched, setIdTouched] = useState(!!product)
 
   const [variants, setVariants] = useState(initialVariants)
+  const [groupImages, setGroupImages] = useState({})
+  const [sizesModalOpen, setSizesModalOpen] = useState(false)
+  const [quick, setQuick] = useState({ color: '', model: '', sizes: [], stock: '1', price: '', wholesale: '' })
   const [pendingFiles, setPendingFiles] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -412,6 +469,10 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
   const categorySizeOptions = useMemo(() => {
     return category?.size_options || []
   }, [category])
+
+  useEffect(() => {
+    setQuick((q) => ({ ...q, sizes: categorySizeOptions }))
+  }, [categorySizeOptions])
 
   const costPrice = parseFloat(form.cost_price) || 0
   const shippingCost = parseFloat(form.shipping_cost) || 0
@@ -495,6 +556,81 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     return skus
   }, [allProducts, product])
 
+  useEffect(() => {
+    if (product || saved || idTouched) return
+    const name = form.name.trim()
+    if (!form.category_id || !name) return
+    const selectedCategory = categories.find(c => c.id === form.category_id)
+    if (!selectedCategory) return
+    const nextId = selectedCategory.prefix
+      ? generateProductCode(selectedCategory.prefix, existingIds)
+      : generateProductId(selectedCategory.name, name, existingIds)
+    if (!nextId) return
+    setForm(f => (f.id === nextId ? f : { ...f, id: nextId }))
+  }, [product, saved, idTouched, form.name, form.category_id, categories, existingIds])
+
+  const orderedVariants = useMemo(
+    () => sortVariants(variants.filter(v => !v.isDeleted), form.id, categorySizeOptions),
+    [variants, form.id, categorySizeOptions]
+  )
+
+  const groupList = useMemo(() => {
+    const map = new Map()
+    orderedVariants.forEach((v) => {
+      const key = variantGroupKey(v)
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          color: v.color || '',
+          variantName: v.variant_name || '',
+          variants: [],
+        })
+      }
+      map.get(key).variants.push(v)
+    })
+    return [...map.values()]
+  }, [orderedVariants])
+
+  const lastGroup = groupList[groupList.length - 1] || null
+  const lastGroupMissingSizes = useMemo(() => {
+    if (!lastGroup) return []
+    const existing = new Set(lastGroup.variants.map(v => v.size).filter(Boolean))
+    return categorySizeOptions.filter(size => !existing.has(size))
+  }, [lastGroup, categorySizeOptions])
+
+  const getAllColors = useMemo(() => {
+    const values = new Set()
+    allProducts.forEach(p => (p.product_variants || []).forEach(v => {
+      if (v.color) values.add(v.color)
+    }))
+    variants.forEach(v => { if (v.color) values.add(v.color) })
+    return [...values].sort((a, b) => a.localeCompare(b, 'es'))
+  }, [allProducts, variants])
+
+  const getAllModels = useMemo(() => {
+    const values = new Set()
+    allProducts.forEach(p => (p.product_variants || []).forEach(v => {
+      if (v.variant_name) values.add(v.variant_name)
+    }))
+    variants.forEach(v => { if (v.variant_name) values.add(v.variant_name) })
+    return [...values].sort((a, b) => a.localeCompare(b, 'es'))
+  }, [allProducts, variants])
+
+  const sortState = (list) => sortVariantState(list, form.id, categorySizeOptions)
+
+  const getGalleryFor = (group) => {
+    if (!group) return { images: [], pending: [] }
+    return groupImages[group.key] || { images: collectGalleryImages(group.variants), pending: [] }
+  }
+
+  const updateGallery = (group, updater) => {
+    if (!group) return
+    setGroupImages(prev => {
+      const current = prev[group.key] || { images: collectGalleryImages(group.variants), pending: [] }
+      return { ...prev, [group.key]: updater(current) }
+    })
+  }
+
   const validationErrors = useMemo(() => {
     const fieldLabels = {
       cost_price: 'El costo',
@@ -535,23 +671,31 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     }
     const totalImages = form.images.length + pendingFiles.length
     if (totalImages === 0) errs.images = 'Debe subir al menos una imagen principal'
-    const visibleVariants = variants.filter((v) => !v.isDeleted)
+    const visibleVariants = orderedVariants
     if (visibleVariants.length === 0) errs.variants = 'Debe tener al menos una variante'
     const usedSKUs = new Set()
+    const usedCombos = new Set()
     visibleVariants.forEach((v) => {
       const key = `variant_${v.id}`
-      const skuErr = V.run(v.sku?.trim(), [
-        (val) => V.required(val, 'El SKU'),
-        (val) => V.noSpaces(val, 'El SKU'),
-        (val) => V.unique(val, 'El SKU', existingSKUs),
-      ])
-      if (skuErr) {
-        errs[key] = skuErr
-      } else {
-        const upper = v.sku.trim().toUpperCase()
-        if (usedSKUs.has(upper)) errs[key] = 'El SKU está repetido dentro de este producto'
-        usedSKUs.add(upper)
+      const skuValue = v.sku?.trim()
+      if (skuValue) {
+        const skuErr = V.run(skuValue, [
+          (val) => V.noSpaces(val, 'El SKU'),
+          (val) => V.unique(val, 'El SKU', existingSKUs),
+        ])
+        if (skuErr) {
+          errs[key] = skuErr
+        } else {
+          const upper = skuValue.toUpperCase()
+          if (usedSKUs.has(upper)) errs[key] = 'El SKU está repetido dentro de este producto'
+          usedSKUs.add(upper)
+        }
       }
+      const combo = `${(v.color || '').trim().toLowerCase()}::${(v.variant_name || '').trim().toLowerCase()}::${(v.size || '').trim().toLowerCase()}`
+      if (usedCombos.has(combo)) {
+        errs[key] = errs[key] || 'Ya existe una variante con ese color, modelo y talla'
+      }
+      usedCombos.add(combo)
       if (v.price !== '' && v.price != null) {
         const perr = V.number(v.price, 'El precio de variante', { min: 0, allowEmpty: true })
         if (perr) errs[`${key}_price`] = perr
@@ -565,11 +709,22 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     })
     Object.keys(errs).forEach((k) => { if (!errs[k]) delete errs[k] })
     return errs
-  }, [form, variants, existingIds, existingSKUs, pendingFiles.length, product])
+  }, [form, orderedVariants, existingIds, existingSKUs, pendingFiles.length, product])
 
   const hasErrors = useMemo(() => Object.keys(validationErrors).length > 0, [validationErrors])
+  const hasDataErrors = useMemo(() => {
+    const keys = ['id', 'name', 'category_id', 'price', 'wholesale_price', 'min_wholesale_qty', 'cost_price', 'shipping_cost', 'freight_cost', 'profit_margin', 'images']
+    return Object.keys(validationErrors).some((key) => keys.includes(key))
+  }, [validationErrors])
+  const hasVariantErrors = useMemo(
+    () => Object.keys(validationErrors).some((key) => key === 'variants' || key.startsWith('variant_')),
+    [validationErrors]
+  )
   useEffect(() => {
-    if (scannedId) setForm(f => ({ ...f, id: scannedId }))
+    if (scannedId) {
+      setIdTouched(true)
+      setForm(f => ({ ...f, id: scannedId }))
+    }
   }, [scannedId])
 
   const handleImageFiles = (e) => {
@@ -596,6 +751,38 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     setForm(f => ({ ...f, images: [url, ...f.images.filter(u => u !== url)] }))
   }
 
+  // ===== Galería de fotos por color/modelo =====
+  const addGroupPhotos = (group, fileList) => {
+    const files = Array.from(fileList || [])
+    if (files.length === 0) return
+    const entries = files.map(file => ({
+      id: `pending-${Math.random().toString(36).slice(2)}`,
+      file,
+      preview: URL.createObjectURL(file),
+    }))
+    updateGallery(group, (gallery) => ({ ...gallery, pending: [...gallery.pending, ...entries] }))
+  }
+
+  const removeGroupPhoto = (group, url) => {
+    updateGallery(group, (gallery) => ({ ...gallery, images: gallery.images.filter(img => img !== url) }))
+  }
+
+  const removeGroupPending = (group, pendingId) => {
+    updateGallery(group, (gallery) => {
+      const target = gallery.pending.find(p => p.id === pendingId)
+      if (target?.preview) URL.revokeObjectURL(target.preview)
+      return { ...gallery, pending: gallery.pending.filter(p => p.id !== pendingId) }
+    })
+  }
+
+  const makeGroupPhotoPrincipal = (group, url) => {
+    updateGallery(group, (gallery) => ({
+      ...gallery,
+      images: [url, ...gallery.images.filter(img => img !== url)],
+    }))
+  }
+
+  // ===== Variantes =====
   const updateVariant = (id, field, value) => {
     setVariants(prev => prev.map(v => {
       if (v.id !== id) return v
@@ -603,55 +790,49 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
       if (field === 'sku') {
         updated.barcode = value
       }
+      if (field === 'size') {
+        const oldSize = String(v.size || '').trim()
+        const newSize = String(value || '').trim()
+        const sku = String(v.sku || '')
+        if (oldSize && sku.toUpperCase().endsWith(`-${oldSize.toUpperCase()}`)) {
+          const base = sku.slice(0, sku.length - oldSize.length - 1)
+          const nextSku = newSize ? `${base}-${newSize}` : base
+          updated.sku = nextSku
+          if (!v.barcode || String(v.barcode).toUpperCase() === sku.toUpperCase()) {
+            updated.barcode = nextSku
+          }
+        }
+      }
       return updated
     }))
   }
 
   const addVariant = () => {
-    setVariants(prev => [...prev, emptyVariant()])
-  }
-
-  const duplicateLastVariant = () => {
-    const visible = variants.filter(v => !v.isDeleted)
-    const last = visible[visible.length - 1]
-    if (!last) {
-      setVariants(prev => [...prev, emptyVariant()])
-      return
-    }
-    const copy = {
-      ...emptyVariant(),
-      color: last.color || '',
-      variant_name: last.variant_name || '',
-      price: last.price ?? '',
-      wholesale_price: last.wholesale_price ?? '',
-      image: last.image || null,
-      pendingImageFile: null,
-      pendingImagePreview: null,
-    }
-    setVariants(prev => [...prev, copy])
+    setVariants(prev => sortState([...prev, emptyVariant()]))
   }
 
   const removeVariant = (id) => {
     setVariants(prev => prev.map(v => v.id === id ? { ...v, isDeleted: true } : v))
   }
 
-  const handleVariantImageFile = (id, file) => {
-    if (!file) return
-    setVariants(prev => prev.map(v => {
-      if (v.id !== id) return v
-      return {
-        ...v,
-        pendingImageFile: file,
-        pendingImagePreview: URL.createObjectURL(file),
-      }
-    }))
-  }
-
-  const removeVariantImage = (id) => {
-    setVariants(prev => prev.map(v => {
-      if (v.id !== id) return v
-      return { ...v, image: null, pendingImageFile: null, pendingImagePreview: null }
-    }))
+  const duplicateLastVariant = () => {
+    const last = orderedVariants[orderedVariants.length - 1]
+    if (!last) {
+      addVariant()
+      return
+    }
+    const images = collectGalleryImages([last])
+    const copy = {
+      ...emptyVariant(),
+      color: last.color || '',
+      variant_name: last.variant_name || '',
+      price: last.price ?? '',
+      wholesale_price: last.wholesale_price ?? '',
+      stock: last.stock ?? 1,
+      image: images[0] || null,
+      images,
+    }
+    setVariants(prev => sortState([...prev, copy]))
   }
 
   const uploadVariantImage = async (file) => {
@@ -664,11 +845,181 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
 
     if (uploadError) throw new Error('Error al subir imagen de variante: ' + uploadError.message)
 
-    const { data: publicUrlData } = supabase.storage
+    const { data: publicUrlData } = await supabase.storage
       .from('product-images')
       .getPublicUrl(fileName)
 
     return publicUrlData.publicUrl
+  }
+
+  const buildVariant = ({ color, variantName, size, template, defaults = {}, images = [] }) => {
+    const gallery = images.filter(Boolean)
+    return {
+      ...emptyVariant(),
+      color: color?.trim() || '',
+      variant_name: variantName?.trim() || '',
+      size: size || '',
+      price: defaults.price !== '' && defaults.price != null
+        ? defaults.price
+        : (template?.price ?? form.price ?? ''),
+      wholesale_price: defaults.wholesale !== '' && defaults.wholesale != null
+        ? defaults.wholesale
+        : (template?.wholesale_price ?? form.wholesale_price ?? ''),
+      stock: defaults.stock !== '' && defaults.stock != null
+        ? defaults.stock
+        : (template?.stock ?? 1),
+      image: gallery[0] || null,
+      images: gallery,
+    }
+  }
+
+  const addQuickVariants = () => {
+    if (categorySizeOptions.length === 0) {
+      setError('Selecciona una categoría con tallas configuradas')
+      return
+    }
+    if (quick.sizes.length === 0) {
+      setError('Selecciona al menos una talla')
+      return
+    }
+    const color = quick.color.trim()
+    const model = quick.model.trim()
+    const targetKey = `${color.toLowerCase()}::${model.toLowerCase()}`
+    const existingGroup = groupList.find(g => g.key === targetKey)
+    const template = existingGroup?.variants[existingGroup.variants.length - 1] || null
+    const existingSizes = new Set((existingGroup?.variants || []).map(v => v.size).filter(Boolean))
+    const sizes = quick.sizes.filter(size => !existingSizes.has(size))
+    if (sizes.length === 0) {
+      setError('Esas tallas ya existen para ese color/modelo')
+      return
+    }
+    const images = existingGroup ? collectGalleryImages(existingGroup.variants) : []
+    const additions = sizes.map(size => buildVariant({
+      color,
+      variantName: model,
+      size,
+      template,
+      defaults: { stock: quick.stock, price: quick.price, wholesale: quick.wholesale },
+      images,
+    }))
+    setVariants(prev => sortState([...prev, ...additions]))
+    setError('')
+    setQuick(q => ({ ...q, color: '', model: '' }))
+  }
+
+  const duplicateLastColor = () => {
+    const source = lastGroup
+    if (!source) {
+      setError('Primero agrega una variante')
+      return
+    }
+    const newColor = quick.color.trim()
+    if (!newColor) {
+      setError('Escribe el nuevo color en el campo Color')
+      return
+    }
+    const targetKey = `${newColor.toLowerCase()}::${String(source.variantName || '').toLowerCase()}`
+    if (groupList.some(g => g.key === targetKey)) {
+      setError('Ese color ya existe para este modelo')
+      return
+    }
+    const images = collectGalleryImages(source.variants)
+    const additions = source.variants.map(v => buildVariant({
+      color: newColor,
+      variantName: v.variant_name,
+      size: v.size,
+      template: v,
+      defaults: { stock: v.stock, price: v.price, wholesale: v.wholesale_price },
+      images,
+    }))
+    setVariants(prev => sortState([...prev, ...additions]))
+    setError('')
+    setQuick(q => ({ ...q, color: '' }))
+  }
+
+  const duplicateLastModel = () => {
+    const source = lastGroup
+    if (!source) {
+      setError('Primero agrega una variante')
+      return
+    }
+    const newModel = quick.model.trim()
+    if (!newModel) {
+      setError('Escribe el nuevo modelo/estampado en el campo Modelo')
+      return
+    }
+    const targetKey = `${String(source.color || '').toLowerCase()}::${newModel.toLowerCase()}`
+    if (groupList.some(g => g.key === targetKey)) {
+      setError('Ese modelo ya existe para este color')
+      return
+    }
+    const images = collectGalleryImages(source.variants)
+    const additions = source.variants.map(v => buildVariant({
+      color: v.color,
+      variantName: newModel,
+      size: v.size,
+      template: v,
+      defaults: { stock: v.stock, price: v.price, wholesale: v.wholesale_price },
+      images,
+    }))
+    setVariants(prev => sortState([...prev, ...additions]))
+    setError('')
+    setQuick(q => ({ ...q, model: '' }))
+  }
+
+  const addSizeToGroup = (group, size) => {
+    if (!group) return
+    const template = group.variants[group.variants.length - 1]
+    const images = collectGalleryImages(group.variants)
+    const addition = buildVariant({
+      color: group.color,
+      variantName: group.variantName,
+      size,
+      template,
+      defaults: {
+        stock: template?.stock ?? quick.stock,
+        price: template?.price ?? quick.price,
+        wholesale: template?.wholesale_price ?? quick.wholesale,
+      },
+      images,
+    })
+    setVariants(prev => sortState([...prev, addition]))
+  }
+
+  const addVariantsFromMatrix = ({ selections, newGroup, defaults }) => {
+    const additions = []
+    for (const selection of selections) {
+      const group = groupList.find(g => g.key === selection.key)
+      if (!group) continue
+      const template = group.variants[group.variants.length - 1] || null
+      const images = collectGalleryImages(group.variants)
+      for (const size of selection.sizes) {
+        additions.push(buildVariant({
+          color: group.color,
+          variantName: group.variantName,
+          size,
+          template,
+          defaults,
+          images,
+        }))
+      }
+    }
+    if (newGroup && newGroup.sizes.length > 0) {
+      for (const size of newGroup.sizes) {
+        additions.push(buildVariant({
+          color: newGroup.color,
+          variantName: newGroup.model,
+          size,
+          template: null,
+          defaults,
+          images: [],
+        }))
+      }
+    }
+    if (additions.length === 0) return
+    setVariants(prev => sortState([...prev, ...additions]))
+    setSizesModalOpen(false)
+    setError('')
   }
 
   const generateId = () => {
@@ -676,59 +1027,39 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
       setError('Ingresa nombre y categoría para generar el ID')
       return
     }
+    setIdTouched(false)
     if (category?.prefix) {
       setForm(f => ({ ...f, id: generateProductCode(category.prefix, existingIds) }))
     } else {
-      setForm(f => ({ ...f, id: generateProductId(categoryName, f.name, existingIds) }))
+      setForm(f => ({ ...f, id: generateProductId(categoryName, form.name, existingIds) }))
     }
   }
 
-  const generateAllSKUs = () => {
-    setVariants(prev => {
-      const result = []
-      prev.forEach(v => {
-        if (v.isDeleted) {
-          result.push(v)
-          return
-        }
-        const usedCodes = [...existingSKUs, ...result.filter(r => !r.isDeleted).map(r => r.sku)]
-        const sku = generateVariantCode(form.id, v.size, usedCodes)
-        result.push({ ...v, sku, barcode: sku })
-      })
-      return result
-    })
-  }
-
-  const generateSizeVariants = () => {
+  const completeMissingSKUs = () => {
     if (!form.id) {
-      setError('Genera o ingresa el ID del producto primero')
+      setError('Primero define el ID del producto')
       return
     }
-    if (categorySizeOptions.length === 0) {
-      setError('La categoría no tiene medidas configuradas')
+    const visible = sortVariants(variants.filter(v => !v.isDeleted), form.id, categorySizeOptions)
+    const missing = visible.filter(v => !v.sku?.trim())
+    if (missing.length === 0) {
+      setError('Todas las variantes ya tienen SKU')
       return
     }
-    const visible = variants.filter(v => !v.isDeleted)
-    const usedSizes = visible.map(v => v.size)
-    const referenceColor = visible.find(v => v.color?.trim())?.color || ''
-    const referencePrice = visible[visible.length - 1]?.price ?? ''
-    const referenceWholesale = visible[visible.length - 1]?.wholesale_price ?? ''
-    const newVariants = categorySizeOptions
-      .filter(s => !usedSizes.includes(s))
-      .reduce((acc, size) => {
-        const usedCodes = [...existingSKUs, ...acc.map(a => a.sku)]
-        const v = emptyVariant()
-        v.size = size
-        v.color = referenceColor
-        v.price = referencePrice
-        v.wholesale_price = referenceWholesale
-        v.sku = generateVariantCode(form.id, size, usedCodes)
-        v.barcode = v.sku
-        acc.push(v)
-        return acc
-      }, [])
-    if (newVariants.length === 0) return
-    setVariants(prev => [...prev, ...newVariants])
+    const currentProductSKUs = (product?.product_variants || []).map(v => v.sku).filter(Boolean)
+    const used = new Set([
+      ...existingSKUs,
+      ...currentProductSKUs,
+      ...visible.map(v => v.sku).filter(Boolean),
+    ])
+    const generated = {}
+    missing.forEach(v => {
+      const sku = generateVariantCode(form.id, v.size, [...used]).toUpperCase()
+      generated[v.id] = sku
+      used.add(sku)
+    })
+    setVariants(prev => prev.map(v => generated[v.id] ? { ...v, sku: generated[v.id], barcode: generated[v.id] } : v))
+    setError('')
   }
 
   const handleFormSubmit = (e) => {
@@ -742,6 +1073,15 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
     setSaving(true)
     setError('')
     try {
+      // Evita crear el producto a medias si falta la migración de galería.
+      const { error: galleryCheckError } = await supabase
+        .from('product_variants')
+        .select('id, images')
+        .limit(1)
+      if (galleryCheckError && /images/i.test(galleryCheckError.message || '')) {
+        throw new Error('Falta aplicar la migración de galería de fotos (product_variants.images). Ejecuta el SQL en Supabase y vuelve a intentar.')
+      }
+
       let imageUrls = [...form.images]
 
       if (pendingFiles.length > 0) {
@@ -764,6 +1104,21 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
           imageUrls.push(publicUrlData.publicUrl)
           setUploadProgress(Math.round(((i + 1) / pendingFiles.length) * 100))
         }
+      }
+
+      // Sube una sola vez la galería de cada color/modelo.
+      const finalGalleries = {}
+      for (const group of groupList) {
+        const gallery = getGalleryFor(group)
+        const images = []
+        const push = (url) => {
+          if (url && !images.includes(url)) images.push(url)
+        }
+        gallery.images.forEach(push)
+        for (const pending of gallery.pending) {
+          push(await uploadVariantImage(pending.file))
+        }
+        finalGalleries[group.key] = { images, image: images[0] || null }
       }
 
       const payload = {
@@ -792,18 +1147,21 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
         if (error) throw error
       }
 
-      // Save variants
+      // Borra variantes existentes marcadas para eliminar.
+      for (const v of variants) {
+        if (!v.isDeleted || v.isNew) continue
+        const { error: deleteError } = await supabase.from('product_variants').delete().eq('id', v.id)
+        if (deleteError) throw deleteError
+      }
+
+      // Guarda variantes en el orden visual (color/modelo + talla).
+      // Los SKU existentes no se renumeran nunca.
+      const currentProductSKUs = (product?.product_variants || []).map(v => v.sku).filter(Boolean)
+      const providedSKUs = orderedVariants.map(v => v.sku?.trim().toUpperCase()).filter(Boolean)
       const savedVariantSKUs = []
       const generatedSkus = {}
-      for (const v of variants) {
-        if (v.isDeleted && !v.isNew) {
-          const { error: deleteError } = await supabase.from('product_variants').delete().eq('id', v.id)
-          if (deleteError) throw deleteError
-          continue
-        }
-        if (v.isDeleted) continue
-
-        const usedCodes = [...existingSKUs, ...savedVariantSKUs]
+      for (const v of orderedVariants) {
+        const usedCodes = [...new Set([...existingSKUs, ...currentProductSKUs, ...providedSKUs, ...savedVariantSKUs])]
         let sku = v.sku?.trim().toUpperCase()
         if (!sku) {
           sku = generateVariantCode(payload.id, v.size, usedCodes).toUpperCase()
@@ -819,10 +1177,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
           throw new Error(`La variante ${v.color || v.variant_name || v.size || 'sin nombre'} no tiene SKU`)
         }
 
-        let variantImageUrl = v.image || null
-        if (v.pendingImageFile) {
-          variantImageUrl = await uploadVariantImage(v.pendingImageFile)
-        }
+        const gallery = finalGalleries[variantGroupKey(v)] || { images: [], image: null }
 
         const variantPayload = {
           product_id: payload.id,
@@ -834,7 +1189,8 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
           price: variantPrice,
           wholesale_price: variantWholesale,
           stock: variantStock,
-          image: variantImageUrl,
+          image: gallery.image,
+          images: gallery.images,
         }
 
         if (v.isNew) {
@@ -847,9 +1203,22 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
       }
 
       onSaved()
-      if (Object.keys(generatedSkus).length > 0) {
-        setVariants(prev => prev.map(v => generatedSkus[v.id] ? { ...v, sku: generatedSkus[v.id] } : v))
-      }
+      setVariants(prev => sortState(prev.map(v => {
+        const updates = {}
+        if (generatedSkus[v.id]) {
+          updates.sku = generatedSkus[v.id]
+          updates.barcode = generatedSkus[v.id]
+        }
+        const gallery = finalGalleries[variantGroupKey(v)]
+        if (gallery) {
+          updates.images = gallery.images
+          updates.image = gallery.image
+        }
+        return Object.keys(updates).length > 0 ? { ...v, ...updates } : v
+      })))
+      setGroupImages(Object.fromEntries(
+        Object.entries(finalGalleries).map(([key, gallery]) => [key, { images: gallery.images, pending: [] }])
+      ))
       setSaved(true)
     } catch (e) {
       console.error('Error guardando producto:', e)
@@ -859,6 +1228,8 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
         setError('Ya existe un producto con este ID. Usa otro ID o edita el existente.')
       } else if (lower.includes('product_variants_sku_key') || (lower.includes('duplicate key') && lower.includes('sku'))) {
         setError('El SKU de una variante ya existe. Revisa que no haya SKUs repetidos.')
+      } else if (lower.includes('images') && (lower.includes('column') || lower.includes('schema cache'))) {
+        setError('Falta aplicar la migración de galería de fotos (product_variants.images). Ejecuta el SQL de la migración en Supabase y vuelve a intentar.')
       } else if (lower.includes('row-level security')) {
         setError(`Error de permisos (RLS): ${message}. Ve a Supabase → Authentication → Policies y asegúrate de que las tablas permitan INSERT/UPDATE.`)
       } else {
@@ -879,10 +1250,38 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
         </div>
 
         <form onSubmit={handleFormSubmit} className={styles.form} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
+          <div className={styles.formTabs}>
+            <button
+              type="button"
+              className={`${styles.formTab} ${tab === 'data' ? styles.formTabActive : ''}`}
+              onClick={() => onTabChange('data')}
+            >
+              <Package size={15} /> Datos
+              {hasDataErrors && <span className={styles.tabDot} />}
+            </button>
+            <button
+              type="button"
+              className={`${styles.formTab} ${tab === 'variants' ? styles.formTabActive : ''}`}
+              onClick={() => onTabChange('variants')}
+            >
+              <Layers size={15} /> Variantes
+              {hasVariantErrors && <span className={styles.tabDot} />}
+            </button>
+            <button
+              type="button"
+              className={`${styles.formTab} ${tab === 'photos' ? styles.formTabActive : ''}`}
+              onClick={() => onTabChange('photos')}
+            >
+              <Images size={15} /> Fotos por color
+            </button>
+          </div>
+
+          {tab === 'data' && (
+            <>
           <div className={styles.field}>
             <label className="label">ID del producto</label>
             <div className={styles.idRow}>
-              <input className={`input ${validationErrors.id ? styles.inputError : ''}`} value={form.id} onChange={(e) => { setForm({...form,id:e.target.value}); onScannedIdChange(e.target.value) }} placeholder="ej: PIJ-SAT" disabled={!!product} />
+              <input className={`input ${validationErrors.id ? styles.inputError : ''}`} value={form.id} onChange={(e) => { setIdTouched(true); setForm({ ...form, id: e.target.value }); onScannedIdChange(e.target.value) }} placeholder="ej: PIJ-SAT" disabled={!!product} />
               {!product && (
                 <>
                   <button type="button" className={styles.scanBtn} onClick={onOpenScanner} title="Escanear código"><Camera size={20} /></button>
@@ -893,7 +1292,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
             {validationErrors.id ? (
               <span className={styles.fieldError}>{validationErrors.id}</span>
             ) : (
-              <span className={styles.fieldHint}>ID único del producto. Ej: OW-SIP-LAZ-ROS-32</span>
+              <span className={styles.fieldHint}>Se genera automáticamente al elegir categoría y nombre. Puedes editarlo.</span>
             )}
           </div>
 
@@ -1045,20 +1444,132 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
               <p className={styles.pricingHint}>El precio final y el % de ganancia se calculan entre sí automáticamente.</p>
             )}
           </div>
+            </>
+          )}
+
+          {tab === 'variants' && (
+            <>
+          {/* ===== QUICK ADD ===== */}
+          <div className={styles.quickAddCard}>
+            <div className={styles.quickGrid}>
+              <div className={styles.field}>
+                <label className="label">Color</label>
+                <input
+                  className="input"
+                  list="product-color-options"
+                  value={quick.color}
+                  onChange={(e) => setQuick(q => ({ ...q, color: e.target.value }))}
+                  placeholder="Fucsia"
+                />
+                <datalist id="product-color-options">
+                  {getAllColors.map(c => <option key={c} value={c} />)}
+                </datalist>
+              </div>
+              <div className={styles.field}>
+                <label className="label">Modelo / Estampado</label>
+                <input
+                  className="input"
+                  list="product-model-options"
+                  value={quick.model}
+                  onChange={(e) => setQuick(q => ({ ...q, model: e.target.value }))}
+                  placeholder="Corazones"
+                />
+                <datalist id="product-model-options">
+                  {getAllModels.map(m => <option key={m} value={m} />)}
+                </datalist>
+              </div>
+            </div>
+
+            <div>
+              <label className="label">{categorySizeLabel}s</label>
+              <div className={styles.sizeChips}>
+                {categorySizeOptions.length === 0 ? (
+                  <span className={styles.quickHint}>Selecciona una categoría con tallas configuradas.</span>
+                ) : (
+                  <>
+                    {categorySizeOptions.map(size => {
+                      const active = quick.sizes.includes(size)
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          className={`${styles.sizeChip} ${active ? styles.sizeChipActive : ''}`}
+                          onClick={() => setQuick(q => ({
+                            ...q,
+                            sizes: active ? q.sizes.filter(s => s !== size) : [...q.sizes, size],
+                          }))}
+                        >
+                          {size}
+                        </button>
+                      )
+                    })}
+                    <button type="button" className={styles.sizeChip} onClick={() => setQuick(q => ({ ...q, sizes: categorySizeOptions }))}>
+                      Todas
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className={`${styles.quickGrid} ${styles.quickGrid3}`}>
+              <div className={styles.field}>
+                <label className="label">Stock inicial</label>
+                <input type="number" min="0" className="input" value={quick.stock} onChange={(e) => setQuick(q => ({ ...q, stock: e.target.value }))} placeholder="1" />
+              </div>
+              <div className={styles.field}>
+                <label className="label">Precio (opcional)</label>
+                <input type="number" step="0.01" className="input" value={quick.price} onChange={(e) => setQuick(q => ({ ...q, price: e.target.value }))} placeholder={form.price || 'Base'} />
+              </div>
+              <div className={styles.field}>
+                <label className="label">Mayor (opcional)</label>
+                <input type="number" step="0.01" className="input" value={quick.wholesale} onChange={(e) => setQuick(q => ({ ...q, wholesale: e.target.value }))} placeholder={form.wholesale_price || 'Base'} />
+              </div>
+            </div>
+
+            <div className={styles.quickActions}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={addQuickVariants}
+                disabled={categorySizeOptions.length === 0 || quick.sizes.length === 0}
+              >
+                <Plus size={14} /> Agregar variantes
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={duplicateLastColor}
+                disabled={!lastGroup || !quick.color.trim()}
+              >
+                <Copy size={13} /> Duplicar color
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={duplicateLastModel}
+                disabled={!lastGroup || !quick.model.trim()}
+              >
+                <Copy size={13} /> Duplicar modelo
+              </button>
+            </div>
+            <p className={styles.quickHint}>
+              “Duplicar color” usa el color escrito arriba y copia tallas, precios, stock y fotos del último color.
+            </p>
+          </div>
 
           {/* ===== VARIANTS EDITOR ===== */}
           <div className={styles.field}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <label className="label" style={{ margin: 0 }}>Variantes</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={duplicateLastVariant}>
                   <Copy size={12} /> Duplicar última
                 </button>
-                <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={generateSizeVariants}>
-                  <Plus size={12} /> Agregar {categorySizeLabel.toLowerCase()}
+                <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={() => setSizesModalOpen(true)}>
+                  <Plus size={12} /> Agregar {categorySizeLabel.toLowerCase()}s
                 </button>
-                <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={generateAllSKUs}>
-                  <RefreshCw size={12} /> Generar SKUs
+                <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={completeMissingSKUs}>
+                  <RefreshCw size={12} /> Completar SKUs
                 </button>
               </div>
             </div>
@@ -1081,22 +1592,23 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
                 <tbody>
                   {variants.filter(v => !v.isDeleted).map((v) => {
                     const vKey = `variant_${v.id}`
+                    const group = groupList.find(g => g.key === variantGroupKey(v))
+                    const gallery = getGalleryFor(group)
+                    const preview = gallery.images[0] || gallery.pending[0]?.preview || null
+                    const photoCount = gallery.images.length + gallery.pending.length
                     return (
                     <tr key={v.id}>
                       <td>
                         <div className={styles.variantImageCell}>
-                          {(v.image || v.pendingImagePreview) ? (
-                            <div className={styles.variantThumbWrap}>
-                              <img src={v.pendingImagePreview || v.image} alt="variant" className={styles.variantThumb} />
-                              <button type="button" className={styles.variantImageRemove} onClick={() => removeVariantImage(v.id)} title="Quitar imagen">
-                                <X size={10} />
-                              </button>
-                            </div>
+                          {preview ? (
+                            <button type="button" className={styles.variantThumbWrap} onClick={() => onTabChange('photos')} title="Editar fotos del color">
+                              <img src={preview} alt="variant" className={styles.variantThumb} />
+                              {photoCount > 1 && <span className={styles.photoCountBadge}>{photoCount}</span>}
+                            </button>
                           ) : (
-                            <label className={styles.variantUploadBtn} title="Agregar imagen">
+                            <button type="button" className={styles.variantUploadBtn} onClick={() => onTabChange('photos')} title="Agregar fotos del color">
                               <ImagePlus size={14} />
-                              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleVariantImageFile(v.id, e.target.files[0])} />
-                            </label>
+                            </button>
                           )}
                         </div>
                       </td>
@@ -1110,7 +1622,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
                       <td><input className="input" style={{ minWidth: '90px' }} value={v.color || ''} onChange={(e) => updateVariant(v.id, 'color', e.target.value)} placeholder="Color" /></td>
                       <td><input className="input" style={{ minWidth: '110px' }} value={v.variant_name || ''} onChange={(e) => updateVariant(v.id, 'variant_name', e.target.value)} placeholder="Corazones" /></td>
                       <td>
-                        <select className="input" style={{ minWidth: '70px' }} value={v.size || ''} onChange={(e) => updateVariant(v.id, 'size', e.target.value)}>
+                        <select className="input" style={{ minWidth: '70px' }} title="Si cambias la talla, el sufijo del SKU se actualiza automáticamente" value={v.size || ''} onChange={(e) => updateVariant(v.id, 'size', e.target.value)}>
                           <option value="">—</option>
                           {categorySizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
                           {categorySizeOptions.length === 0 && <option value="" disabled>No hay medidas</option>}
@@ -1143,7 +1655,117 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
               <Plus size={14} /> Agregar variante manualmente
             </button>
             {validationErrors.variants && <span className={styles.fieldError}>{validationErrors.variants}</span>}
+
+            {lastGroup && (
+              <div className={styles.lastGroupBar}>
+                <div className={styles.lastGroupInfo}>
+                  <strong>Último: {groupLabelOf(lastGroup.variants[0])}</strong>
+                  <span>{lastGroup.variants.map(v => v.size || 'Única').join(' · ')}</span>
+                </div>
+                <div className={styles.sizeChips}>
+                  {lastGroupMissingSizes.length === 0 ? (
+                    <span className={styles.quickHint}>Todas las tallas agregadas.</span>
+                  ) : (
+                    <>
+                      <span className={styles.quickHint}>Agregar talla:</span>
+                      {lastGroupMissingSizes.map(size => (
+                        <button key={size} type="button" className={styles.sizeChip} onClick={() => addSizeToGroup(lastGroup, size)}>
+                          + {size}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+            </>
+          )}
+
+          {tab === 'photos' && (
+            <>
+              {groupList.length === 0 ? (
+                <div className={styles.emptyPhotos}>
+                  <Images size={34} />
+                  <p>Agrega variantes primero para asignar fotos por color.</p>
+                  <button type="button" className="btn btn-outline" onClick={() => onTabChange('variants')}>Ir a Variantes</button>
+                </div>
+              ) : (
+                <>
+                  <p className={styles.quickHint}>
+                    Cada color/modelo tiene su propia galería. Esas fotos se comparten entre todas las tallas; la primera es la principal.
+                  </p>
+                  <div className={styles.colorCards}>
+                    {groupList.map(group => {
+                      const gallery = getGalleryFor(group)
+                      const photoCount = gallery.images.length + gallery.pending.length
+                      return (
+                        <div key={group.key} className={styles.colorCard}>
+                          <div className={styles.colorCardHeader}>
+                            <div>
+                              <div className={styles.colorCardTitle}>{groupLabelOf(group.variants[0])}</div>
+                              <div className={styles.colorCardMeta}>
+                                {group.variants.map(v => v.size || 'Única').join(' · ')} · {group.variants.length} talla(s)
+                              </div>
+                            </div>
+                            <span className={styles.countPill}>{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
+                          </div>
+
+                          {(gallery.images.length > 0 || gallery.pending.length > 0) && (
+                            <div className={styles.imgGrid}>
+                              {gallery.images.map((url, index) => (
+                                <div key={url} className={`${styles.imgThumbWrap} ${index === 0 ? styles.imgMain : ''}`}>
+                                  <img src={url} alt="" className={styles.imgThumb} />
+                                  {index === 0 && <span className={styles.mainBadge}><Star size={10}/> Principal</span>}
+                                  <div className={styles.imgActions}>
+                                    {index !== 0 && (
+                                      <button type="button" className={styles.imgActionBtn} onClick={() => makeGroupPhotoPrincipal(group, url)} title="Hacer principal">
+                                        <Star size={12}/>
+                                      </button>
+                                    )}
+                                    <button type="button" className={`${styles.imgActionBtn} ${styles.imgDeleteBtn}`} onClick={() => removeGroupPhoto(group, url)} title="Quitar foto">
+                                      <X size={12}/>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              {gallery.pending.map(entry => (
+                                <div key={entry.id} className={styles.imgThumbWrap}>
+                                  <img src={entry.preview} alt="" className={styles.imgThumb} />
+                                  <span className={styles.newBadge}>Nueva</span>
+                                  <div className={styles.imgActions}>
+                                    <button type="button" className={`${styles.imgActionBtn} ${styles.imgDeleteBtn}`} onClick={() => removeGroupPending(group, entry.id)} title="Quitar foto">
+                                      <X size={12}/>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <label className={styles.uploadArea}>
+                            <ImagePlus size={18} />
+                            <span>Agregar fotos</span>
+                            <span style={{ fontSize: '11px', opacity: 0.6 }}>Puedes subir varias a la vez</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              style={{ display: 'none' }}
+                              onChange={(e) => { addGroupPhotos(group, e.target.files); e.target.value = '' }}
+                            />
+                          </label>
+                          {photoCount === 0 && (
+                            <p className={styles.quickHint}>Sin fotos: se usará la imagen principal del producto.</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </>
+          )}
 
           <div className={styles.toggles}>
             <label className={styles.toggle}><input type="checkbox" checked={form.featured} onChange={(e) => setForm({...form,featured:e.target.checked})} /><span>Producto destacado</span></label>
@@ -1155,12 +1777,13 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
           {saved && (
             <div className={styles.successBox}>
               <p>Producto guardado correctamente.</p>
+              <p className={styles.quickHint}>Para seguir editando (por ejemplo, agregar más fotos), cierra y vuelve a abrir el producto.</p>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={async () => {
                   const { exportProductLabels } = await import('../../lib/labelExport')
-                  exportProductLabels({ id: form.id, name: form.name, price: form.price }, variants.filter(v => !v.isDeleted))
+                  exportProductLabels({ id: form.id, name: form.name, price: form.price }, orderedVariants)
                 }}
               >
                 <Download size={16} /> Descargar Excel de etiquetas
@@ -1194,11 +1817,204 @@ function ProductFormModal({ product, categories, allProducts, scannedId, onClose
             <li><span className={styles.summaryLabel}>ID</span><span className={styles.summaryValue}>{form.id || '—'}</span></li>
             <li><span className={styles.summaryLabel}>Nombre</span><span className={styles.summaryValue}>{form.name || '—'}</span></li>
             <li><span className={styles.summaryLabel}>Categoría</span><span className={styles.summaryValue}>{category?.name || '—'}</span></li>
-            <li><span className={styles.summaryLabel}>Variantes</span><span className={styles.summaryValue}>{variants.filter(v => !v.isDeleted).length}</span></li>
-            <li><span className={styles.summaryLabel}>Stock total</span><span className={styles.summaryValue}>{variants.filter(v => !v.isDeleted).reduce((s, v) => s + (parseInt(v.stock) || 0), 0)} uds</span></li>
+            <li><span className={styles.summaryLabel}>Variantes</span><span className={styles.summaryValue}>{orderedVariants.length}</span></li>
+            <li><span className={styles.summaryLabel}>Stock total</span><span className={styles.summaryValue}>{orderedVariants.reduce((s, v) => s + (parseInt(v.stock) || 0), 0)} uds</span></li>
             <li><span className={styles.summaryLabel}>Precio final</span><span className={styles.summaryValue}>${form.price || '0.00'}</span></li>
           </ul>
         </ConfirmModal>
+      </motion.div>
+
+      <AddSizesModal
+        open={sizesModalOpen}
+        groups={groupList}
+        sizeOptions={categorySizeOptions}
+        sizeLabel={categorySizeLabel}
+        defaultStock={quick.stock}
+        defaultPrice={quick.price !== '' ? quick.price : form.price}
+        defaultWholesale={quick.wholesale !== '' ? quick.wholesale : form.wholesale_price}
+        onClose={() => setSizesModalOpen(false)}
+        onAdd={addVariantsFromMatrix}
+      />
+    </motion.div>
+  )
+}
+
+function AddSizesModal({ open, groups, sizeOptions, sizeLabel, defaultStock, defaultPrice, defaultWholesale, onClose, onAdd }) {
+  const [selected, setSelected] = useState({})
+  const [newColor, setNewColor] = useState('')
+  const [newModel, setNewModel] = useState('')
+  const [newSizes, setNewSizes] = useState([])
+  const [stock, setStock] = useState(defaultStock ?? '1')
+  const [price, setPrice] = useState(defaultPrice ?? '')
+  const [wholesale, setWholesale] = useState(defaultWholesale ?? '')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setSelected({})
+    setNewColor('')
+    setNewModel('')
+    setNewSizes([])
+    setStock(defaultStock ?? '1')
+    setPrice(defaultPrice ?? '')
+    setWholesale(defaultWholesale ?? '')
+    setError('')
+  }, [open, defaultStock, defaultPrice, defaultWholesale])
+
+  if (!open) return null
+
+  const missingSizesOf = (group) => {
+    const existing = new Set(group.variants.map(v => v.size).filter(Boolean))
+    return sizeOptions.filter(size => !existing.has(size))
+  }
+
+  const toggleSize = (key, size) => {
+    setSelected(prev => {
+      const current = prev[key] || []
+      return {
+        ...prev,
+        [key]: current.includes(size) ? current.filter(s => s !== size) : [...current, size],
+      }
+    })
+  }
+
+  const selectAll = (group) => {
+    setSelected(prev => ({ ...prev, [group.key]: missingSizesOf(group) }))
+  }
+
+  const total = Object.values(selected).reduce((sum, sizes) => sum + sizes.length, 0) + newSizes.length
+
+  const confirm = () => {
+    if (total === 0) {
+      setError('Selecciona al menos una talla')
+      return
+    }
+    if (newSizes.length > 0 && !newColor.trim() && !newModel.trim()) {
+      setError('Para el color nuevo escribe un color o un modelo')
+      return
+    }
+    if (newSizes.length > 0) {
+      const newKey = `${newColor.trim().toLowerCase()}::${newModel.trim().toLowerCase()}`
+      const existingGroup = groups.find(group => group.key === newKey)
+      if (existingGroup) {
+        const existingSizes = new Set(existingGroup.variants.map(v => v.size).filter(Boolean))
+        if (newSizes.some(size => existingSizes.has(size))) {
+          setError('Ese color/modelo ya existe. Marca sus tallas en la tarjeta de arriba.')
+          return
+        }
+      }
+    }
+    onAdd({
+      selections: groups
+        .map(group => ({ key: group.key, sizes: selected[group.key] || [] }))
+        .filter(selection => selection.sizes.length > 0),
+      newGroup: { color: newColor.trim(), model: newModel.trim(), sizes: newSizes },
+      defaults: { stock, price, wholesale },
+    })
+  }
+
+  return (
+    <motion.div className={styles.overlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+      <motion.div className={styles.sizesModal} initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h2><Layers size={20} /> Agregar {sizeLabel.toLowerCase()}s por color</h2>
+          <button type="button" className={styles.closeBtn} onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className={styles.sizesBody}>
+          {groups.length === 0 ? (
+            <p className={styles.quickHint}>Aún no hay colores. Crea el primero aquí abajo.</p>
+          ) : (
+            groups.map(group => {
+              const missing = missingSizesOf(group)
+              const chosen = selected[group.key] || []
+              return (
+                <div key={group.key} className={styles.sizeGroupCard}>
+                  <div className={styles.sizeGroupHeader}>
+                    <div>
+                      <div className={styles.colorCardTitle}>{groupLabelOf(group.variants[0])}</div>
+                      <div className={styles.colorCardMeta}>
+                        Ya tiene: {group.variants.map(v => v.size || 'Única').join(' · ') || '—'}
+                      </div>
+                    </div>
+                    {missing.length > 0 && (
+                      <button type="button" className={styles.sizeChip} onClick={() => selectAll(group)}>Todas</button>
+                    )}
+                  </div>
+                  <div className={styles.sizeChips}>
+                    {sizeOptions.map(size => {
+                      const exists = !missing.includes(size)
+                      const active = chosen.includes(size)
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          className={`${styles.sizeChip} ${exists ? styles.sizeChipExisting : ''} ${active ? styles.sizeChipActive : ''}`}
+                          disabled={exists}
+                          onClick={() => toggleSize(group.key, size)}
+                        >
+                          {exists ? `${size} ✓` : size}
+                        </button>
+                      )
+                    })}
+                    {missing.length === 0 && <span className={styles.quickHint}>Este color ya tiene todas las tallas.</span>}
+                  </div>
+                </div>
+              )
+            })
+          )}
+
+          <div className={styles.sizeGroupCard}>
+            <div className={styles.colorCardTitle}>Nuevo color / modelo</div>
+            <div className={styles.quickGrid}>
+              <div className={styles.field}>
+                <label className="label">Color</label>
+                <input className="input" value={newColor} onChange={(e) => setNewColor(e.target.value)} placeholder="Ej: Negro" />
+              </div>
+              <div className={styles.field}>
+                <label className="label">Modelo / Estampado</label>
+                <input className="input" value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="Ej: Corazones" />
+              </div>
+            </div>
+            <div className={styles.sizeChips}>
+              {sizeOptions.map(size => {
+                const active = newSizes.includes(size)
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    className={`${styles.sizeChip} ${active ? styles.sizeChipActive : ''}`}
+                    onClick={() => setNewSizes(prev => prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size])}
+                  >
+                    {size}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className={styles.formRow}>
+            <div className={styles.field}>
+              <label className="label">Stock inicial</label>
+              <input type="number" min="0" className="input" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="1" />
+            </div>
+            <div className={styles.field}>
+              <label className="label">Precio (opcional)</label>
+              <input type="number" step="0.01" className="input" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Base" />
+            </div>
+            <div className={styles.field}>
+              <label className="label">Mayor (opcional)</label>
+              <input type="number" step="0.01" className="input" value={wholesale} onChange={(e) => setWholesale(e.target.value)} placeholder="Base" />
+            </div>
+          </div>
+
+          {error && <p className={styles.formError}>{error}</p>}
+        </div>
+        <div className={styles.sizesFooter}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn btn-primary" onClick={confirm} disabled={total === 0}>
+            <Check size={15} /> Agregar {total} variante{total === 1 ? '' : 's'}
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   )

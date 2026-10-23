@@ -5,7 +5,7 @@ import { Package, Save, ShoppingBag, ChevronDown, ChevronUp, Trash2, Search, X }
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { useAuth } from '../../hooks/useAuth'
-import { formatVariantLabel, getVariantImage } from '../../lib/sku'
+import { formatVariantLabel, getVariantImage, sortVariants } from '../../lib/sku'
 import styles from './AdminInventory.module.css'
 
 export default function AdminInventory() {
@@ -31,7 +31,7 @@ export default function AdminInventory() {
     const [prodRes, catRes] = await Promise.all([
       supabase
         .from('products')
-        .select('id, name, price, wholesale_price, images, category_id, categories(id, name, size_label), product_variants(*)')
+        .select('id, name, price, wholesale_price, images, category_id, categories(id, name, size_label, size_options), product_variants(*)')
         .order('name'),
       supabase.from('categories').select('id, name').order('name')
     ])
@@ -258,7 +258,11 @@ export default function AdminInventory() {
             {filteredProducts.map((product) => {
               const total = totalStockOf(product)
               const status = stockStatus(total)
-              const variants = product.product_variants || []
+              const variants = sortVariants(
+                product.product_variants || [],
+                product.id,
+                product.categories?.size_options || []
+              )
               return (
                 <tbody key={product.id}>
                   <motion.tr

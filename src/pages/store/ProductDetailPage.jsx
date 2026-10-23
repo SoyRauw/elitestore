@@ -40,7 +40,7 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     setActiveImg(0)
-  }, [selectedModel])
+  }, [selectedModel, selectedVariant])
 
   useEffect(() => {
     if (selectedModel) {
@@ -55,16 +55,28 @@ export default function ProductDetailPage() {
 
   const galleryImages = useMemo(() => {
     const list = []
-    if (selectedVariant?.image) list.push(selectedVariant.image)
-    else if (selectedModel?.image) list.push(selectedModel.image)
-
-    if (list.length === 0 && product?.images?.length) {
-      product.images.forEach((img) => {
-        if (!list.includes(img)) list.push(img)
-      })
+    const push = (img) => {
+      if (img && !list.includes(img)) list.push(img)
     }
+
+    const source = Array.isArray(selectedVariant?.images) && selectedVariant.images.length
+      ? selectedVariant.images
+      : Array.isArray(selectedModel?.images) && selectedModel.images.length
+        ? selectedModel.images
+        : selectedVariant?.image
+          ? [selectedVariant.image]
+          : selectedModel?.image
+            ? [selectedModel.image]
+            : []
+
+    source.forEach(push)
+    if (list.length === 0 && product?.images?.length) product.images.forEach(push)
     return list
   }, [product, selectedModel, selectedVariant])
+
+  useEffect(() => {
+    if (activeImg >= galleryImages.length) setActiveImg(0)
+  }, [galleryImages.length, activeImg])
 
   const isOutOfStock = models.length === 0
 

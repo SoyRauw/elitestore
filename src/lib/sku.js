@@ -131,8 +131,97 @@ export const formatVariantLabel = (variant, sizeLabel = 'Talla') => {
   return parts.join(' / ')
 }
 
+/* ===== Orden determinista de variantes ===== */
+
+const SIZE_FALLBACK = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', '4XL', '5XL', 'UNI', 'ÚNICA', 'UNICA']
+
+const normalizeSize = (size) => String(size || '').trim().toUpperCase()
+
+export const variantGroupKey = (variant) =>
+  `${String(variant?.color || '').trim().toLowerCase()}::${String(variant?.variant_name || '').trim().toLowerCase()}`
+
+const sizeRank = (size, sizeOptions = []) => {
+  const normalized = normalizeSize(size)
+  const index = (sizeOptions || []).findIndex((opt) => normalizeSize(opt) === normalized)
+  if (index >= 0) return index
+  const fallback = SIZE_FALLBACK.indexOf(normalized)
+  return fallback >= 0 ? 1000 + fallback : 2000
+}
+
+const variantNumber = (variant, productId) => {
+  const sku = String(variant?.sku || '').toUpperCase()
+  if (!sku) return null
+  const prefix = productId ? `${String(productId).toUpperCase()}-` : ''
+  const rest = prefix && sku.startsWith(prefix) ? sku.slice(prefix.length) : sku
+  const match = rest.match(/^(\d+)(?:-|$)/)
+  return match ? parseInt(match[1], 10) : null
+}
+
+/**
+ * Ordena variantes por color/modelo (orden de creación) y luego por talla
+ * según las opciones de la categoría. No modifica el arreglo original.
+ */
+export const sortVariants = (variants, productId, sizeOptions = []) => {
+  const list = Array.isArray(variants) ? variants : []
+  const firstIndex = new Map()
+  list.forEach((variant, index) => {
+    const key = variantGroupKey(variant)
+    if (!firstIndex.has(key)) firstIndex.set(key, index)
+  })
+
+  const groupMeta = new Map()
+  list.forEach((variant) => {
+    const key = variantGroupKey(variant)
+    if (!groupMeta.has(key)) {
+      groupMeta.set(key, { firstIndex: firstIndex.get(key), minCreated: Infinity, minNumber: Infinity })
+    }
+    const meta = groupMeta.get(key)
+    if (variant?.created_at) {
+      const created = Date.parse(variant.created_at)
+      if (Number.isFinite(created) && created < meta.minCreated) meta.minCreated = created
+    }
+    const number = variantNumber(variant, productId)
+    if (number != null && number < meta.minNumber) meta.minNumber = number
+  })
+
+  const compareGroups = (a, b) => {
+    const metaA = groupMeta.get(variantGroupKey(a))
+    const metaB = groupMeta.get(variantGroupKey(b))
+    if (!metaA || !metaB) return 0
+    const hasCreatedA = Number.isFinite(metaA.minCreated)
+    const hasCreatedB = Number.isFinite(metaB.minCreated)
+    if (hasCreatedA && hasCreatedB && metaA.minCreated !== metaB.minCreated) {
+      return metaA.minCreated - metaB.minCreated
+    }
+    if (hasCreatedA !== hasCreatedB) return hasCreatedA ? -1 : 1
+    if (metaA.minNumber !== Infinity && metaB.minNumber !== Infinity && metaA.minNumber !== metaB.minNumber) {
+      return metaA.minNumber - metaB.minNumber
+    }
+    return metaA.firstIndex - metaB.firstIndex
+  }
+
+  return [...list].sort((a, b) => {
+    const groupComparison = compareGroups(a, b)
+    if (groupComparison !== 0) return groupComparison
+    const rankA = sizeRank(a?.size, sizeOptions)
+    const rankB = sizeRank(b?.size, sizeOptions)
+    if (rankA !== rankB) return rankA - rankB
+    const numberA = variantNumber(a, productId)
+    const numberB = variantNumber(b, productId)
+    if (numberA != null && numberB != null && numberA !== numberB) return numberA - numberB
+    return String(a?.sku || '').localeCompare(String(b?.sku || ''), 'es', { numeric: true })
+  })
+}
+
 export const getVariantOptions = (product) => {
-  const variants = (product?.product_variants || []).filter((v) => v.stock > 0)
+  // Ordena con todas las variantes (aunque no tengan stock) para que el orden
+  // de colores/modelos no cambie según el stock disponible.
+  const ordered = sortVariants(
+    product?.product_variants || [],
+    product?.id,
+    product?.categories?.size_options || []
+  )
+  const variants = ordered.filter((v) => v.stock > 0)
   const colors = [...new Set(variants.map((v) => v.color).filter(Boolean))]
   const variantNames = [...new Set(variants.map((v) => v.variant_name).filter(Boolean))]
   const sizes = [...new Set(variants.map((v) => v.size).filter(Boolean))]
@@ -146,8 +235,21 @@ export const getFirstAvailableVariant = (product) => {
 
 export const getVariantImage = (product, variant) => {
   if (variant?.image) return variant.image
+  if (Array.isArray(variant?.images) && variant.images.length > 0) return variant.images[0]
   if (product?.images?.length) return product.images[0]
   return null
+}
+
+/** Todas las fotos de una variante (galería de su color/modelo). */
+export const getVariantImages = (product, variant) => {
+  const list = []
+  const push = (url) => {
+    if (url && !list.includes(url)) list.push(url)
+  }
+  if (Array.isArray(variant?.images)) variant.images.forEach(push)
+  if (variant?.image) push(variant.image)
+  if (list.length === 0 && product?.images?.length) product.images.forEach(push)
+  return list
 }
 
 export const getVariantModels = (product) => {
@@ -161,21 +263,31 @@ export const getVariantModels = (product) => {
         key: modelKey,
         color: v.color || null,
         variantName: v.variant_name || null,
-        image: v.image || null,
+        image: null,
+        images: [],
         variants: [],
       }
     }
     groups[modelKey].variants.push(v)
-    if (v.image && !groups[modelKey].image) {
-      groups[modelKey].image = v.image
-    }
   })
 
   return Object.values(groups).map((g) => {
+    const images = []
+    const push = (url) => {
+      if (url && !images.includes(url)) images.push(url)
+    }
+    g.variants.forEach((v) => {
+      const variantImages = Array.isArray(v.images) && v.images.length > 0
+        ? v.images
+        : (v.image ? [v.image] : [])
+      variantImages.forEach(push)
+    })
+    const gallery = images.length > 0 ? images : (product?.images || []).filter(Boolean)
     const prices = g.variants.map((v) => v.price || 0).filter(Boolean)
     return {
       ...g,
-      image: g.image || product?.images?.[0] || null,
+      image: gallery[0] || null,
+      images: gallery,
       sizes: [...new Set(g.variants.map((v) => v.size || 'Única').filter(Boolean))],
       firstVariant: g.variants[0],
       minPrice: prices.length ? Math.min(...prices) : 0,

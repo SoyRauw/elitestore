@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Search, ShoppingBag, Package, Tag } from 'lucide-react'
-import { formatVariantLabel, getVariantImage } from '../../lib/sku'
+import { formatVariantLabel, getVariantImage, sortVariants } from '../../lib/sku'
 import { usdToBs, formatBs } from '../../lib/rate'
 import styles from './POSProductSearch.module.css'
 
@@ -150,7 +150,11 @@ export default function POSProductSearch({ onAdd, wholesaleMode = false, exchang
               </div>
               <div className={styles.variantsBlock}>
                 <div className={styles.variantsGrid}>
-                  {product.product_variants.map((variant) => (
+                  {sortVariants(
+                    product.product_variants || [],
+                    product.id,
+                    product.categories?.size_options || []
+                  ).map((variant) => (
                     <button
                       key={variant.id}
                       className={styles.variantCard}
