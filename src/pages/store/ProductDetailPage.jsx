@@ -39,10 +39,6 @@ export default function ProductDetailPage() {
   }, [models, selectedModel])
 
   useEffect(() => {
-    setActiveImg(0)
-  }, [selectedModel, selectedVariant])
-
-  useEffect(() => {
     if (selectedModel) {
       setSelectedSize(selectedModel.sizes.length === 1 ? selectedModel.sizes[0] : null)
     }
@@ -52,6 +48,10 @@ export default function ProductDetailPage() {
     if (!selectedModel || !selectedSize) return null
     return findVariantByModelAndSize(product || {}, selectedModel.key, selectedSize)
   }, [product, selectedModel, selectedSize])
+
+  useEffect(() => {
+    setActiveImg(0)
+  }, [selectedModel, selectedVariant])
 
   const galleryImages = useMemo(() => {
     const list = []
