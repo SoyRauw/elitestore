@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { jsPDF } from 'jspdf'
-import logo from '../../assets/logo.png'
+import frontBgAsset from '../../assets/giftcard-front.png'
+import backBgAsset from '../../assets/giftcard-back.png'
+import cardFontAsset from '../../assets/fonts/ChauPhilomeneOne-Regular.ttf'
 import { giftQrDataUrl, normalizeGiftCode } from '../../lib/giftcards'
 import {
   buildGiftCardFront,
   buildGiftCardBack,
   svgToDataUrl,
-  svgToPngDataUrl,
+  svgToJpegDataUrl,
 } from './giftCardArt'
 import styles from './GiftCardView.module.css'
 
@@ -23,12 +25,31 @@ function urlToDataUrl(url) {
     }))
 }
 
+let backgroundsPromise = null
+let fontPromise = null
+
+function loadBackgrounds() {
+  if (!backgroundsPromise) {
+    backgroundsPromise = Promise.all([
+      urlToDataUrl(frontBgAsset),
+      urlToDataUrl(backBgAsset),
+    ])
+  }
+  return backgroundsPromise
+}
+
+function loadFont() {
+  if (!fontPromise) fontPromise = urlToDataUrl(cardFontAsset)
+  return fontPromise
+}
+
 async function loadAssets(card) {
-  const [qr, logoData] = await Promise.all([
+  const [qr, [frontBg, backBg], fontData] = await Promise.all([
     giftQrDataUrl(card?.code || '', 700),
-    urlToDataUrl(logo).catch(() => null),
+    loadBackgrounds(),
+    loadFont(),
   ])
-  return { qr, logoData }
+  return { qr, frontBg, backBg, fontData }
 }
 
 function dataFor(card) {
@@ -49,11 +70,11 @@ export default function GiftCardView({ card }) {
   useEffect(() => {
     let alive = true
     loadAssets(card)
-      .then(({ qr, logoData }) => {
+      .then(({ qr, frontBg, backBg, fontData }) => {
         if (!alive) return
         const d = dataFor(card)
-        setFront(svgToDataUrl(buildGiftCardFront({ ...d, logoData })))
-        setBack(svgToDataUrl(buildGiftCardBack({ ...d, qr, logoData })))
+        setFront(svgToDataUrl(buildGiftCardFront({ ...d, frontBg, fontData })))
+        setBack(svgToDataUrl(buildGiftCardBack({ ...d, qr, backBg })))
       })
       .catch(() => {})
     return () => { alive = false }
@@ -68,10 +89,10 @@ export default function GiftCardView({ card }) {
 }
 
 export async function printGiftCard(card) {
-  const { qr, logoData } = await loadAssets(card)
+  const { qr, frontBg, backBg, fontData } = await loadAssets(card)
   const d = dataFor(card)
-  const front = buildGiftCardFront({ ...d, logoData })
-  const back = buildGiftCardBack({ ...d, qr, logoData })
+  const front = buildGiftCardFront({ ...d, frontBg, fontData })
+  const back = buildGiftCardBack({ ...d, qr, backBg })
 
   const html = `<!DOCTYPE html>
     <html><head><meta charset="utf-8"><title>Gift Card</title>
@@ -100,20 +121,20 @@ export async function printGiftCard(card) {
 }
 
 export async function downloadGiftCardPdf(card) {
-  const { qr, logoData } = await loadAssets(card)
+  const { qr, frontBg, backBg, fontData } = await loadAssets(card)
   const d = dataFor(card)
-  const front = buildGiftCardFront({ ...d, logoData })
-  const back = buildGiftCardBack({ ...d, qr, logoData })
+  const front = buildGiftCardFront({ ...d, frontBg, fontData })
+  const back = buildGiftCardBack({ ...d, qr, backBg })
 
-  const scale = 3
-  const [pngFront, pngBack] = await Promise.all([
-    svgToPngDataUrl(front, 856 * scale, 540 * scale),
-    svgToPngDataUrl(back, 856 * scale, 540 * scale),
+  const scale = 2
+  const [jpgFront, jpgBack] = await Promise.all([
+    svgToJpegDataUrl(front, 856 * scale, 540 * scale, 0.93),
+    svgToJpegDataUrl(back, 856 * scale, 540 * scale, 0.93),
   ])
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] })
-  doc.addImage(pngFront, 'PNG', 0, 0, 85.6, 54)
+  doc.addImage(jpgFront, 'JPEG', 0, 0, 85.6, 54)
   doc.addPage([85.6, 54], 'landscape')
-  doc.addImage(pngBack, 'PNG', 0, 0, 85.6, 54)
+  doc.addImage(jpgBack, 'JPEG', 0, 0, 85.6, 54)
   doc.save(`GiftCard-${normalizeGiftCode(card?.code) || 'gift'}.pdf`)
 }
