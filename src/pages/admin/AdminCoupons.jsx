@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Plus, Edit2, Trash2, X, Save, Tag, Percent, DollarSign, Package, ShoppingBag } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import DayDiscounts from '../../components/admin/DayDiscounts'
 import { useAuth } from '../../hooks/useAuth'
 import * as V from '../../lib/validation'
 import styles from './AdminCoupons.module.css'
@@ -241,6 +242,7 @@ export default function AdminCoupons() {
             ))}
           </div>
         )}
+        <DayDiscounts />
       </div>
 
       <AnimatePresence>

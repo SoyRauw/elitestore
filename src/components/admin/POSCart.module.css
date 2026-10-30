@@ -624,3 +624,32 @@
   background: rgba(196, 120, 138, 0.16);
   color: #a85f72;
 }
+
+/* ===== Descuento del día ===== */
+.dayDiscountBanner {
+  padding: 0.8rem 0.9rem;
+  background: rgba(196, 120, 138, 0.08);
+  border: 1px dashed rgba(196, 120, 138, 0.35);
+  border-radius: 0.75rem;
+  color: var(--color-dark);
+}
+
+.dayDiscountTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.dayDiscountBanner p {
+  margin: 0.35rem 0 0.2rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.dayDiscountNote {
+  font-size: var(--text-xs);
+  color: var(--color-dark-soft);
+}

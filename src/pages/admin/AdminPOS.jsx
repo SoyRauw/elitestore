@@ -12,6 +12,12 @@ import ReceiptView, { printReceipt } from '../../components/admin/ReceiptView'
 import { formatVariantLabel } from '../../lib/sku'
 import { fetchEuroRate, formatRate } from '../../lib/rate'
 import { sumBills } from '../../lib/bills'
+import {
+  allocateDiscount,
+  fetchDayDiscounts,
+  findBestDayDiscount,
+  localISODate,
+} from '../../lib/dayDiscounts'
 import { Lock, CheckCircle, Printer, MessageCircle, X, LockOpen, ArrowDownUp, Loader2 } from 'lucide-react'
 import styles from './AdminPOS.module.css'
 
@@ -67,6 +73,7 @@ export default function AdminPOS() {
   const [customer, setCustomer] = useState({ id: '', id_number: '', name: '', phone: '', points: 0, balance: 0 })
   const [payments, setPayments] = useState([])
   const [appliedCoupon, setAppliedCoupon] = useState(null)
+  const [dayDiscounts, setDayDiscounts] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [completedSale, setCompletedSale] = useState(null)
@@ -79,6 +86,19 @@ export default function AdminPOS() {
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   }, [items])
+
+  const retailSubtotal = useMemo(() => {
+    return items
+      .filter((item) => !item.wholesale)
+      .reduce((sum, item) => sum + item.price * item.quantity, 0)
+  }, [items])
+
+  const todayISO = localISODate()
+  const todayDayDiscount = useMemo(
+    () => findBestDayDiscount(dayDiscounts, todayISO, retailSubtotal),
+    [dayDiscounts, todayISO, retailSubtotal]
+  )
+  const dayDiscountAmount = todayDayDiscount.amount
 
   const getCouponFromApplied = useCallback(() => {
     if (!appliedCoupon) return null
@@ -107,7 +127,7 @@ export default function AdminPOS() {
     return Math.min(coupon.discount_value, base)
   }, [appliedCoupon, getCouponFromApplied, items, subtotal])
 
-  const total = subtotal - discount
+  const total = Math.max(0, subtotal - discount - dayDiscountAmount)
 
   const creditApplied = useMemo(() => {
     return Math.min(customer.balance || 0, total)
@@ -147,6 +167,23 @@ export default function AdminPOS() {
     handleRefreshRate()
   }, [session?.exchange_rate, session?.id, handleRefreshRate])
 
+  const refreshDayDiscounts = useCallback(async () => {
+    try {
+      setDayDiscounts(await fetchDayDiscounts('elite'))
+    } catch (e) {
+      // Si la migración aún no está aplicada, el POS sigue funcionando sin promo.
+      console.error('Error cargando descuentos por días:', e)
+      setDayDiscounts([])
+    }
+  }, [])
+
+  useEffect(() => { refreshDayDiscounts() }, [refreshDayDiscounts])
+
+  useEffect(() => {
+    window.addEventListener('focus', refreshDayDiscounts)
+    return () => window.removeEventListener('focus', refreshDayDiscounts)
+  }, [refreshDayDiscounts])
+
   useEffect(() => {
     const id = customer.id_number?.trim()
     if (!id || id.length < 3) return
@@ -182,6 +219,10 @@ export default function AdminPOS() {
       setError(`El cupón requiere compra mínima de $${min.toFixed(2)}. Se quitó del carrito.`)
     }
   }, [subtotal, appliedCoupon, getCouponFromApplied])
+
+  useEffect(() => {
+    if (dayDiscountAmount > 0 && appliedCoupon) setAppliedCoupon(null)
+  }, [dayDiscountAmount, appliedCoupon])
 
   const addItem = useCallback((product, variant) => {
     if (wholesaleMode && !(variant.wholesale_price || product.wholesale_price)) {
@@ -241,14 +282,19 @@ export default function AdminPOS() {
   }, [])
 
   const applyCoupon = useCallback((coupon) => {
+    if (dayDiscountAmount > 0) {
+      setError('Hoy hay descuento del día; no se acumulan cupones.')
+      return
+    }
     setAppliedCoupon(coupon)
-  }, [])
+  }, [dayDiscountAmount])
 
   const removeCoupon = useCallback(() => {
     setAppliedCoupon(null)
   }, [])
 
   const redeemCoupon = useCallback(async (coupon) => {
+    if (dayDiscountAmount > 0) throw new Error('Hoy hay descuento del día; no se acumulan cupones')
     const isFree = (coupon.points_cost || 0) === 0
     if (!isFree && !customer?.id) throw new Error('Este cupón requiere cliente registrado (puntos)')
     if (!isFree && (customer?.points || 0) < coupon.points_cost) throw new Error('Puntos insuficientes')
@@ -256,7 +302,7 @@ export default function AdminPOS() {
     if (subtotal < min) throw new Error(`Requiere compra mínima de $${min.toFixed(2)}`)
 
     setAppliedCoupon({ type: 'reward', coupon })
-  }, [customer, subtotal])
+  }, [customer, subtotal, dayDiscountAmount])
 
   const handleBarcodeScan = async (code) => {
     if (!code || !session) return
@@ -446,7 +492,7 @@ export default function AdminPOS() {
 
       let customerCouponId = null
 
-      if (appliedCoupon) {
+      if (appliedCoupon && dayDiscountAmount <= 0) {
         if (appliedCoupon.type === 'reward') {
           const reward = appliedCoupon.coupon
           if (!customerId) throw new Error('Se requiere un cliente para canjear puntos')
@@ -503,16 +549,11 @@ export default function AdminPOS() {
         }
       }
 
-      // Allocate discount proportionally per item line for accurate returns
-      const lineSubtotals = items.map((item) => item.price * item.quantity)
-      const allocatedDiscounts = lineSubtotals.map((lineSub) =>
-        subtotal > 0 ? Number((discount * (lineSub / subtotal)).toFixed(2)) : 0
-      )
-      // Ensure allocated discount sums exactly to discount (adjust last line)
-      const allocatedSum = allocatedDiscounts.reduce((a, b) => a + b, 0)
-      if (allocatedDiscounts.length > 0 && Math.abs(allocatedSum - discount) > 0.001) {
-        allocatedDiscounts[allocatedDiscounts.length - 1] += Number((discount - allocatedSum).toFixed(2))
-      }
+      const effectiveDiscount = Number((discount + dayDiscountAmount).toFixed(2))
+      // El descuento del día se reparte solo entre las líneas de detal.
+      const allocatedDiscounts = dayDiscountAmount > 0
+        ? allocateDiscount(items, dayDiscountAmount, { onlyRetail: true })
+        : allocateDiscount(items, discount)
 
       const hasWholesale = items.some((i) => !!i.wholesale)
       const hasRetail = items.some((i) => !i.wholesale)
@@ -530,7 +571,10 @@ export default function AdminPOS() {
           customer_phone: customerPhone,
           payment_method: payments.length === 1 ? payments[0].method : 'multiple',
           total_amount: total,
-          discount_amount: discount,
+          discount_amount: effectiveDiscount,
+          day_discount_id: dayDiscountAmount > 0 ? todayDayDiscount.discount?.id || null : null,
+          day_discount_amount: dayDiscountAmount,
+          day_discount_name: dayDiscountAmount > 0 ? todayDayDiscount.discount?.name || null : null,
           credit_amount: creditApplied,
           customer_coupon_id: customerCouponId,
           points_earned: earned,
@@ -766,6 +810,8 @@ export default function AdminPOS() {
         items,
         subtotal,
         discount,
+        dayDiscountAmount,
+        dayDiscount: todayDayDiscount.discount,
         total,
         payments,
         customer,
@@ -871,6 +917,8 @@ export default function AdminPOS() {
                 items={items}
                 subtotal={subtotal}
                 discount={discount}
+                dayDiscount={todayDayDiscount.discount}
+                dayDiscountAmount={dayDiscountAmount}
                 total={total}
                 totalToPay={totalToPay}
                 creditApplied={creditApplied}
@@ -931,6 +979,8 @@ export default function AdminPOS() {
                   customer={completedSale.customer}
                   subtotal={completedSale.subtotal}
                   discount={completedSale.discount}
+                  dayDiscount={completedSale.dayDiscount}
+                  dayDiscountAmount={completedSale.dayDiscountAmount}
                   appliedCoupon={completedSale.appliedCoupon}
                   total={completedSale.total}
                   createdAt={completedSale.createdAt}
@@ -946,6 +996,8 @@ export default function AdminPOS() {
                       customer: completedSale.customer,
                       subtotal: completedSale.subtotal,
                       discount: completedSale.discount,
+                      dayDiscount: completedSale.dayDiscount,
+                      dayDiscountAmount: completedSale.dayDiscountAmount,
                       appliedCoupon: completedSale.appliedCoupon,
                       total: completedSale.total,
                       createdAt: completedSale.createdAt,

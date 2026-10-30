@@ -4,7 +4,7 @@ import styles from '../../pages/admin/AdminFinance.module.css'
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
-export default function MonthGrid({ month, onMonthChange, renderDay, onDayClick }) {
+export default function MonthGrid({ month, onMonthChange, renderDay, onDayClick, dayClassName }) {
   const y = month.getFullYear()
   const m = month.getMonth()
   const first = new Date(y, m, 1)
@@ -43,7 +43,7 @@ export default function MonthGrid({ month, onMonthChange, renderDay, onDayClick 
             <button
               key={iso}
               type="button"
-              className={`${styles.dayCell} ${iso === todayISO ? styles.dayCellToday : ''}`}
+              className={`${styles.dayCell} ${iso === todayISO ? styles.dayCellToday : ''} ${dayClassName ? dayClassName(iso) : ''}`}
               onClick={() => onDayClick?.(iso)}
             >
               <span className={styles.dayNum}>{date.getDate()}</span>

@@ -22,6 +22,13 @@ function buildCartKey(itemId, invoiceId) {
   return `${invoiceId}-${itemId}`
 }
 
+/** Precio neto por unidad: descuenta el cupón/descuento del día ya aplicado. */
+function netUnitPrice(item) {
+  const quantity = Math.max(1, Number(item?.quantity) || 1)
+  const discount = Number(item?.discount_amount) || 0
+  return Math.max(0, (Number(item?.unit_price) || 0) - (discount / quantity))
+}
+
 export default function AdminReturns() {
   const { user } = useAuth()
 
@@ -162,7 +169,7 @@ export default function AdminReturns() {
         item,
         variant: item.product_variants,
         product: item.product_variants?.products,
-        unitPrice: item.unit_price,
+        unitPrice: netUnitPrice(item),
         maxReturn: remaining,
         returnQty: Math.min(remaining, qty),
       }]
@@ -227,7 +234,7 @@ export default function AdminReturns() {
         item: it,
         variant: it.product_variants,
         product: it.product_variants?.products,
-        unitPrice: it.unit_price,
+        unitPrice: netUnitPrice(it),
         maxReturn: it.quantity - (it.returned_quantity || 0),
         returnQty: 0,
       }))

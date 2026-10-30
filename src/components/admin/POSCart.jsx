@@ -1,4 +1,4 @@
-import { ShoppingBag, Trash2, Minus, Plus, Ticket, Wallet } from 'lucide-react'
+import { CalendarDays, ShoppingBag, Trash2, Minus, Plus, Ticket, Wallet } from 'lucide-react'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
 import { usdToBs, bsCeilFromUsd, formatBs } from '../../lib/rate'
 import POSPaymentPanel from './POSPaymentPanel'
@@ -35,6 +35,8 @@ export default function POSCart({
   onAbastecer,
   summaryTopNode,
   disableGiftcard = false,
+  dayDiscount = null,
+  dayDiscountAmount = 0,
 }) {
   const totalToPayNum = parseFloat(totalToPay) || 0
   const totalPaidNum = parseFloat(totalPaid) || 0
@@ -118,15 +120,34 @@ export default function POSCart({
 
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Cupones</div>
-            <CouponSelector
-              customer={customer}
-              subtotal={subtotal}
-              appliedCoupon={appliedCoupon}
-              onApplyCustomerCoupon={handleApplyCustomer}
-              onRedeemRewardCoupon={handleRedeemReward}
-              onRemoveCoupon={onRemoveCoupon}
-              disabled={disabled}
-            />
+            {dayDiscountAmount > 0 ? (
+              <div className={styles.dayDiscountBanner}>
+                <div className={styles.dayDiscountTitle}>
+                  <CalendarDays size={15} /> Descuento del día
+                </div>
+                <p>
+                  {dayDiscount?.name}
+                  {dayDiscount?.discount_type === 'percentage'
+                    ? ` · ${dayDiscount.discount_value}%`
+                    : dayDiscount?.discount_value != null
+                      ? ` · $${Number(dayDiscount.discount_value).toFixed(2)}`
+                      : ''}
+                </p>
+                <span className={styles.dayDiscountNote}>
+                  Aplica solo a las prendas de detal. No se acumula con cupones.
+                </span>
+              </div>
+            ) : (
+              <CouponSelector
+                customer={customer}
+                subtotal={subtotal}
+                appliedCoupon={appliedCoupon}
+                onApplyCustomerCoupon={handleApplyCustomer}
+                onRedeemRewardCoupon={handleRedeemReward}
+                onRemoveCoupon={onRemoveCoupon}
+                disabled={disabled}
+              />
+            )}
           </div>
 
           <div className={styles.section}>
@@ -213,6 +234,12 @@ export default function POSCart({
               <span>Subtotal</span>
               <strong>${subtotal.toFixed(2)}</strong>
             </div>
+            {dayDiscountAmount > 0 && (
+              <div className={`${styles.summaryRow} ${styles.discountRow}`}>
+                <span><CalendarDays size={12} /> Descuento del día</span>
+                <strong>-${Number(dayDiscountAmount).toFixed(2)}</strong>
+              </div>
+            )}
             {discount > 0 && (
               <div className={`${styles.summaryRow} ${styles.discountRow}`}>
                 <span><Ticket size={12} /> Descuento</span>

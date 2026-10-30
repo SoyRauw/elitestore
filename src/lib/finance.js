@@ -207,7 +207,7 @@ export async function fetchFinanceSummary(from, to) {
   const [movRes, expRes, prodRes, giftRes, catRes] = await Promise.all([
     supabase
       .from('movements')
-      .select('id, created_at, total_amount, movement_type, movement_items(quantity, unit_price, unit_cost, returned_quantity, product_id, products(name, cost_price, shipping_cost, freight_cost))')
+      .select('id, created_at, total_amount, movement_type, movement_items(quantity, unit_price, discount_amount, unit_cost, returned_quantity, product_id, products(name, cost_price, shipping_cost, freight_cost))')
       .in('movement_type', ['venta', 'apartado'])
       .eq('status', 'pagado')
       .gte('created_at', fromISO)
@@ -244,9 +244,11 @@ export async function fetchFinanceSummary(from, to) {
     if (!byMonth[key]) byMonth[key] = { key, label: monthLabel(key), revenue: 0, cogs: 0, expenses: 0, purchases: 0 }
     for (const it of m.movement_items || []) {
       const qty = Math.max(0, (it.quantity || 0) - (it.returned_quantity || 0))
+      const originalQty = Math.max(1, it.quantity || 0)
       const price = parseFloat(it.unit_price) || 0
       const cost = parseFloat(it.unit_cost) || productCost.get(it.product_id) || 0
-      const lineRevenue = qty * price
+      const discountShare = (parseFloat(it.discount_amount) || 0) * (qty / originalQty)
+      const lineRevenue = Math.max(0, qty * price - discountShare)
       const lineCost = qty * cost
       revenue += lineRevenue
       cogs += lineCost
@@ -342,7 +344,7 @@ export async function fetchDailyActivity(from, to) {
   const [movRes, expRes] = await Promise.all([
     supabase
       .from('movements')
-      .select('id, created_at, movement_type, status, total_amount, customer_name, payment_method, movement_payments(method, amount), movement_items(quantity, unit_price, unit_cost, returned_quantity, product_id, products(name, cost_price, shipping_cost, freight_cost))')
+      .select('id, created_at, movement_type, status, total_amount, customer_name, payment_method, movement_payments(method, amount), movement_items(quantity, unit_price, discount_amount, unit_cost, returned_quantity, product_id, products(name, cost_price, shipping_cost, freight_cost))')
       .in('movement_type', ['venta', 'apartado', 'abono', 'giftcard'])
       .eq('status', 'pagado')
       .gte('created_at', fromISO)
@@ -378,7 +380,9 @@ export async function fetchDailyActivity(from, to) {
     let cogs = 0
     for (const it of m.movement_items || []) {
       const qty = Math.max(0, (it.quantity || 0) - (it.returned_quantity || 0))
-      revenue += qty * (parseFloat(it.unit_price) || 0)
+      const originalQty = Math.max(1, it.quantity || 0)
+      const discountShare = (parseFloat(it.discount_amount) || 0) * (qty / originalQty)
+      revenue += Math.max(0, qty * (parseFloat(it.unit_price) || 0) - discountShare)
       cogs += qty * (parseFloat(it.unit_cost) || unitCostOf(it.products) || 0)
     }
     day.sales.push({ ...m, revenue, cogs })

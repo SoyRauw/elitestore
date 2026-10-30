@@ -456,7 +456,9 @@ export default function AdminMovementDetail() {
                 items={items}
                 payments={payments}
                 subtotal={parseFloat(movement.total_amount) + parseFloat(movement.discount_amount || 0)}
-                discount={movement.discount_amount}
+                discount={Math.max(0, Number(movement.discount_amount || 0) - Number(movement.day_discount_amount || 0))}
+                dayDiscount={{ name: movement.day_discount_name }}
+                dayDiscountAmount={Number(movement.day_discount_amount || 0)}
                 appliedCoupon={movement.customer_coupons}
                 total={movement.total_amount}
                 createdAt={movement.created_at}
@@ -469,7 +471,9 @@ export default function AdminMovementDetail() {
                     items,
                     payments,
                     subtotal: parseFloat(movement.total_amount) + parseFloat(movement.discount_amount || 0),
-                    discount: movement.discount_amount,
+                    discount: Math.max(0, Number(movement.discount_amount || 0) - Number(movement.day_discount_amount || 0)),
+                    dayDiscount: { name: movement.day_discount_name },
+                    dayDiscountAmount: Number(movement.day_discount_amount || 0),
                     appliedCoupon: movement.customer_coupons,
                     total: movement.total_amount,
                     createdAt: movement.created_at,

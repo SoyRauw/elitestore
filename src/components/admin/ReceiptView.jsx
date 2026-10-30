@@ -31,11 +31,18 @@ function getAppliedCouponName(appliedCoupon) {
   return appliedCoupon.name || appliedCoupon.reward_coupons?.name || null
 }
 
-export default function ReceiptView({ movement, items, payments, customer, subtotal, discount, appliedCoupon, total, createdAt, className = '' }) {
+export default function ReceiptView({ movement, items, payments, customer, subtotal, discount, dayDiscount, dayDiscountAmount, appliedCoupon, total, createdAt, className = '' }) {
   const date = createdAt ? new Date(createdAt) : new Date()
   const totalPaid = (payments || []).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
   const change = Math.max(0, totalPaid - total)
   const invoiceId = movement?.id?.slice(0, 8) || '—'
+  const totalDiscount = parseFloat(movement?.discount_amount) || 0
+  const dayAmount = Number(dayDiscountAmount ?? movement?.day_discount_amount ?? 0) || 0
+  const couponAmount = discount !== undefined && discount !== null
+    ? (Number(discount) || 0)
+    : Math.max(0, totalDiscount - dayAmount)
+  const couponName = getAppliedCouponName(appliedCoupon) || movement?.customer_coupons?.reward_coupons?.name
+  const dayName = dayDiscount?.name || movement?.day_discount_name || 'Descuento por días'
 
   return (
     <div className={`${styles.receipt} print-receipt ${className}`}>
@@ -113,17 +120,22 @@ export default function ReceiptView({ movement, items, payments, customer, subto
           <span>Subtotal</span>
           <strong>${(subtotal || 0).toFixed(2)}</strong>
         </div>
-        {(discount || movement?.discount_amount) > 0 && (
+        {couponAmount > 0 && (
           <div className={`${styles.totalRow} ${styles.discountRow}`}>
             <span>
               Descuento
-              {(getAppliedCouponName(appliedCoupon) || movement?.customer_coupons?.reward_coupons?.name) && (
-                <span className={styles.couponName}>
-                  ({getAppliedCouponName(appliedCoupon) || movement?.customer_coupons?.reward_coupons?.name})
-                </span>
-              )}
+              {couponName && <span className={styles.couponName}>({couponName})</span>}
             </span>
-            <strong>-${(discount || movement?.discount_amount || 0).toFixed(2)}</strong>
+            <strong>-${couponAmount.toFixed(2)}</strong>
+          </div>
+        )}
+        {dayAmount > 0 && (
+          <div className={`${styles.totalRow} ${styles.discountRow}`}>
+            <span>
+              Descuento del día
+              <span className={styles.couponName}>({dayName})</span>
+            </span>
+            <strong>-${dayAmount.toFixed(2)}</strong>
           </div>
         )}
         <div className={styles.totalFinal}>
@@ -222,7 +234,7 @@ function formatMoney(value) {
   return `$${(parseFloat(value) || 0).toFixed(2)}`
 }
 
-function getReceiptHTML({ movement, items, payments, customer, subtotal, discount, appliedCoupon, total, createdAt }) {
+function getReceiptHTML({ movement, items, payments, customer, subtotal, discount, dayDiscount, dayDiscountAmount, appliedCoupon, total, createdAt }) {
   const date = createdAt ? new Date(createdAt) : new Date()
   const invoiceId = movement?.id?.slice(0, 8) || '—'
   const totalPaid = (payments || []).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
@@ -230,9 +242,14 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
   const customerName = customer?.name || movement?.customer_name || null
   const customerId = customer?.id_number || null
   const customerPhone = customer?.phone || movement?.customer_phone || null
-  const discountAmount = discount || movement?.discount_amount || 0
+  const totalDiscount = parseFloat(movement?.discount_amount) || 0
+  const dayAmount = Number(dayDiscountAmount ?? movement?.day_discount_amount ?? 0) || 0
+  const couponAmount = discount !== undefined && discount !== null
+    ? (Number(discount) || 0)
+    : Math.max(0, totalDiscount - dayAmount)
   const creditAmount = movement?.credit_amount || 0
   const couponName = getAppliedCouponName(appliedCoupon) || movement?.customer_coupons?.reward_coupons?.name
+  const dayName = dayDiscount?.name || movement?.day_discount_name || 'Descuento por días'
 
   const productsHTML = (items || []).map(item => {
     const name = item.product?.name || item.products?.name || '—'
@@ -377,10 +394,16 @@ function getReceiptHTML({ movement, items, payments, customer, subtotal, discoun
               <span>Subtotal</span>
               <span>${formatMoney(subtotal || total)}</span>
             </div>
-            ${discountAmount > 0 ? `
+            ${couponAmount > 0 ? `
               <div class="total-row" style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:#16a34a;">
                 <span>Descuento ${couponName ? `(${couponName})` : ''}</span>
-                <span>-${formatMoney(discountAmount)}</span>
+                <span>-${formatMoney(couponAmount)}</span>
+              </div>
+            ` : ''}
+            ${dayAmount > 0 ? `
+              <div class="total-row" style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; color:#16a34a;">
+                <span>Descuento del día (${dayName})</span>
+                <span>-${formatMoney(dayAmount)}</span>
               </div>
             ` : ''}
             ${creditAmount > 0 ? `

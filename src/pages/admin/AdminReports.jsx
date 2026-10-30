@@ -147,11 +147,15 @@ export default function AdminReports() {
     movementItems.forEach(item => {
       const name = item.products?.name || '—'
       const key = `${name}-${formatVariantLabel(item.product_variants || {})}`
+      const lineNet = Math.max(
+        0,
+        ((item.quantity || 0) * (item.unit_price || 0)) - (parseFloat(item.discount_amount) || 0)
+      )
       productSales[key] = {
         name,
         variant: formatVariantLabel(item.product_variants || {}),
         quantity: (productSales[key]?.quantity || 0) + (item.quantity || 0),
-        total: (productSales[key]?.total || 0) + ((item.quantity || 0) * (item.unit_price || 0)),
+        total: (productSales[key]?.total || 0) + lineNet,
       }
     })
 
@@ -162,7 +166,11 @@ export default function AdminReports() {
     const categorySales = {}
     movementItems.forEach(item => {
       const cat = item.products?.categories?.name || 'Sin categoría'
-      categorySales[cat] = (categorySales[cat] || 0) + ((item.quantity || 0) * (item.unit_price || 0))
+      const lineNet = Math.max(
+        0,
+        ((item.quantity || 0) * (item.unit_price || 0)) - (parseFloat(item.discount_amount) || 0)
+      )
+      categorySales[cat] = (categorySales[cat] || 0) + lineNet
     })
 
     // Las ventas de giftcard no tienen productos: se muestran como categoría propia

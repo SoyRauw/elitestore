@@ -360,3 +360,187 @@
   font-weight: 600;
 }
 
+/* ==== Descuentos por días ==== */
+.daySection {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.daySectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.daySectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--color-dark);
+}
+
+.daySectionSub {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-dark-soft);
+}
+
+.dayEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem;
+  text-align: center;
+  color: var(--color-dark-soft);
+  background: white;
+  border: 1px dashed rgba(196, 120, 138, 0.25);
+  border-radius: 1rem;
+}
+
+.dayEmpty p {
+  margin: 0;
+}
+
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.dayCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid rgba(196, 120, 138, 0.14);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.dayCardInactive {
+  opacity: 0.65;
+}
+
+.dayCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.dayCardName {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-dark);
+}
+
+.dayCardValue {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.25rem 0 0;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.dayCardActions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.dayDateList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.dayDateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(196, 120, 138, 0.08);
+  border: 1px solid rgba(196, 120, 138, 0.18);
+  border-radius: 999px;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.dayDateChip button {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.dayDateToday {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.dayDateMore {
+  align-self: center;
+  color: var(--color-dark-soft);
+  font-size: 0.72rem;
+}
+
+.dayCardFooter {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dayDates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 1.8rem;
+}
+
+.dayDatesEmpty {
+  color: var(--color-dark-soft);
+  font-size: 0.8rem;
+}
+
+.calendarBox {
+  padding: 0.5rem;
+  background: #fff;
+  border: 1px solid rgba(196, 120, 138, 0.15);
+  border-radius: 0.75rem;
+}
+
+.selectedDay {
+  background: rgba(196, 120, 138, 0.22) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-dark) !important;
+}
+
+.dayModal {
+  max-width: 720px;
+}
+
+@media (max-width: 767px) {
+  .dayModal {
+    max-width: 100%;
+  }
+  .dayGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
