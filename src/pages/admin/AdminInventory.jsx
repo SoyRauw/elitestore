@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { Package, Save, ShoppingBag, ChevronDown, ChevronUp, Trash2, Search, X } from 'lucide-react'
+import { Package, Save, ShoppingBag, ChevronDown, ChevronUp, Trash2, Search, X, History } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
+import VariantMovementHistory from '../../components/admin/VariantMovementHistory'
 import { useAuth } from '../../hooks/useAuth'
 import { formatVariantLabel, getVariantImage, sortVariants } from '../../lib/sku'
 import styles from './AdminInventory.module.css'
@@ -23,6 +24,7 @@ export default function AdminInventory() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [stockFilter, setStockFilter] = useState('')
   const [lightboxImage, setLightboxImage] = useState(null)
+  const [historyTarget, setHistoryTarget] = useState(null)
 
   const toggleExpand = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
@@ -344,6 +346,15 @@ export default function AdminInventory() {
                                       <span>Cantidad: <strong>{qty}</strong></span>
                                       <span>Precio: <strong>${price}</strong></span>
                                     </div>
+                                    <div className={styles.variantHistoryRow}>
+                                      <button
+                                        type="button"
+                                        className={styles.historyBtn}
+                                        onClick={() => setHistoryTarget({ product, variant })}
+                                      >
+                                        <History size={13} /> Historial
+                                      </button>
+                                    </div>
                                   </div>
                                   {isAdmin && (
                                     <div className={styles.variantActions}>
@@ -406,6 +417,14 @@ export default function AdminInventory() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {historyTarget && (
+        <VariantMovementHistory
+          product={historyTarget.product}
+          variant={historyTarget.variant}
+          onClose={() => setHistoryTarget(null)}
+        />
+      )}
     </AdminLayout>
   )
 }

@@ -323,6 +323,30 @@
   color: var(--color-dark);
 }
 
+.variantHistoryRow {
+  margin-top: 0.15rem;
+}
+
+.historyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgba(196, 120, 138, 0.28);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.historyBtn:hover {
+  background: rgba(196, 120, 138, 0.1);
+  border-color: var(--color-primary);
+}
+
 .variantActions {
   display: flex;
   flex-direction: column;
