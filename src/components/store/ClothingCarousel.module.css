@@ -29,16 +29,11 @@
 .swiper {
   width: 100%;
   padding: var(--space-6) var(--space-4) var(--space-12) !important;
+  overflow: visible !important;
 }
 
 .slide {
-  width: 280px !important;
-}
-
-@media (min-width: 768px) {
-  .slide {
-    width: 320px !important;
-  }
+  height: auto;
 }
 
 /* === CARD === */

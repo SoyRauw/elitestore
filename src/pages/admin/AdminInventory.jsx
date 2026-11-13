@@ -5,9 +5,12 @@ import { Package, Save, ShoppingBag, ChevronDown, ChevronUp, Trash2, Search, X, 
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import VariantMovementHistory from '../../components/admin/VariantMovementHistory'
+import Pagination from '../../components/admin/Pagination'
 import { useAuth } from '../../hooks/useAuth'
 import { formatVariantLabel, getVariantImage, sortVariants } from '../../lib/sku'
 import styles from './AdminInventory.module.css'
+
+const PAGE_SIZE = 24
 
 export default function AdminInventory() {
   const { isAdmin } = useAuth()
@@ -23,6 +26,8 @@ export default function AdminInventory() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [stockFilter, setStockFilter] = useState('')
+  const [sizeFilter, setSizeFilter] = useState('')
+  const [page, setPage] = useState(1)
   const [lightboxImage, setLightboxImage] = useState(null)
   const [historyTarget, setHistoryTarget] = useState(null)
 
@@ -33,7 +38,7 @@ export default function AdminInventory() {
     const [prodRes, catRes] = await Promise.all([
       supabase
         .from('products')
-        .select('id, name, price, wholesale_price, images, category_id, categories(id, name, size_label, size_options), product_variants(*)')
+        .select('id, name, price, wholesale_price, images, category_id, categories(id, name, size_label, size_options), product_variants(id, product_id, sku, barcode, color, variant_name, size, price, stock, image, created_at)')
         .order('name'),
       supabase.from('categories').select('id, name').order('name')
     ])
@@ -137,6 +142,16 @@ export default function AdminInventory() {
     })
   }
 
+  const allSizes = useMemo(() => {
+    const sizes = new Set()
+    products.forEach((product) => {
+      ;(product.product_variants || []).forEach((variant) => {
+        if (variant.size) sizes.add(variant.size)
+      })
+    })
+    return [...sizes].sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }))
+  }, [products])
+
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase()
     return products.filter((p) => {
@@ -148,14 +163,33 @@ export default function AdminInventory() {
         p.id.toLowerCase().includes(term) ||
         variants.some(v => (v.sku || '').toLowerCase().includes(term) || (v.barcode || '').toLowerCase().includes(term))
       const matchesCategory = !categoryFilter || p.category_id === categoryFilter
+      const matchesSize = !sizeFilter || variants.some(v => v.size === sizeFilter)
       const matchesStock =
         !stockFilter ||
         (stockFilter === 'out' ? total === 0 : stockFilter === 'low' ? total > 0 && total < 5 : total >= 5)
-      return matchesSearch && matchesCategory && matchesStock
+      return matchesSearch && matchesCategory && matchesSize && matchesStock
     })
-  }, [products, search, categoryFilter, stockFilter, totalStockOf])
+  }, [products, search, categoryFilter, stockFilter, sizeFilter, totalStockOf])
 
-  const visibleIds = useMemo(() => new Set(filteredProducts.map(p => p.id)), [filteredProducts])
+  useEffect(() => {
+    setPage(1)
+  }, [search, categoryFilter, stockFilter, sizeFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  )
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  const visibleIds = useMemo(
+    () => new Set(paginatedProducts.map((p) => p.id)),
+    [paginatedProducts]
+  )
   const allVisibleSelected = visibleIds.size > 0 && [...visibleIds].every(id => selectedIds.has(id))
 
   const toggleAllVisible = () => {
@@ -174,6 +208,8 @@ export default function AdminInventory() {
     setSearch('')
     setCategoryFilter('')
     setStockFilter('')
+    setSizeFilter('')
+    setPage(1)
   }
 
   const stockStatus = (total) => {
@@ -221,7 +257,11 @@ export default function AdminInventory() {
             <option value="low">Stock bajo</option>
             <option value="ok">Stock OK</option>
           </select>
-          {(search || categoryFilter || stockFilter) && (
+          <select className={styles.filterSelect} value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)}>
+            <option value="">Todas las tallas</option>
+            {allSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
+          {(search || categoryFilter || stockFilter || sizeFilter) && (
             <button className="btn btn-outline" onClick={clearFilters} style={{ padding: '0.55rem 0.9rem' }}>
               Limpiar
             </button>
@@ -257,7 +297,7 @@ export default function AdminInventory() {
                 <th style={{ width: '60px' }}></th>
               </tr>
             </thead>
-            {filteredProducts.map((product) => {
+            {paginatedProducts.map((product) => {
               const total = totalStockOf(product)
               const status = stockStatus(total)
               const variants = sortVariants(
@@ -397,6 +437,14 @@ export default function AdminInventory() {
 
           {filteredProducts.length === 0 && (
             <div className={styles.emptyTable}>No hay productos que coincidan con los filtros.</div>
+          )}
+          {filteredProducts.length > 0 && (
+            <Pagination
+              page={currentPage}
+              pageSize={PAGE_SIZE}
+              total={filteredProducts.length}
+              onPageChange={setPage}
+            />
           )}
         </div>
       )}

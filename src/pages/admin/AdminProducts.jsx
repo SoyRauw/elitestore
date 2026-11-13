@@ -10,12 +10,15 @@ import {
 } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import Pagination from '../../components/admin/Pagination'
 import {
   generateProductId, generateProductCode, generateVariantCode,
   sortVariants, variantGroupKey
 } from '../../lib/sku'
 import * as V from '../../lib/validation'
 import styles from './AdminProducts.module.css'
+
+const PAGE_SIZE = 24
 
 
 
@@ -77,6 +80,8 @@ export default function AdminProducts() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [stockFilter, setStockFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [sizeFilter, setSizeFilter] = useState('')
+  const [page, setPage] = useState(1)
 
   const handleScanResult = useCallback((id) => {
     setScannedId(id)
@@ -86,7 +91,7 @@ export default function AdminProducts() {
   const fetchData = async () => {
     setLoading(true)
     const [prodRes, catRes] = await Promise.all([
-      supabase.from('products').select('*, categories(*), product_variants(*)').order('created_at', { ascending: false }),
+      supabase.from('products').select('id, name, price, wholesale_price, images, category_id, active, created_at, categories(id, name), product_variants(id, product_id, sku, barcode, color, variant_name, size, price, wholesale_price, stock, image, created_at)').order('created_at', { ascending: false }),
       supabase.from('categories').select('*').order('name')
     ])
     setProducts(prodRes.data || [])
@@ -163,6 +168,16 @@ export default function AdminProducts() {
     setScannedId('')
   }
 
+  const allSizes = useMemo(() => {
+    const sizes = new Set()
+    products.forEach((product) => {
+      ;(product.product_variants || []).forEach((variant) => {
+        if (variant.size) sizes.add(variant.size)
+      })
+    })
+    return [...sizes].sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }))
+  }, [products])
+
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase()
     return products.filter((p) => {
@@ -175,14 +190,33 @@ export default function AdminProducts() {
         variants.some(v => (v.sku || '').toLowerCase().includes(term) || (v.barcode || '').toLowerCase().includes(term))
       const matchesCategory = !categoryFilter || p.category_id === categoryFilter
       const matchesStatus = !statusFilter || (statusFilter === 'active' ? p.active : !p.active)
+      const matchesSize = !sizeFilter || variants.some(v => v.size === sizeFilter)
       const matchesStock =
         !stockFilter ||
         (stockFilter === 'out' ? totalStock === 0 : stockFilter === 'low' ? totalStock > 0 && totalStock < 5 : totalStock >= 5)
-      return matchesSearch && matchesCategory && matchesStatus && matchesStock
+      return matchesSearch && matchesCategory && matchesStatus && matchesSize && matchesStock
     })
-  }, [products, search, categoryFilter, stockFilter, statusFilter])
+  }, [products, search, categoryFilter, stockFilter, statusFilter, sizeFilter])
 
-  const visibleIds = useMemo(() => new Set(filteredProducts.map(p => p.id)), [filteredProducts])
+  useEffect(() => {
+    setPage(1)
+  }, [search, categoryFilter, stockFilter, statusFilter, sizeFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  )
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  const visibleIds = useMemo(
+    () => new Set(paginatedProducts.map((p) => p.id)),
+    [paginatedProducts]
+  )
   const allVisibleSelected = visibleIds.size > 0 && [...visibleIds].every(id => selectedIds.has(id))
 
   const toggleAllVisible = () => {
@@ -202,6 +236,8 @@ export default function AdminProducts() {
     setCategoryFilter('')
     setStockFilter('')
     setStatusFilter('')
+    setSizeFilter('')
+    setPage(1)
   }
 
   return (
@@ -251,7 +287,11 @@ export default function AdminProducts() {
             <option value="active">Activos</option>
             <option value="inactive">Inactivos</option>
           </select>
-          {(search || categoryFilter || stockFilter || statusFilter) && (
+          <select className={styles.filterSelect} value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)}>
+            <option value="">Todas las tallas</option>
+            {allSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
+          {(search || categoryFilter || stockFilter || statusFilter || sizeFilter) && (
             <button className="btn btn-outline" onClick={clearFilters} style={{ padding: '0.55rem 0.9rem' }}>
               <X size={14} /> Limpiar
             </button>
@@ -280,7 +320,7 @@ export default function AdminProducts() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => {
+              {paginatedProducts.map((p) => {
                 const variants = p.product_variants || []
                 const totalStock = variants.reduce((s, v) => s + (v.stock || 0), 0)
                 const isLow = totalStock > 0 && totalStock < 5
@@ -363,6 +403,14 @@ export default function AdminProducts() {
             <div className={styles.emptyTable}>
               <p>No hay productos que coincidan con los filtros.</p>
             </div>
+          )}
+          {filteredProducts.length > 0 && (
+            <Pagination
+              page={currentPage}
+              pageSize={PAGE_SIZE}
+              total={filteredProducts.length}
+              onPageChange={setPage}
+            />
           )}
         </div>
       )}

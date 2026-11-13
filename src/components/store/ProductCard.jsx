@@ -7,7 +7,7 @@ import {
 } from '../../lib/sku'
 import styles from './ProductCard.module.css'
 
-function ProductCard({ product, onAdd, index = 0, justAdded }) {
+function ProductCard({ product, index = 0 }) {
   const navigate = useNavigate()
   const models = useMemo(() => getVariantModels(product), [product])
   const priceRange = useMemo(() => getProductPriceRange(product), [product])
@@ -15,38 +15,29 @@ function ProductCard({ product, onAdd, index = 0, justAdded }) {
   const [selectedModel, setSelectedModel] = useState(models[0] || null)
 
   useEffect(() => {
-    if (models.length > 0 && (!selectedModel || !models.find((m) => m.key === selectedModel.key))) {
+    if (models.length > 0 && (!selectedModel || !models.find((model) => model.key === selectedModel.key))) {
       setSelectedModel(models[0])
     }
   }, [models, selectedModel])
 
   const isOutOfStock = models.length === 0
-  const selectedVariant = selectedModel?.firstVariant || null
-  const hasMultipleSizes = (selectedModel?.sizes?.length || 0) > 1
 
   const displayPrice = useMemo(() => {
     if (!selectedModel) return priceRange.min || 0
     return selectedModel.minPrice || 0
   }, [selectedModel, priceRange])
 
-  const displayPriceLabel = hasMultipleSizes ? 'Desde ' : ''
-
   const visibleModels = models.slice(0, 4)
   const remainingModels = models.length - visibleModels.length
 
-  const handleModelClick = (e, model) => {
-    e.stopPropagation()
+  const handleModelClick = (event, model) => {
+    event.stopPropagation()
     setSelectedModel(model)
   }
 
-  const handleMoreClick = (e) => {
-    e.stopPropagation()
+  const handleMoreClick = (event) => {
+    event.stopPropagation()
     navigate(`/product/${product.id}`)
-  }
-
-  const handleAdd = (e) => {
-    e.stopPropagation()
-    if (selectedVariant) onAdd(product, selectedVariant)
   }
 
   const handleCardClick = () => {
@@ -100,7 +91,7 @@ function ProductCard({ product, onAdd, index = 0, justAdded }) {
                   key={model.key}
                   type="button"
                   className={`${styles.modelBtn} ${isActive ? styles.modelBtnActive : ''}`}
-                  onClick={(e) => handleModelClick(e, model)}
+                  onClick={(event) => handleModelClick(event, model)}
                   title={model.key}
                 >
                   {model.image ? (
@@ -131,20 +122,18 @@ function ProductCard({ product, onAdd, index = 0, justAdded }) {
         )}
 
         <div className={styles.footer}>
-          <span className={styles.price}>
-            {displayPriceLabel}${displayPrice.toFixed(2)}
-          </span>
+          <span className={styles.price}>${displayPrice.toFixed(2)}</span>
           <button
             type="button"
-            className={`${styles.addBtn} ${justAdded === selectedVariant?.id ? styles.added : ''}`}
-            onClick={handleAdd}
-            disabled={isOutOfStock || !selectedVariant}
+            className={styles.addBtn}
+            onClick={(event) => { event.stopPropagation(); handleCardClick() }}
+            disabled={isOutOfStock}
           >
-            {justAdded === selectedVariant?.id ? (
-              '✓ Agregado'
+            {isOutOfStock ? (
+              'Agotado'
             ) : (
               <>
-                <ShoppingBag size={14} /> Agregar
+                <ShoppingBag size={14} /> Elegir talla
               </>
             )}
           </button>

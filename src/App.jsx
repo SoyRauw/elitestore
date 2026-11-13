@@ -5,12 +5,13 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 /* Store Components */
 import Navbar from './components/store/Navbar'
 import Home from './pages/store/Home'
-import Catalog from './pages/store/Catalog'
-import ProductDetailPage from './pages/store/ProductDetailPage'
-import Nosotros from './pages/store/Nosotros'
 import Footer from './components/store/Footer'
 
 import ScrollToTop from './components/store/ScrollToTop'
+
+const Catalog = lazy(() => import('./pages/store/Catalog'))
+const ProductDetailPage = lazy(() => import('./pages/store/ProductDetailPage'))
+const Nosotros = lazy(() => import('./pages/store/Nosotros'))
 
 /* Admin Components — lazy loaded to keep public bundle small */
 import AdminLogin from './pages/admin/AdminLogin'
@@ -77,13 +78,21 @@ function AdminFallback() {
   )
 }
 
+function StoreLoading() {
+  return (
+    <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', color: 'var(--color-dark-soft)' }}>
+      Cargando...
+    </div>
+  )
+}
+
 function App() {
   return (
     <AuthProvider>
       <ScrollToTop />
       <Routes>
         {/* Store Routes */}
-        <Route element={<StoreLayout />}>
+        <Route element={<Suspense fallback={<StoreLoading />}><StoreLayout /></Suspense>}>
           <Route path="/" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />

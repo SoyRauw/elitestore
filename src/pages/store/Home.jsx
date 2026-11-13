@@ -1,8 +1,10 @@
+import { Suspense, lazy } from 'react'
 import { motion } from 'framer-motion'
 import HeroSection from '../../components/store/HeroSection'
-import ClothingCarousel from '../../components/store/ClothingCarousel'
 import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, usePageMeta } from '../../lib/seo'
 import fondoImg from '../../assets/fondo.webp'
+
+const ClothingCarousel = lazy(() => import('../../components/store/ClothingCarousel'))
 
 export default function Home() {
   usePageMeta({
@@ -25,7 +27,9 @@ export default function Home() {
       }}
     >
       <HeroSection />
-      <ClothingCarousel />
+      <Suspense fallback={<div style={{ minHeight: '460px' }} aria-hidden="true" />}>
+        <ClothingCarousel />
+      </Suspense>
 
       {/* About section moved to /nosotros */}
     </motion.main>

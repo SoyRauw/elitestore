@@ -40,20 +40,30 @@ export default function ClothingCarousel() {
 
       {!loading && availableProducts.length > 0 ? (
         <Swiper
+          key={availableProducts.map((item) => item.id).join('-')}
           effect="coverflow"
           grabCursor
           centeredSlides
-          slidesPerView="auto"
-          loop={true}
+          slidesPerView={1.15}
+          spaceBetween={12}
+          breakpoints={{
+            640: { slidesPerView: 2.1, spaceBetween: 16 },
+            1024: { slidesPerView: 3, spaceBetween: 24 },
+          }}
+          loop={availableProducts.length > 4}
+          watchOverflow
+          observer
+          observeParents
+          resizeObserver
           coverflowEffect={{
-            rotate: 30,
+            rotate: 25,
             stretch: 0,
-            depth: 100,
+            depth: 80,
             modifier: 1,
             slideShadows: false,
           }}
           pagination={{ clickable: true }}
-          autoplay={{ delay: 3500, disableOnInteraction: false }}
+          autoplay={{ delay: 3500, disableOnInteraction: false, pauseOnMouseEnter: true }}
           modules={[EffectCoverflow, Pagination, Autoplay]}
           className={styles.swiper}
         >
@@ -96,7 +106,7 @@ export default function ClothingCarousel() {
                     <p className={styles.category}>{item.categories?.name || 'Ropa'}</p>
                     {variantLabel && <span className={styles.variantLabel}>{variantLabel}</span>}
                     <div className={styles.footer}>
-                      <span className={styles.price}>Desde ${priceRange.min.toFixed(2)}</span>
+                      <span className={styles.price}>${priceRange.min.toFixed(2)}</span>
                       <button
                         type="button"
                         className={styles.addBtn}

@@ -1,6 +1,14 @@
 import { supabase } from '../lib/supabase'
 import { useState, useEffect } from 'react'
 
+// Solo lo necesario para cards/carrusel: sin costos, sin galerías completas
+// ni campos que no se muestran. El detalle sigue usando useProduct con *.
+const CARD_SELECT = `
+  id, name, price, created_at, featured, images, category_id,
+  categories(id, name, size_label, size_options),
+  product_variants(id, sku, color, variant_name, size, price, stock, image, created_at)
+`
+
 export const useProducts = ({ category_id, featured, limit } = {}) => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -12,7 +20,7 @@ export const useProducts = ({ category_id, featured, limit } = {}) => {
       try {
         let query = supabase
           .from('products')
-          .select('*, categories(*), product_variants(*)')
+          .select(CARD_SELECT)
           .eq('active', true)
           .order('created_at', { ascending: false })
 

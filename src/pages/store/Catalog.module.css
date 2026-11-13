@@ -29,7 +29,99 @@
   padding: 0 var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.topBar .searchWrap {
+  flex: 1;
+}
+
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid rgba(196, 120, 138, 0.3);
+  border-radius: 0.6rem;
+  background: var(--color-white);
+  color: var(--color-dark);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.filterBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.filterCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.activeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(196, 120, 138, 0.25);
+  border-radius: 999px;
+  background: rgba(196, 120, 138, 0.08);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clearAll {
+  border: none;
+  background: transparent;
+  color: var(--color-dark-soft);
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .filters {
+    padding: 0 var(--space-3);
+    margin-bottom: var(--space-5);
+    gap: 0.6rem;
+  }
+
+  .topBar {
+    gap: 0.45rem;
+  }
+
+  .filterBtn {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8rem;
+  }
 }
 
 .searchWrap {
@@ -142,10 +234,10 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
+  gap: 0.65rem;
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 var(--space-4) var(--space-16);
+  padding: 0 var(--space-3) var(--space-16);
 }
 
 @media (min-width: 768px) {

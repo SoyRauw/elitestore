@@ -1,10 +1,11 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Sparkles, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import styles from './HeroSection.module.css'
 
 const HERO_VIDEO_URL = 'https://soivtyndamuzbdtwfvza.supabase.co/storage/v1/object/public/assets/video_2026-08-26_21-58-01.mp4'
+const HERO_POSTER = '/hero-poster.jpg'
 
 const containerVariants = {
   hidden: {},
@@ -18,23 +19,57 @@ const itemVariants = {
 
 export default function HeroSection() {
   const ref = useRef(null)
+  const [videoSrc, setVideoSrc] = useState('')
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] })
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '30%'])
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const saveData = navigator.connection?.saveData
+    const isMobile = window.matchMedia('(max-width: 767px)').matches
+    if (reduceMotion || saveData || isMobile) return
+
+    let timer = 0
+    let idleId = 0
+    const start = () => {
+      timer = window.setTimeout(() => setVideoSrc(HERO_VIDEO_URL), 900)
+    }
+    if ('requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(start, { timeout: 2500 })
+    } else {
+      start()
+    }
+    return () => {
+      if (idleId && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleId)
+      window.clearTimeout(timer)
+    }
+  }, [])
+
   return (
     <section className={styles.hero} ref={ref}>
-      {/* Background video */}
-      <video
+      {/* Poster liviano; el video se carga después en desktop */}
+      <img
         className={styles.videoBg}
-        src={HERO_VIDEO_URL}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
+        src={HERO_POSTER}
+        alt=""
         aria-hidden="true"
+        fetchPriority="high"
       />
+      {videoSrc && (
+        <video
+          className={styles.videoBg}
+          src={videoSrc}
+          poster={HERO_POSTER}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          aria-hidden="true"
+        />
+      )}
       <div className={styles.videoOverlay} aria-hidden="true" />
 
       {/* Content */}
