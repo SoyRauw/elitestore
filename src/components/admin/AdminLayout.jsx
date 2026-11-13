@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X, Store, Banknote, Users, Gift, FileText, Shield, RotateCcw, Bookmark, CreditCard, Wallet } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { usePageMeta } from '../../lib/seo'
 import styles from './AdminLayout.module.css'
 
 export default function AdminLayout({ children }) {
@@ -9,6 +10,13 @@ export default function AdminLayout({ children }) {
   const { signOut, isAdmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+
+  usePageMeta({
+    title: 'Panel | Elite Store',
+    description: 'Panel de administración de Elite Store.',
+    path: location.pathname,
+    noindex: true,
+  })
 
   const handleSignOut = async () => {
     await signOut()

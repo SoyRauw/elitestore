@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ShoppingBag } from 'lucide-react'
 import {
   getVariantModels,
@@ -84,7 +84,11 @@ function ProductCard({ product, onAdd, index = 0, justAdded }) {
 
       <div className={styles.body}>
         <span className={styles.category}>{product.categories?.name}</span>
-        <h3 className={styles.name}>{product.name}</h3>
+        <h3 className={styles.name}>
+          <Link to={`/product/${product.id}`} onClick={(event) => event.stopPropagation()}>
+            {product.name}
+          </Link>
+        </h3>
         {product.description && <p className={styles.description}>{product.description}</p>}
 
         {models.length > 0 && (

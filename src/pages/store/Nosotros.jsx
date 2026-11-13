@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { MapPin, Package, Bike, MessageCircle, CheckCircle, Sparkles } from 'lucide-react'
 import { WHATSAPP_NUMBER } from '../../lib/whatsapp'
+import { usePageMeta } from '../../lib/seo'
 import styles from './Nosotros.module.css'
 
 const fadeUp = {
@@ -33,6 +34,12 @@ const STEPS = [
 ]
 
 export default function Nosotros() {
+  usePageMeta({
+    title: 'Nosotros | Elite Store',
+    description: 'Conoce Elite Store: moda elegante para damas, envíos nacionales y delivery en Maracaibo.',
+    path: '/nosotros',
+  })
+
   const openWA = () => {
     const m = encodeURIComponent('Hola Elite Store 👋, tengo una pregunta sobre mi pedido')
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${m}`, '_blank')

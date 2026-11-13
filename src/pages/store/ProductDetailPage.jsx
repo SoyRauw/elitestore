@@ -10,6 +10,7 @@ import {
   getProductPriceRange,
   findVariantByModelAndSize,
 } from '../../lib/sku'
+import { absoluteUrl, cleanText, usePageMeta } from '../../lib/seo'
 import styles from './ProductDetailPage.module.css'
 
 export default function ProductDetailPage() {
@@ -79,6 +80,47 @@ export default function ProductDetailPage() {
   }, [galleryImages.length, activeImg])
 
   const isOutOfStock = models.length === 0
+  const productMissing = !loading && !product
+
+  const seoImage = product?.images?.[0] || selectedVariant?.image || selectedModel?.image || null
+
+  const seoJsonLd = useMemo(() => {
+    if (!product) return null
+    const price = Number(priceRange.min || product.price) || 0
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      image: product.images?.length ? product.images : seoImage ? [seoImage] : undefined,
+      description: cleanText(product.description || `Compra ${product.name} en Elite Store.`, 300),
+      sku: product.id,
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'USD',
+        price: price.toFixed(2),
+        availability: isOutOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+        url: absoluteUrl(`/product/${product.id}`),
+      },
+    }
+  }, [product, priceRange.min, isOutOfStock, seoImage])
+
+  usePageMeta({
+    title: product
+      ? `${product.name} | Elite Store`
+      : productMissing
+        ? 'Producto no encontrado | Elite Store'
+        : 'Producto | Elite Store',
+    description: product
+      ? cleanText(product.description || `Compra ${product.name} en Elite Store.`)
+      : productMissing
+        ? 'El producto que buscas no está disponible.'
+        : 'Cargando producto de Elite Store.',
+    image: seoImage,
+    path: product ? `/product/${product.id}` : `/product/${id}`,
+    type: 'product',
+    noindex: productMissing,
+    jsonLd: seoJsonLd,
+  })
 
   const displayPrice = useMemo(() => {
     if (selectedVariant) return selectedVariant.price || 0

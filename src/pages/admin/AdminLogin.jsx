@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
+import { usePageMeta } from '../../lib/seo'
 import { Sparkles, Eye, EyeOff, Lock, User } from 'lucide-react'
 import styles from './AdminLogin.module.css'
 
@@ -22,6 +23,13 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false)
   const { signIn } = useAuth()
   const navigate = useNavigate()
+
+  usePageMeta({
+    title: 'Admin | Elite Store',
+    description: 'Acceso al panel de administración de Elite Store.',
+    path: '/admin',
+    noindex: true,
+  })
 
   const handleSubmit = async (e) => {
     e.preventDefault()

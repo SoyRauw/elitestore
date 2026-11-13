@@ -1,9 +1,16 @@
 import { motion } from 'framer-motion'
 import HeroSection from '../../components/store/HeroSection'
 import ClothingCarousel from '../../components/store/ClothingCarousel'
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, usePageMeta } from '../../lib/seo'
 import fondoImg from '../../assets/fondo.webp'
 
 export default function Home() {
+  usePageMeta({
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    path: '/',
+  })
+
   return (
     <motion.main
       initial={{ opacity: 0 }}

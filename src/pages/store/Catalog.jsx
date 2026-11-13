@@ -5,11 +5,18 @@ import { useProducts, useCategories } from '../../hooks/useProducts'
 import { useCartStore } from '../../store/cartStore'
 import { formatVariantLabel, getVariantModels } from '../../lib/sku'
 import ProductCard from '../../components/store/ProductCard'
+import { usePageMeta } from '../../lib/seo'
 import styles from './Catalog.module.css'
 
 const PRODUCTS_PER_PAGE = 24
 
 export default function Catalog() {
+  usePageMeta({
+    title: 'Catálogo | Elite Store',
+    description: 'Explora el catálogo de Elite Store: pijamas, conjuntos, blusas, calzado y accesorios elegantes para damas.',
+    path: '/catalog',
+  })
+
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('newest')
