@@ -106,6 +106,13 @@
   font-size: 0.8rem;
 }
 
+.hint {
+  margin: 0;
+  color: var(--color-dark-soft);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .priceRow {
   display: flex;
   align-items: center;

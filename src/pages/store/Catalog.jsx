@@ -42,15 +42,47 @@ export default function Catalog() {
     [products]
   )
 
-  const allSizes = useMemo(() => {
-    const sizes = new Set()
+  const sizesByCategory = useMemo(() => {
+    const disabled = new Set(
+      categories.filter((category) => category.sizes_enabled === false).map((category) => category.id)
+    )
+    const map = {}
     availableProducts.forEach((product) => {
+      if (disabled.has(product.category_id)) return
+      const set = map[product.category_id] || (map[product.category_id] = new Set())
       ;(product.product_variants || []).forEach((variant) => {
-        if (variant.size && (variant.stock || 0) > 0) sizes.add(variant.size)
+        if (variant.size && (variant.stock || 0) > 0) set.add(variant.size)
       })
     })
-    return [...sizes].sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }))
-  }, [availableProducts])
+    const result = {}
+    Object.entries(map).forEach(([categoryId, set]) => {
+      result[categoryId] = [...set].sort((a, b) =>
+        String(a).localeCompare(String(b), 'es', { numeric: true })
+      )
+    })
+    return result
+  }, [availableProducts, categories])
+
+  const selectedCategoryData = categories.find((category) => category.id === selectedCategory)
+  const selectedCategorySizes = useMemo(
+    () => (selectedCategory ? (sizesByCategory[selectedCategory] || []) : []),
+    [selectedCategory, sizesByCategory]
+  )
+  const selectedSizeLabel = selectedCategoryData?.size_label || 'Talla'
+
+  useEffect(() => {
+    if (!selectedCategory) {
+      if (selectedSize) setSelectedSize('')
+      return
+    }
+    if (selectedCategoryData?.sizes_enabled === false) {
+      if (selectedSize) setSelectedSize('')
+      return
+    }
+    if (selectedSize && !selectedCategorySizes.includes(selectedSize)) {
+      setSelectedSize('')
+    }
+  }, [selectedCategory, selectedSize, selectedCategoryData, selectedCategorySizes])
 
   const filtered = useMemo(() => {
     let list = [...availableProducts]
@@ -157,8 +189,11 @@ export default function Catalog() {
   }
 
   const applyFilters = (draft) => {
-    setSelectedCategory(draft.category || '')
-    setSelectedSize(draft.size || '')
+    const nextCategory = draft.category || ''
+    const nextSizes = nextCategory ? (sizesByCategory[nextCategory] || []) : []
+    const nextSize = nextCategory && nextSizes.includes(draft.size) ? draft.size : ''
+    setSelectedCategory(nextCategory)
+    setSelectedSize(nextSize)
     setMinPrice(draft.minPrice ?? '')
     setMaxPrice(draft.maxPrice ?? '')
     setSortBy(draft.sort || 'newest')
@@ -200,13 +235,17 @@ export default function Catalog() {
         {hasActiveFilters && (
           <div className={styles.activeFilters}>
             {selectedCategory && (
-              <button type="button" className={styles.activeChip} onClick={() => setSelectedCategory('')}>
+              <button
+                type="button"
+                className={styles.activeChip}
+                onClick={() => { setSelectedCategory(''); setSelectedSize('') }}
+              >
                 {categoryName || 'Categoría'} <X size={12} />
               </button>
             )}
             {selectedSize && (
               <button type="button" className={styles.activeChip} onClick={() => setSelectedSize('')}>
-                Talla {selectedSize} <X size={12} />
+                {selectedSizeLabel} {selectedSize} <X size={12} />
               </button>
             )}
             {(minPrice || maxPrice) && (
@@ -260,7 +299,7 @@ export default function Catalog() {
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
         categories={categories}
-        sizes={allSizes}
+        sizesByCategory={sizesByCategory}
         value={{
           category: selectedCategory,
           size: selectedSize,

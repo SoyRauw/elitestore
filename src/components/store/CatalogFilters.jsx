@@ -11,7 +11,14 @@ const EMPTY = {
   sort: 'newest',
 }
 
-export default function CatalogFilters({ open, onClose, categories = [], sizes = [], value, onApply }) {
+export default function CatalogFilters({
+  open,
+  onClose,
+  categories = [],
+  sizesByCategory = {},
+  value,
+  onApply,
+}) {
   const [draft, setDraft] = useState(EMPTY)
 
   useEffect(() => {
@@ -35,7 +42,15 @@ export default function CatalogFilters({ open, onClose, categories = [], sizes =
   }, [open, onClose])
 
   const update = (key, next) => setDraft((prev) => ({ ...prev, [key]: next }))
+  const selectCategory = (categoryId) => {
+    setDraft((prev) => ({ ...prev, category: categoryId, size: '' }))
+  }
   const reset = () => setDraft(EMPTY)
+
+  const selectedCategory = categories.find((category) => category.id === draft.category)
+  const categorySizes = draft.category ? (sizesByCategory[draft.category] || []) : []
+  const categoryUsesSizes = selectedCategory ? selectedCategory.sizes_enabled !== false : false
+  const sizeLabel = selectedCategory?.size_label || 'Talla'
 
   return (
     <AnimatePresence>
@@ -73,7 +88,7 @@ export default function CatalogFilters({ open, onClose, categories = [], sizes =
                   <button
                     type="button"
                     className={`${styles.chip} ${!draft.category ? styles.chipActive : ''}`}
-                    onClick={() => update('category', '')}
+                    onClick={() => selectCategory('')}
                   >
                     Todas
                   </button>
@@ -82,7 +97,7 @@ export default function CatalogFilters({ open, onClose, categories = [], sizes =
                       key={category.id}
                       type="button"
                       className={`${styles.chip} ${draft.category === category.id ? styles.chipActive : ''}`}
-                      onClick={() => update('category', category.id)}
+                      onClick={() => selectCategory(category.id)}
                     >
                       {category.name}
                     </button>
@@ -91,27 +106,40 @@ export default function CatalogFilters({ open, onClose, categories = [], sizes =
               </section>
 
               <section className={styles.section}>
-                <h3>Talla</h3>
-                <div className={styles.chips}>
-                  <button
-                    type="button"
-                    className={`${styles.chip} ${!draft.size ? styles.chipActive : ''}`}
-                    onClick={() => update('size', '')}
-                  >
-                    Todas
-                  </button>
-                  {sizes.map((size) => (
+                <h3>
+                  {!draft.category
+                    ? 'Talla / medida'
+                    : categoryUsesSizes
+                      ? sizeLabel
+                      : 'Talla / medida'}
+                </h3>
+                {!draft.category ? (
+                  <p className={styles.hint}>Elige una categoría para ver sus tallas.</p>
+                ) : !categoryUsesSizes ? (
+                  <p className={styles.hint}>Esta categoría no usa tallas.</p>
+                ) : categorySizes.length === 0 ? (
+                  <p className={styles.hint}>No hay tallas disponibles en esta categoría.</p>
+                ) : (
+                  <div className={styles.chips}>
                     <button
-                      key={size}
                       type="button"
-                      className={`${styles.chip} ${draft.size === size ? styles.chipActive : ''}`}
-                      onClick={() => update('size', size)}
+                      className={`${styles.chip} ${!draft.size ? styles.chipActive : ''}`}
+                      onClick={() => update('size', '')}
                     >
-                      {size}
+                      Todas
                     </button>
-                  ))}
-                  {sizes.length === 0 && <span className={styles.empty}>No hay tallas disponibles.</span>}
-                </div>
+                    {categorySizes.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        className={`${styles.chip} ${draft.size === size ? styles.chipActive : ''}`}
+                        onClick={() => update('size', size)}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section className={styles.section}>

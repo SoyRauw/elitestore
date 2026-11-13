@@ -40,7 +40,7 @@ export default function AdminInventory() {
         .from('products')
         .select('id, name, price, wholesale_price, images, category_id, categories(id, name, size_label, size_options), product_variants(id, product_id, sku, barcode, color, variant_name, size, price, stock, image, created_at)')
         .order('name'),
-      supabase.from('categories').select('id, name').order('name')
+      supabase.from('categories').select('id, name, size_label, size_options, sizes_enabled').order('name')
     ])
     const data = prodRes.data || []
     setProducts(data)
@@ -142,15 +142,34 @@ export default function AdminInventory() {
     })
   }
 
-  const allSizes = useMemo(() => {
-    const sizes = new Set()
+  const sizesByCategory = useMemo(() => {
+    const disabled = new Set(
+      categories.filter((category) => category.sizes_enabled === false).map((category) => category.id)
+    )
+    const map = {}
     products.forEach((product) => {
+      if (disabled.has(product.category_id)) return
+      const set = map[product.category_id] || (map[product.category_id] = new Set())
       ;(product.product_variants || []).forEach((variant) => {
-        if (variant.size) sizes.add(variant.size)
+        if (variant.size) set.add(variant.size)
       })
     })
-    return [...sizes].sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }))
-  }, [products])
+    const result = {}
+    Object.entries(map).forEach(([categoryId, set]) => {
+      result[categoryId] = [...set].sort((a, b) =>
+        String(a).localeCompare(String(b), 'es', { numeric: true })
+      )
+    })
+    return result
+  }, [products, categories])
+
+  const selectedCategoryData = categories.find((category) => category.id === categoryFilter)
+  const selectedCategorySizes = useMemo(
+    () => (categoryFilter ? (sizesByCategory[categoryFilter] || []) : []),
+    [categoryFilter, sizesByCategory]
+  )
+  const selectedSizeLabel = selectedCategoryData?.size_label || 'Talla'
+  const categoryUsesSizes = selectedCategoryData ? selectedCategoryData.sizes_enabled !== false : false
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -174,6 +193,12 @@ export default function AdminInventory() {
   useEffect(() => {
     setPage(1)
   }, [search, categoryFilter, stockFilter, sizeFilter])
+
+  useEffect(() => {
+    if (sizeFilter && !selectedCategorySizes.includes(sizeFilter)) {
+      setSizeFilter('')
+    }
+  }, [sizeFilter, selectedCategorySizes])
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -247,7 +272,7 @@ export default function AdminInventory() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <select className={styles.filterSelect} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          <select className={styles.filterSelect} value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setSizeFilter('') }}>
             <option value="">Todas las categorías</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -257,9 +282,24 @@ export default function AdminInventory() {
             <option value="low">Stock bajo</option>
             <option value="ok">Stock OK</option>
           </select>
-          <select className={styles.filterSelect} value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)}>
-            <option value="">Todas las tallas</option>
-            {allSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+          <select
+            className={styles.filterSelect}
+            value={sizeFilter}
+            onChange={(e) => setSizeFilter(e.target.value)}
+            disabled={!categoryFilter || !categoryUsesSizes || selectedCategorySizes.length === 0}
+          >
+            <option value="">
+              {!categoryFilter
+                ? 'Elige una categoría'
+                : !categoryUsesSizes
+                  ? 'No aplica'
+                  : selectedCategorySizes.length === 0
+                    ? 'Sin tallas'
+                    : `Todas (${selectedSizeLabel})`}
+            </option>
+            {categoryUsesSizes && selectedCategorySizes.map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
           </select>
           {(search || categoryFilter || stockFilter || sizeFilter) && (
             <button className="btn btn-outline" onClick={clearFilters} style={{ padding: '0.55rem 0.9rem' }}>

@@ -19,6 +19,7 @@ export default function AdminCategories() {
   const [prefix, setPrefix] = useState('')
   const [sizeLabel, setSizeLabel] = useState('Talla')
   const [sizeOptions, setSizeOptions] = useState('')
+  const [sizesEnabled, setSizesEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState('')
@@ -38,6 +39,7 @@ export default function AdminCategories() {
     setPrefix('')
     setSizeLabel('Talla')
     setSizeOptions(DEFAULT_OPTIONS.join(', '))
+    setSizesEnabled(true)
     setShowForm(true)
   }
 
@@ -47,6 +49,7 @@ export default function AdminCategories() {
     setPrefix(cat.prefix || '')
     setSizeLabel(cat.size_label || 'Talla')
     setSizeOptions((cat.size_options || DEFAULT_OPTIONS).join(', '))
+    setSizesEnabled(cat.sizes_enabled !== false)
     setShowForm(true)
   }
 
@@ -72,11 +75,11 @@ export default function AdminCategories() {
       (v) => V.noSpaces(v, 'El prefijo'),
       (v) => V.unique(v, 'El prefijo', otherCategories.map(c => c.prefix)),
     ])
-    errs.sizeLabel = V.required(sizeLabel, 'La etiqueta de medida')
-    if (options.length === 0) errs.sizeOptions = 'Debe agregar al menos una medida'
+    errs.sizeLabel = sizesEnabled ? V.required(sizeLabel, 'La etiqueta de medida') : ''
+    if (sizesEnabled && options.length === 0) errs.sizeOptions = 'Debe agregar al menos una medida'
     Object.keys(errs).forEach(k => { if (!errs[k]) delete errs[k] })
     return errs
-  }, [name, prefix, sizeLabel, options, otherCategories])
+  }, [name, prefix, sizeLabel, options, sizesEnabled, otherCategories])
 
   const hasErrors = useMemo(() => Object.keys(validationErrors).length > 0, [validationErrors])
 
@@ -94,6 +97,7 @@ export default function AdminCategories() {
       prefix: finalPrefix,
       size_label: sizeLabel.trim() || 'Talla',
       size_options: options,
+      sizes_enabled: sizesEnabled,
     }
 
     setSaving(true)
@@ -112,6 +116,7 @@ export default function AdminCategories() {
       setPrefix('')
       setSizeLabel('Talla')
       setSizeOptions('')
+      setSizesEnabled(true)
       fetchCategories()
     } catch (e) {
       console.error('Error guardando categoría:', e)
@@ -163,10 +168,14 @@ export default function AdminCategories() {
                 <motion.tr key={c.id} className={styles.tableRow} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   <td style={{ fontWeight: 600 }}>{c.name}</td>
                   <td><span className="badge badge-primary">{c.prefix || '—'}</span></td>
-                  <td>{c.size_label || 'Talla'}</td>
+                  <td>{c.sizes_enabled === false ? 'No aplica' : (c.size_label || 'Talla')}</td>
                   <td style={{ color: 'var(--color-dark-soft)' }}>
-                    {(c.size_options || []).slice(0, 6).join(', ')}
-                    {(c.size_options || []).length > 6 && '...'}
+                    {c.sizes_enabled === false ? '—' : (
+                      <>
+                        {(c.size_options || []).slice(0, 6).join(', ')}
+                        {(c.size_options || []).length > 6 && '...'}
+                      </>
+                    )}
                   </td>
                   <td>
                     <div className={styles.actions}>
@@ -220,16 +229,28 @@ export default function AdminCategories() {
                   <small style={{ color: 'var(--color-dark-soft)', fontSize: '0.8rem' }}>Se usa para generar códigos como BLU-001</small>
                 )}
               </div>
-              <div>
-                <label className="label">Etiqueta de medida</label>
-                <input className={`input ${validationErrors.sizeLabel ? styles.inputError : ''}`} value={sizeLabel} onChange={e => setSizeLabel(e.target.value)} placeholder="Ej: Talla, Onzas, Talla calzado" />
-                {validationErrors.sizeLabel && <span className={styles.fieldError}>{validationErrors.sizeLabel}</span>}
-              </div>
-              <div>
-                <label className="label">Medidas disponibles (separadas por comas)</label>
-                <input className={`input ${validationErrors.sizeOptions ? styles.inputError : ''}`} value={sizeOptions} onChange={e => setSizeOptions(e.target.value)} placeholder="XS, S, M, L, XL" />
-                {validationErrors.sizeOptions && <span className={styles.fieldError}>{validationErrors.sizeOptions}</span>}
-              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={sizesEnabled}
+                  onChange={e => setSizesEnabled(e.target.checked)}
+                />
+                <span style={{ fontWeight: 600 }}>Esta categoría usa tallas/medidas</span>
+              </label>
+              {sizesEnabled && (
+                <>
+                  <div>
+                    <label className="label">Etiqueta de medida</label>
+                    <input className={`input ${validationErrors.sizeLabel ? styles.inputError : ''}`} value={sizeLabel} onChange={e => setSizeLabel(e.target.value)} placeholder="Ej: Talla, Onzas, Talla calzado" />
+                    {validationErrors.sizeLabel && <span className={styles.fieldError}>{validationErrors.sizeLabel}</span>}
+                  </div>
+                  <div>
+                    <label className="label">Medidas disponibles (separadas por comas)</label>
+                    <input className={`input ${validationErrors.sizeOptions ? styles.inputError : ''}`} value={sizeOptions} onChange={e => setSizeOptions(e.target.value)} placeholder="XS, S, M, L, XL" />
+                    {validationErrors.sizeOptions && <span className={styles.fieldError}>{validationErrors.sizeOptions}</span>}
+                  </div>
+                </>
+              )}
               {error && <p className={styles.formError}>{error}</p>}
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancelar</button>
@@ -248,8 +269,8 @@ export default function AdminCategories() {
               <ul className={styles.summaryList}>
                 <li><span className={styles.summaryLabel}>Nombre</span><span className={styles.summaryValue}>{name || '—'}</span></li>
                 <li><span className={styles.summaryLabel}>Prefijo</span><span className={styles.summaryValue}>{prefix.trim().toUpperCase() || generateCategoryPrefix(name, otherCategories.map(c => c.prefix)) || '—'}</span></li>
-                <li><span className={styles.summaryLabel}>Etiqueta</span><span className={styles.summaryValue}>{sizeLabel || '—'}</span></li>
-                <li><span className={styles.summaryLabel}>Medidas</span><span className={styles.summaryValue}>{options.length}</span></li>
+                <li><span className={styles.summaryLabel}>Etiqueta</span><span className={styles.summaryValue}>{sizesEnabled ? (sizeLabel || '—') : 'No aplica'}</span></li>
+                <li><span className={styles.summaryLabel}>Medidas</span><span className={styles.summaryValue}>{sizesEnabled ? options.length : '—'}</span></li>
               </ul>
             </ConfirmModal>
           </div>
