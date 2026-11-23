@@ -12,6 +12,7 @@ import ReceiptView, { printReceipt } from '../../components/admin/ReceiptView'
 import { formatVariantLabel } from '../../lib/sku'
 import { fetchEuroRate, formatRate } from '../../lib/rate'
 import { sumBills } from '../../lib/bills'
+import { loadPosDraft, savePosDraft, clearPosDraft, posDraftHasContent } from '../../lib/posDraft'
 import {
   allocateDiscount,
   fetchDayDiscounts,
@@ -34,6 +35,8 @@ const PAYMENT_METHODS = {
   giftcard: 'Giftcard',
 }
 
+const EMPTY_CUSTOMER = { id: '', id_number: '', name: '', phone: '', points: 0, balance: 0 }
+
 function calculateItemPrice(product, variant, isWholesale) {
   if (isWholesale) {
     return variant.wholesale_price || product.wholesale_price || variant.price || product.price || 0
@@ -43,6 +46,7 @@ function calculateItemPrice(product, variant, isWholesale) {
 
 export default function AdminPOS() {
   const { user } = useAuth()
+  const userId = user?.id || null
   const { session, loading: sessionLoading, updateSessionRate } = useCashSession(user?.id)
 
   // Cash drawer (bill-level) for the open session
@@ -70,8 +74,9 @@ export default function AdminPOS() {
 
   const [items, setItems] = useState([])
   const [wholesaleMode, setWholesaleMode] = useState(false)
-  const [customer, setCustomer] = useState({ id: '', id_number: '', name: '', phone: '', points: 0, balance: 0 })
+  const [customer, setCustomer] = useState({ ...EMPTY_CUSTOMER })
   const [payments, setPayments] = useState([])
+  const [paymentDrafts, setPaymentDrafts] = useState({})
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [dayDiscounts, setDayDiscounts] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -82,6 +87,120 @@ export default function AdminPOS() {
   const barcodeInputRef = useRef(null)
   const lastScanRef = useRef({ code: '', time: 0 })
   const [rateLoading, setRateLoading] = useState(false)
+  const [draftLoaded, setDraftLoaded] = useState(false)
+  const [draftNotice, setDraftNotice] = useState('')
+  const draftUserRef = useRef(null)
+
+  // Al restaurar el borrador se refresca el stock real de las variantes.
+  // Los precios guardados se mantienen para no cambiar la venta ya armada.
+  const revalidateRestoredItems = useCallback(async (savedItems) => {
+    const ids = [...new Set((savedItems || []).map((item) => item?.variant?.id).filter(Boolean))]
+    if (ids.length === 0) return
+
+    const { data, error: stockError } = await supabase
+      .from('product_variants')
+      .select('id, stock, price, wholesale_price')
+      .in('id', ids)
+
+    if (stockError) {
+      console.error('No se pudo actualizar el stock de la venta restaurada:', stockError)
+      return
+    }
+
+    const freshById = new Map((data || []).map((variant) => [variant.id, variant]))
+    const savedIds = new Set(ids)
+    let removed = 0
+    let clamped = 0
+
+    for (const item of savedItems) {
+      const fresh = freshById.get(item?.variant?.id)
+      if (!fresh || (Number(fresh.stock) || 0) <= 0) {
+        removed += 1
+      } else if ((Number(item.quantity) || 0) > Number(fresh.stock)) {
+        clamped += 1
+      }
+    }
+
+    setItems((prev) => prev
+      .map((item) => {
+        const fresh = freshById.get(item?.variant?.id)
+        if (!fresh) {
+          // Si no estaba en la consulta es porque se agregó después de restaurar: no tocarlo.
+          return savedIds.has(item?.variant?.id) ? null : item
+        }
+        if ((Number(fresh.stock) || 0) <= 0) return null
+        return {
+          ...item,
+          quantity: Math.min(Number(item.quantity) || 0, Number(fresh.stock) || 0),
+          variant: {
+            ...item.variant,
+            stock: Number(fresh.stock) || 0,
+            price: fresh.price ?? item.variant.price,
+            wholesale_price: fresh.wholesale_price ?? item.variant.wholesale_price,
+          },
+        }
+      })
+      .filter(Boolean))
+
+    if (removed > 0 || clamped > 0) {
+      setDraftNotice('Se restauró la venta y se actualizó el stock disponible de algunos productos.')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!userId) {
+      draftUserRef.current = null
+      setDraftLoaded(false)
+      return
+    }
+
+    // Evita que el efecto de guardado escriba el carrito anterior con el usuario nuevo.
+    draftUserRef.current = null
+    const saved = loadPosDraft(userId)
+
+    if (saved) {
+      const savedItems = Array.isArray(saved.items) ? saved.items : []
+      setItems(savedItems)
+      setWholesaleMode(!!saved.wholesaleMode)
+      setCustomer({ ...EMPTY_CUSTOMER, ...(saved.customer || {}) })
+      setPayments(Array.isArray(saved.payments) ? saved.payments : [])
+      setPaymentDrafts(saved.paymentDrafts && typeof saved.paymentDrafts === 'object' ? saved.paymentDrafts : {})
+      setAppliedCoupon(saved.appliedCoupon || null)
+      setDraftNotice('Se restauró la venta en curso.')
+      revalidateRestoredItems(savedItems)
+    } else {
+      setItems([])
+      setWholesaleMode(false)
+      setCustomer({ ...EMPTY_CUSTOMER })
+      setPayments([])
+      setPaymentDrafts({})
+      setAppliedCoupon(null)
+      setDraftNotice('')
+    }
+
+    draftUserRef.current = userId
+    setDraftLoaded(true)
+  }, [userId, revalidateRestoredItems])
+
+  useEffect(() => {
+    if (!draftLoaded || !userId || draftUserRef.current !== userId) return
+
+    const draft = {
+      items,
+      wholesaleMode,
+      customer,
+      payments,
+      appliedCoupon,
+      paymentDrafts,
+    }
+
+    if (!posDraftHasContent(draft)) {
+      clearPosDraft(userId)
+      return
+    }
+
+    savePosDraft(userId, draft)
+  }, [draftLoaded, userId, items, wholesaleMode, customer, payments, appliedCoupon, paymentDrafts])
 
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -270,11 +389,14 @@ export default function AdminPOS() {
 
   const clearCart = useCallback(() => {
     setItems([])
-    setCustomer({ id: '', id_number: '', name: '', phone: '', points: 0, balance: 0 })
+    setCustomer({ ...EMPTY_CUSTOMER })
     setPayments([])
+    setPaymentDrafts({})
     setAppliedCoupon(null)
     setError('')
-  }, [])
+    setDraftNotice('')
+    if (userId) clearPosDraft(userId)
+  }, [userId])
 
   const toggleWholesaleMode = useCallback(() => {
     setWholesaleMode((prev) => !prev)
@@ -926,6 +1048,11 @@ export default function AdminPOS() {
                 onCustomerChange={setCustomer}
                 payments={payments}
                 onPaymentsChange={setPayments}
+                paymentDrafts={paymentDrafts}
+                onPaymentDraftsChange={setPaymentDrafts}
+                draftNotice={draftNotice}
+                onDiscardDraft={clearCart}
+                onDismissDraftNotice={() => setDraftNotice('')}
                 onUpdateQty={updateQuantity}
                 onRemove={removeItem}
                 onClear={clearCart}

@@ -9,6 +9,50 @@
   overflow: hidden;
 }
 
+.draftNotice {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.draftNotice span {
+  flex: 1;
+  line-height: 1.25;
+}
+
+.draftDiscard {
+  border: 1px solid #d97706;
+  border-radius: 0.5rem;
+  background: white;
+  color: #92400e;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.draftDiscard:hover {
+  background: #fef3c7;
+}
+
+.draftClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #92400e;
+  cursor: pointer;
+  padding: 0.15rem;
+}
+
 .header {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid rgba(0,0,0,0.05);

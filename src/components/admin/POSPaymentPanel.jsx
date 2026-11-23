@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { DollarSign, Smartphone, CreditCard, Banknote, Wallet, Bitcoin, Zap, Coins, X, PackagePlus, Gift, Camera } from 'lucide-react'
 import { bsToUsd } from '../../lib/rate'
 import { supabase } from '../../lib/supabase'
@@ -45,6 +45,8 @@ export default function POSPaymentPanel({
   totalAmount,
   payments,
   onChange,
+  drafts: draftsProp,
+  onDraftsChange,
   exchangeRate,
   sessionDrawer,
   onAbastecer,
@@ -54,7 +56,21 @@ export default function POSPaymentPanel({
   const methods = disableGiftcard ? PAYMENT_METHODS.filter((m) => !m.giftcard) : PAYMENT_METHODS
 
   // Drafts while typing: { [method]: { amount, bs, reference, receivedBills } }
-  const [drafts, setDrafts] = useState({})
+  // Se pueden controlar desde el POS para persistir la venta en curso.
+  const [localDrafts, setLocalDrafts] = useState({})
+  const drafts = draftsProp || localDrafts
+  const setDrafts = onDraftsChange || setLocalDrafts
+  const prevPaymentsLength = useRef(payments.length)
+
+  // Limpia los borradores solo cuando el padre vacía los pagos ya existentes.
+  // No se limpia al montar para no borrar un borrador restaurado.
+  useEffect(() => {
+    if (payments.length === 0 && prevPaymentsLength.current > 0) {
+      setDrafts({})
+    }
+    prevPaymentsLength.current = payments.length
+  }, [payments.length, setDrafts])
+
   const [abastecerOpen, setAbastecerOpen] = useState(false)
   const [abastecerCounts, setAbastecerCounts] = useState(emptyBillCounts())
   const [abastecerNote, setAbastecerNote] = useState('')
@@ -108,9 +124,6 @@ export default function POSPaymentPanel({
     setGiftError('')
     setGiftManual('')
   }
-  useEffect(() => {
-    if (payments.length === 0) setDrafts({})
-  }, [payments.length])
 
   const totalPaid = useMemo(() => {
     return payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
@@ -189,6 +202,19 @@ export default function POSPaymentPanel({
     return merged
   }
 
+  // Base del borrador: parte de los valores ya confirmados para que escribir
+  // la referencia no borre el monto ni el monto en Bs.
+  const committedDraftBase = (method, prev) => {
+    const committed = payments.find((p) => p.method === method) || {}
+    return {
+      amount: committed.amount ?? '',
+      bs: committed.bs ?? '',
+      reference: committed.reference ?? '',
+      receivedBills: committed.receivedBills ?? null,
+      ...(prev[method] || {}),
+    }
+  }
+
   // Updates received bills and resets the change selection to the greedy
   // suggestion for the new change needed
   const updateReceivedBill = (method, denom, delta) => {
@@ -204,7 +230,7 @@ export default function POSPaymentPanel({
       autoBills = proposeChange(needed, sessionDrawer).proposal
     }
     setDrafts((prev) => {
-      const base = { amount: '', bs: '', reference: '', receivedBills: null, ...(prev[method] || {}) }
+      const base = committedDraftBase(method, prev)
       base.receivedBills = nextReceived
       base.changeBills = autoBills
       return { ...prev, [method]: base }
@@ -227,7 +253,7 @@ export default function POSPaymentPanel({
 
   const updateDraft = (method, field, value) => {
     setDrafts((prev) => {
-      const base = { amount: '', bs: '', reference: '', receivedBills: null, ...(prev[method] || {}) }
+      const base = committedDraftBase(method, prev)
       base[field] = value
       return { ...prev, [method]: base }
     })
@@ -279,6 +305,10 @@ export default function POSPaymentPanel({
         const amountNum = parseFloat(amount) || 0
         const pendingForMethod = Math.round((totalAmount - (totalPaid - amountNum)) * 100) / 100
         const bsOvershoot = method.currency === 'bs' && usdEquiv !== null && usdEquiv > pendingForMethod + 0.01
+        const showReference = method.value !== 'efectivo_bs' && (
+          method.value === 'pago_movil' ||
+          amountNum > 0 || bsNum > 0 || (reference || '').trim().length > 0
+        )
 
         // Giftcard: escanear QR o ingresar el código
         if (method.giftcard) {
@@ -422,7 +452,7 @@ export default function POSPaymentPanel({
                 </>
               )}
 
-              {parseFloat(amount) > 0 && !isDraft && (
+              {(receivedSum > 0 || (reference || '').trim()) && (
                 <input
                   type="text"
                   className={`input ${styles.referenceInput}`}
@@ -481,7 +511,7 @@ export default function POSPaymentPanel({
                 ⚠️ Bs {bsNum.toLocaleString('es-VE')} ≈ ${usdEquiv.toFixed(2)} — supera lo que falta (${pendingForMethod.toFixed(2)}). Revisa el monto en Bs.
               </p>
             )}
-            {parseFloat(amount) > 0 && method.currency !== 'bs' && (
+            {showReference && (
               <input
                 type="text"
                 className={`input ${styles.referenceInput}`}

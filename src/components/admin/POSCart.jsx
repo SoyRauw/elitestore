@@ -1,4 +1,4 @@
-import { CalendarDays, ShoppingBag, Trash2, Minus, Plus, Ticket, Wallet } from 'lucide-react'
+import { CalendarDays, ShoppingBag, Trash2, Minus, Plus, Ticket, Wallet, History, X } from 'lucide-react'
 import { formatVariantLabel, getVariantImage } from '../../lib/sku'
 import { usdToBs, bsCeilFromUsd, formatBs } from '../../lib/rate'
 import POSPaymentPanel from './POSPaymentPanel'
@@ -16,6 +16,11 @@ export default function POSCart({
   onCustomerChange,
   payments,
   onPaymentsChange,
+  paymentDrafts,
+  onPaymentDraftsChange,
+  draftNotice,
+  onDiscardDraft,
+  onDismissDraftNotice,
   onUpdateQty,
   onRemove,
   onClear,
@@ -61,6 +66,23 @@ export default function POSCart({
 
   return (
     <div className={styles.cart}>
+      {draftNotice && (
+        <div className={styles.draftNotice} role="status">
+          <History size={15} />
+          <span>{draftNotice}</span>
+          <button type="button" className={styles.draftDiscard} onClick={onDiscardDraft}>
+            Descartar
+          </button>
+          <button
+            type="button"
+            className={styles.draftClose}
+            onClick={onDismissDraftNotice}
+            aria-label="Cerrar aviso"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <div className={styles.header}>
         <h3 className={styles.title}><ShoppingBag size={18} /> Venta actual</h3>
         <button
@@ -156,6 +178,8 @@ export default function POSCart({
               totalAmount={totalToPayNum}
               payments={payments}
               onChange={onPaymentsChange}
+              drafts={paymentDrafts}
+              onDraftsChange={onPaymentDraftsChange}
               exchangeRate={rate}
               sessionDrawer={sessionDrawer}
               onAbastecer={onAbastecer}
