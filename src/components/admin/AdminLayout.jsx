@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X, Store, Banknote, Users, Gift, FileText, Shield, RotateCcw, Bookmark, CreditCard, Wallet } from 'lucide-react'
+import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X, Store, Banknote, Users, Gift, FileText, Shield, RotateCcw, Bookmark, CreditCard, Wallet, HeartHandshake } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { usePageMeta } from '../../lib/seo'
 import styles from './AdminLayout.module.css'
@@ -55,6 +55,9 @@ export default function AdminLayout({ children }) {
           <Link onClick={() => setMenuOpen(false)} to="/admin/returns" className={`${styles.navItem} ${location.pathname==='/admin/returns'?styles.navActive:''}`}><RotateCcw size={18} /> Devoluciones</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/apartados" className={`${styles.navItem} ${location.pathname==='/admin/apartados'?styles.navActive:''}`}><Bookmark size={18} /> Apartados</Link>
           <Link onClick={() => setMenuOpen(false)} to="/admin/giftcards" className={`${styles.navItem} ${location.pathname==='/admin/giftcards'?styles.navActive:''}`}><CreditCard size={18} /> Giftcards</Link>
+          {isAdmin && (
+            <Link onClick={() => setMenuOpen(false)} to="/admin/gifts" className={`${styles.navItem} ${location.pathname==='/admin/gifts'?styles.navActive:''}`}><HeartHandshake size={18} /> Regalos</Link>
+          )}
           {isAdmin && (
             <Link onClick={() => setMenuOpen(false)} to="/admin/finance" className={`${styles.navItem} ${location.pathname==='/admin/finance'?styles.navActive:''}`}><Wallet size={18} /> Finanzas</Link>
           )}
