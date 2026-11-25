@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, ShoppingBag, Receipt, Wallet, Gift, TrendingUp, CalendarDays } from 'lucide-react'
 import styles from '../AdminFinance.module.css'
 import MonthGrid from '../../../components/admin/MonthGrid'
+import { useStore } from '../../../context/StoreContext'
 import { fetchDailyActivity, money, toISODate, monthStart, addMonths } from '../../../lib/finance'
 
 const METHOD_LABELS = {
@@ -26,6 +27,7 @@ function dayProfit(day) {
 }
 
 export default function CalendarTab() {
+  const { store, storeLabel } = useStore()
   const [month, setMonth] = useState(monthStart(new Date()))
   const [days, setDays] = useState({})
   const [loading, setLoading] = useState(true)
@@ -38,14 +40,14 @@ export default function CalendarTab() {
     try {
       const from = toISODate(month)
       const to = toISODate(new Date(month.getFullYear(), month.getMonth() + 1, 0))
-      setDays(await fetchDailyActivity(from, to))
+      setDays(await fetchDailyActivity(from, to, store))
     } catch (e) {
       console.error(e)
       setError(e.message || 'Error cargando el calendario')
     } finally {
       setLoading(false)
     }
-  }, [month])
+  }, [month, store])
 
   useEffect(() => { load() }, [load])
 
@@ -61,6 +63,7 @@ export default function CalendarTab() {
   return (
     <div>
       <div className={styles.btnRow} style={{ marginBottom: '1rem' }}>
+        <span className={styles.pill}>Tienda: {storeLabel}</span>
         <span className={styles.pill}>Ingresos {money(monthTotals.revenue)}</span>
         <span className={styles.pill}>Gastos {money(monthTotals.expenses)}</span>
         <span className={styles.pill}>Abonos {money(monthTotals.abonos)}</span>

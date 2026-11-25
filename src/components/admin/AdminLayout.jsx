@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ShoppingBag, BarChart2, FolderTree, Package, Tag, LogOut, Menu, X, Store, Banknote, Users, Gift, FileText, Shield, RotateCcw, Bookmark, CreditCard, Wallet, HeartHandshake } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useStore, STORES } from '../../context/StoreContext'
 import { usePageMeta } from '../../lib/seo'
 import styles from './AdminLayout.module.css'
 
 export default function AdminLayout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { signOut, isAdmin } = useAuth()
+  const { store, setStore } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -39,6 +41,18 @@ export default function AdminLayout({ children }) {
       <aside className={`${styles.sidebar} ${menuOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarLogo}>
           <ShoppingBag size={20} /><span>Elite Store</span>
+        </div>
+        <div className={styles.storeSwitcher}>
+          <label htmlFor="admin-store">Tienda</label>
+          <select
+            id="admin-store"
+            value={store}
+            onChange={(event) => setStore(event.target.value)}
+          >
+            {STORES.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
         </div>
         <nav className={styles.sidebarNav}>
           {isAdmin && (

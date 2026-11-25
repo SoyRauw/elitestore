@@ -262,12 +262,18 @@ export default function AdminApartados() {
       const inicialPagada = Math.round(inicialAmount * 100) / 100
       const yaPagado = inicialAmount + 0.004 >= total
 
+      const apartadoStoreIds = [...new Set(
+        items.map((item) => item.product?.store_id || item.variant?.store_id || 'elite')
+      )]
+      const apartadoStoreId = apartadoStoreIds.length === 1 ? apartadoStoreIds[0] : 'mixed'
+
       // 1) Padre: el apartado (contrato, sin pagos colgados)
       const { data: movement, error: movError } = await supabase
         .from('movements')
         .insert([{
           movement_type: 'apartado',
           status: yaPagado ? 'pagado' : 'activo',
+          store_id: apartadoStoreId,
           user_id: user.id,
           cash_session_id: sessionId,
           customer_id: customerId,
@@ -305,6 +311,7 @@ export default function AdminApartados() {
         .insert([{
           movement_type: 'abono',
           status: 'pagado',
+          store_id: apartadoStoreId,
           user_id: user.id,
           cash_session_id: sessionId,
           customer_id: customerId,
@@ -608,6 +615,7 @@ export default function AdminApartados() {
         .insert([{
           movement_type: 'abono',
           status: 'pagado',
+          store_id: detail.store_id || 'elite',
           user_id: user.id,
           cash_session_id: sessionId,
           customer_id: detail.customer_id || null,

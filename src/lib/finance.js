@@ -169,20 +169,24 @@ export async function fetchCategories() {
   return data || []
 }
 
-export async function fetchExpenses() {
-  const { data, error } = await supabase
+export async function fetchExpenses(store = 'all') {
+  let query = supabase
     .from('expenses')
     .select('*, expense_categories(name, color)')
     .order('expense_date', { ascending: false })
+  if (store !== 'all') query = query.eq('store_id', store)
+  const { data, error } = await query
   if (error) throw error
   return data || []
 }
 
-export async function fetchProductsWithCosts() {
-  const { data, error } = await supabase
+export async function fetchProductsWithCosts(store = 'all') {
+  let query = supabase
     .from('products')
     .select('id, name, price, wholesale_price, cost_price, shipping_cost, freight_cost, profit_margin, category_id, images, categories(name), product_variants(id, sku, stock, price, image)')
     .order('name')
+  if (store !== 'all') query = query.eq('store_id', store)
+  const { data, error } = await query
   if (error) throw error
   return data || []
 }
@@ -200,27 +204,38 @@ export async function backfillCosts(overwrite = false) {
  * - Gastos: variables del rango + fijos mensuales activos (una vez por mes).
  * - Compras: compras de mercancía del rango.
  */
-export async function fetchFinanceSummary(from, to) {
+export async function fetchFinanceSummary(from, to, store = 'all') {
   const fromISO = `${from}T00:00:00`
   const toISO = `${to}T23:59:59.999`
+
+  let prodQuery = supabase
+    .from('products')
+    .select('id, cost_price, shipping_cost, freight_cost, product_variants(stock)')
+  if (store !== 'all') prodQuery = prodQuery.eq('store_id', store)
+
+  let expQuery = supabase.from('expenses').select('*, expense_categories(name, color)')
+  if (store !== 'all') expQuery = expQuery.eq('store_id', store)
+
+  let giftQuery = supabase
+    .from('movements')
+    .select('total_amount')
+    .eq('movement_type', 'giftcard')
+    .eq('status', 'pagado')
+    .gte('created_at', fromISO)
+    .lte('created_at', toISO)
+  if (store !== 'all') giftQuery = giftQuery.eq('store_id', store)
 
   const [movRes, expRes, prodRes, giftRes, catRes] = await Promise.all([
     supabase
       .from('movements')
-      .select('id, created_at, total_amount, movement_type, movement_items(quantity, unit_price, discount_amount, unit_cost, returned_quantity, product_id, products(name, cost_price, shipping_cost, freight_cost))')
+      .select('id, created_at, total_amount, movement_type, movement_items(quantity, unit_price, discount_amount, unit_cost, returned_quantity, product_id, store_id, products(name, cost_price, shipping_cost, freight_cost))')
       .in('movement_type', ['venta', 'apartado'])
       .eq('status', 'pagado')
       .gte('created_at', fromISO)
       .lte('created_at', toISO),
-    supabase.from('expenses').select('*, expense_categories(name, color)'),
-    supabase.from('products').select('id, cost_price, shipping_cost, freight_cost, product_variants(stock)'),
-    supabase
-      .from('movements')
-      .select('total_amount')
-      .eq('movement_type', 'giftcard')
-      .eq('status', 'pagado')
-      .gte('created_at', fromISO)
-      .lte('created_at', toISO),
+    expQuery,
+    prodQuery,
+    giftQuery,
     supabase.from('expense_categories').select('id, name, color'),
   ])
 
@@ -243,6 +258,7 @@ export async function fetchFinanceSummary(from, to) {
     const key = monthKey(m.created_at)
     if (!byMonth[key]) byMonth[key] = { key, label: monthLabel(key), revenue: 0, cogs: 0, expenses: 0, purchases: 0 }
     for (const it of m.movement_items || []) {
+      if (store !== 'all' && it.store_id !== store) continue
       const qty = Math.max(0, (it.quantity || 0) - (it.returned_quantity || 0))
       const originalQty = Math.max(1, it.quantity || 0)
       const price = parseFloat(it.unit_price) || 0
@@ -337,20 +353,23 @@ export async function fetchFinanceSummary(from, to) {
 }
 
 /** Actividad diaria para el calendario: ventas, abonos, gastos y compras */
-export async function fetchDailyActivity(from, to) {
+export async function fetchDailyActivity(from, to, store = 'all') {
   const fromISO = `${from}T00:00:00`
   const toISO = `${to}T23:59:59.999`
+
+  let expQuery = supabase.from('expenses').select('*, expense_categories(name, color)')
+  if (store !== 'all') expQuery = expQuery.eq('store_id', store)
 
   const [movRes, expRes] = await Promise.all([
     supabase
       .from('movements')
-      .select('id, created_at, movement_type, status, total_amount, customer_name, payment_method, movement_payments(method, amount), movement_items(quantity, unit_price, discount_amount, unit_cost, returned_quantity, product_id, products(name, cost_price, shipping_cost, freight_cost))')
+      .select('id, created_at, movement_type, status, store_id, total_amount, customer_name, payment_method, movement_payments(method, amount), movement_items(quantity, unit_price, discount_amount, unit_cost, returned_quantity, product_id, store_id, products(name, cost_price, shipping_cost, freight_cost))')
       .in('movement_type', ['venta', 'apartado', 'abono', 'giftcard'])
       .eq('status', 'pagado')
       .gte('created_at', fromISO)
       .lte('created_at', toISO)
       .order('created_at', { ascending: true }),
-    supabase.from('expenses').select('*, expense_categories(name, color)'),
+    expQuery,
   ])
 
   if (movRes.error) throw movRes.error
@@ -369,23 +388,31 @@ export async function fetchDailyActivity(from, to) {
     const date = toISODate(new Date(m.created_at))
     const day = ensure(date)
     if (m.movement_type === 'abono') {
+      if (store !== 'all' && m.store_id !== store && m.store_id !== 'mixed') continue
       day.abonos.push(m)
       continue
     }
     if (m.movement_type === 'giftcard') {
+      if (store !== 'all' && m.store_id !== store && m.store_id !== 'mixed') continue
       day.giftcards.push(m)
       continue
     }
+
+    const relevantItems = store === 'all'
+      ? (m.movement_items || [])
+      : (m.movement_items || []).filter((it) => it.store_id === store)
+    if (store !== 'all' && relevantItems.length === 0) continue
+
     let revenue = 0
     let cogs = 0
-    for (const it of m.movement_items || []) {
+    for (const it of relevantItems) {
       const qty = Math.max(0, (it.quantity || 0) - (it.returned_quantity || 0))
       const originalQty = Math.max(1, it.quantity || 0)
       const discountShare = (parseFloat(it.discount_amount) || 0) * (qty / originalQty)
       revenue += Math.max(0, qty * (parseFloat(it.unit_price) || 0) - discountShare)
       cogs += qty * (parseFloat(it.unit_cost) || unitCostOf(it.products) || 0)
     }
-    day.sales.push({ ...m, revenue, cogs })
+    day.sales.push({ ...m, movement_items: relevantItems, revenue, cogs })
     day.revenue += revenue
     day.cogs += cogs
   }

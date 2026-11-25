@@ -13,6 +13,7 @@ import ConfirmModal from '../../components/admin/ConfirmModal'
 import POSPaymentPanel from '../../components/admin/POSPaymentPanel'
 import VueltoMixto from '../../components/admin/VueltoMixto'
 import GiftCardView, { printGiftCard, downloadGiftCardPdf } from '../../components/admin/GiftCardView'
+import { useStore } from '../../context/StoreContext'
 import {
   generateGiftCode,
   normalizeGiftCode,
@@ -31,6 +32,8 @@ const EMPTY_BUYER = { id: '', id_number: '', name: '', phone: '' }
 
 export default function AdminGiftCards() {
   const { user } = useAuth()
+  const { store } = useStore()
+  const giftStore = store === 'all' ? 'elite' : store
   const { session, loading: sessionLoading, updateSessionRate } = useCashSession(user?.id)
   const sessionId = session?.id
 
@@ -164,6 +167,7 @@ export default function AdminGiftCards() {
         .insert([{
           movement_type: 'giftcard',
           status: 'pagado',
+          store_id: giftStore,
           user_id: user.id,
           cash_session_id: sessionId,
           customer_id: customerId,
@@ -245,7 +249,7 @@ export default function AdminGiftCards() {
             code,
             amount: amountNum,
             status: 'activa',
-            store: 'elite',
+            store: giftStore,
             buyer_customer_id: customerId,
             buyer_name: name,
             buyer_id_number: idNumber,
@@ -287,15 +291,17 @@ export default function AdminGiftCards() {
 
   const fetchCards = useCallback(async () => {
     setLoadingList(true)
-    const { data, error: fErr } = await supabase
+    let query = supabase
       .from('gift_cards')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(500)
+    if (store !== 'all') query = query.eq('store', store)
+    const { data, error: fErr } = await query
     if (fErr) console.error('Error cargando giftcards:', fErr)
     setCards(data || [])
     setLoadingList(false)
-  }, [])
+  }, [store])
 
   useEffect(() => {
     if (view === 'lista') fetchCards()
@@ -335,6 +341,7 @@ export default function AdminGiftCards() {
         .insert([{
           movement_type: 'devolucion',
           status: 'completada',
+          store_id: gc.store || 'elite',
           user_id: user.id,
           cash_session_id: sessionId,
           customer_id: buyerId,

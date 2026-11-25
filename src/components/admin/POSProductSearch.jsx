@@ -5,7 +5,7 @@ import { formatVariantLabel, getVariantImage, sortVariants } from '../../lib/sku
 import { usdToBs, formatBs } from '../../lib/rate'
 import styles from './POSProductSearch.module.css'
 
-export default function POSProductSearch({ onAdd, wholesaleMode = false, exchangeRate = 0 }) {
+export default function POSProductSearch({ onAdd, wholesaleMode = false, exchangeRate = 0, storeId = 'all' }) {
   const [query, setQuery] = useState('')
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -23,19 +23,21 @@ export default function POSProductSearch({ onAdd, wholesaleMode = false, exchang
 
       try {
         // 1. Buscar productos por nombre o id
-        const { data: byProduct, error: prodError } = await supabase
+        let byProductQuery = supabase
           .from('products')
           .select('*, categories(*), product_variants(*)')
           .eq('active', true)
           .or(`name.ilike.%${search}%,id.ilike.%${search}%`)
           .limit(20)
+        if (storeId !== 'all') byProductQuery = byProductQuery.eq('store_id', storeId)
+        const { data: byProduct, error: prodError } = await byProductQuery
 
         if (prodError) throw prodError
 
         // 2. Buscar variantes por sku o barcode y obtener sus productos padres
         const { data: matchingVariants, error: varError } = await supabase
           .from('product_variants')
-          .select('product_id')
+          .select('id, product_id, sku, barcode')
           .or(`sku.ilike.%${search}%,barcode.ilike.%${search}%`)
           .limit(50)
 
@@ -54,12 +56,14 @@ export default function POSProductSearch({ onAdd, wholesaleMode = false, exchang
 
         let byVariant = []
         if (matchedProductIds.length > 0) {
-          const { data: parentProducts, error: parentError } = await supabase
+          let parentQuery = supabase
             .from('products')
             .select('*, categories(*), product_variants(*)')
             .eq('active', true)
             .in('id', matchedProductIds)
             .limit(20)
+          if (storeId !== 'all') parentQuery = parentQuery.eq('store_id', storeId)
+          const { data: parentProducts, error: parentError } = await parentQuery
 
           if (parentError) throw parentError
           byVariant = parentProducts || []
@@ -91,7 +95,7 @@ export default function POSProductSearch({ onAdd, wholesaleMode = false, exchang
     }, 250)
 
     return () => clearTimeout(timeout)
-  }, [query, wholesaleMode])
+  }, [query, wholesaleMode, storeId])
 
   const handleBarcodeScan = (e) => {
     if (e.key === 'Enter' && query.trim()) {
@@ -144,7 +148,15 @@ export default function POSProductSearch({ onAdd, wholesaleMode = false, exchang
                     <Tag size={12} />
                     {product.categories?.name || 'Sin categoría'}
                   </div>
-                  <h4 className={styles.productName}>{product.name}</h4>
+                  <h4 className={styles.productName}>
+                    {product.name}
+                    <span
+                      className={`badge ${product.store_id === 'usa' ? 'badge-warning' : 'badge-primary'}`}
+                      style={{ marginLeft: '0.4rem', verticalAlign: 'middle' }}
+                    >
+                      {product.store_id === 'usa' ? 'USA' : 'Elite'}
+                    </span>
+                  </h4>
                   <span className={styles.productSku}>SKU: {product.id}</span>
                 </div>
               </div>

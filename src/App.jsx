@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
+import { StoreProvider } from './context/StoreContext'
 
 /* Store Components */
 import Navbar from './components/store/Navbar'
@@ -105,7 +106,9 @@ function App() {
         <Route path="/admin" element={<AdminLogin />} />
         <Route element={
           <Suspense fallback={<AdminFallback />}>
-            <ProtectedRoute />
+            <StoreProvider>
+              <ProtectedRoute />
+            </StoreProvider>
           </Suspense>
         }>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />

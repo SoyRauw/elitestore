@@ -11,6 +11,7 @@ import {
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import Pagination from '../../components/admin/Pagination'
+import { useStore } from '../../context/StoreContext'
 import {
   generateProductId, generateProductCode, generateVariantCode,
   sortVariants, variantGroupKey
@@ -64,6 +65,7 @@ function sortVariantState(list, productId, sizeOptions) {
 }
 
 export default function AdminProducts() {
+  const { store } = useStore()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +93,7 @@ export default function AdminProducts() {
   const fetchData = async () => {
     setLoading(true)
     const [prodRes, catRes] = await Promise.all([
-      supabase.from('products').select('id, name, price, wholesale_price, images, category_id, active, created_at, categories(id, name), product_variants(id, product_id, sku, barcode, color, variant_name, size, price, wholesale_price, stock, image, created_at)').order('created_at', { ascending: false }),
+      supabase.from('products').select('id, name, price, store_id, wholesale_price, images, category_id, active, created_at, categories(id, name), product_variants(id, product_id, sku, barcode, color, variant_name, size, price, wholesale_price, stock, image, created_at)').order('created_at', { ascending: false }),
       supabase.from('categories').select('*').order('name')
     ])
     setProducts(prodRes.data || [])
@@ -213,13 +215,14 @@ export default function AdminProducts() {
       const matchesStock =
         !stockFilter ||
         (stockFilter === 'out' ? totalStock === 0 : stockFilter === 'low' ? totalStock > 0 && totalStock < 5 : totalStock >= 5)
-      return matchesSearch && matchesCategory && matchesStatus && matchesSize && matchesStock
+      const matchesStore = store === 'all' || p.store_id === store
+      return matchesSearch && matchesCategory && matchesStatus && matchesSize && matchesStock && matchesStore
     })
-  }, [products, search, categoryFilter, stockFilter, statusFilter, sizeFilter])
+  }, [products, search, categoryFilter, stockFilter, statusFilter, sizeFilter, store])
 
   useEffect(() => {
     setPage(1)
-  }, [search, categoryFilter, stockFilter, statusFilter, sizeFilter])
+  }, [search, categoryFilter, stockFilter, statusFilter, sizeFilter, store])
 
   useEffect(() => {
     if (sizeFilter && !selectedCategorySizes.includes(sizeFilter)) {
@@ -376,7 +379,17 @@ export default function AdminProducts() {
                           {p.images?.[0] ? <img src={p.images[0]} alt={p.name} /> : <ShoppingBag size={14} />}
                         </div>
                         <div>
-                          <div className={styles.productName}>{p.name}</div>
+                          <div className={styles.productName}>
+                            {p.name}
+                            {store === 'all' && (
+                              <span
+                                className={`badge ${p.store_id === 'usa' ? 'badge-warning' : 'badge-primary'}`}
+                                style={{ marginLeft: '0.4rem', verticalAlign: 'middle' }}
+                              >
+                                {p.store_id === 'usa' ? 'USA' : 'Elite'}
+                              </span>
+                            )}
+                          </div>
                           <div className={styles.productId}>#{p.id}</div>
                         </div>
                       </div>
@@ -461,6 +474,7 @@ export default function AdminProducts() {
             product={editProduct}
             categories={categories}
             allProducts={products}
+            defaultStore={store === 'all' ? 'elite' : store}
             scannedId={scannedId}
             tab={formTab}
             onTabChange={setFormTab}
@@ -500,7 +514,7 @@ export default function AdminProducts() {
   )
 }
 
-function ProductFormModal({ product, categories, allProducts, scannedId, tab, onTabChange, onClose, onSaved, onOpenScanner, onScannedIdChange }) {
+function ProductFormModal({ product, categories, allProducts, defaultStore = 'elite', scannedId, tab, onTabChange, onClose, onSaved, onOpenScanner, onScannedIdChange }) {
   const initialVariants = useMemo(() => {
     if (product?.product_variants?.length) {
       const sorted = sortVariants(
@@ -522,6 +536,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, tab, on
     id: product?.id || scannedId || '',
     name: product?.name || '',
     description: product?.description || '',
+    store_id: product?.store_id || defaultStore || 'elite',
     price: product?.price ?? '',
     wholesale_price: product?.wholesale_price ?? '',
     min_wholesale_qty: product?.min_wholesale_qty ?? 0,
@@ -1222,6 +1237,7 @@ function ProductFormModal({ product, categories, allProducts, scannedId, tab, on
         wholesale_price: parseFloat(form.wholesale_price) || 0,
         min_wholesale_qty: parseInt(form.min_wholesale_qty) || 0,
         category_id: form.category_id,
+        store_id: form.store_id,
         featured: form.featured,
         active: form.active,
         images: imageUrls,
@@ -1393,6 +1409,14 @@ function ProductFormModal({ product, categories, allProducts, scannedId, tab, on
             <label className="label">Nombre</label>
             <input className={`input ${validationErrors.name ? styles.inputError : ''}`} value={form.name} onChange={(e) => setForm({...form,name:e.target.value})} placeholder="Pijama Satín Rosa" />
             {validationErrors.name && <span className={styles.fieldError}>{validationErrors.name}</span>}
+          </div>
+
+          <div className={styles.field}>
+            <label className="label">Tienda</label>
+            <select className="input" value={form.store_id} onChange={(e) => setForm({ ...form, store_id: e.target.value })}>
+              <option value="elite">Elite Store</option>
+              <option value="usa">USA Super Store</option>
+            </select>
           </div>
 
           <div className={styles.field}>

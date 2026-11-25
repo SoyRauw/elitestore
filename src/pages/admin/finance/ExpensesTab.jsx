@@ -5,6 +5,7 @@ import styles from '../AdminFinance.module.css'
 import MonthGrid from '../../../components/admin/MonthGrid'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
+import { useStore } from '../../../context/StoreContext'
 import {
   fetchCategories, fetchExpenses, money, toISODate, monthStart, addMonths,
   occurrencesInRange, recurrenceOf, recurrenceLabel,
@@ -26,6 +27,7 @@ const PAYMENT_METHODS = [
 const emptyForm = (date) => ({
   id: null,
   expense_date: date || toISODate(new Date()),
+  store_id: '',
   category_id: '',
   description: '',
   amount: '',
@@ -39,6 +41,7 @@ const emptyForm = (date) => ({
 
 export default function ExpensesTab() {
   const { user } = useAuth()
+  const { store, storeLabel } = useStore()
   const [categories, setCategories] = useState([])
   const [expenses, setExpenses] = useState([])
   const [month, setMonth] = useState(monthStart(new Date()))
@@ -55,7 +58,7 @@ export default function ExpensesTab() {
     setLoading(true)
     setError('')
     try {
-      const [cats, exps] = await Promise.all([fetchCategories(), fetchExpenses()])
+      const [cats, exps] = await Promise.all([fetchCategories(), fetchExpenses(store)])
       setCategories(cats)
       setExpenses(exps)
     } catch (e) {
@@ -64,7 +67,7 @@ export default function ExpensesTab() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [store])
 
   useEffect(() => { load() }, [load])
 
@@ -119,7 +122,7 @@ export default function ExpensesTab() {
   const catColor = (id) => categories.find((c) => c.id === id)?.color || '#C4788A'
 
   const openNew = (date) => {
-    setForm(emptyForm(date))
+    setForm({ ...emptyForm(date), store_id: store === 'all' ? 'elite' : store })
     setError('')
     setModal(true)
   }
@@ -128,6 +131,7 @@ export default function ExpensesTab() {
     setForm({
       id: e.id,
       expense_date: e.expense_date,
+      store_id: e.store_id || 'elite',
       category_id: e.category_id || '',
       description: e.description || '',
       amount: e.amount ?? '',
@@ -151,6 +155,7 @@ export default function ExpensesTab() {
       if (amount <= 0) throw new Error('Ingresa un monto mayor a 0')
       const payload = {
         expense_date: form.expense_date || toISODate(new Date()),
+        store_id: form.store_id || 'elite',
         category_id: form.category_id || null,
         description: form.description?.trim() || null,
         amount,
@@ -215,6 +220,7 @@ export default function ExpensesTab() {
   return (
     <div>
       <div className={styles.btnRow} style={{ marginBottom: '1rem' }}>
+        <span className={styles.pill}>Tienda: {storeLabel}</span>
         <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => openNew()}>
           <Plus size={16} /> Nuevo gasto
         </button>
@@ -312,6 +318,13 @@ export default function ExpensesTab() {
               </div>
 
               <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <label>Tienda</label>
+                  <select className={styles.select} value={form.store_id} onChange={(e) => setForm({ ...form, store_id: e.target.value })}>
+                    <option value="elite">Elite Store</option>
+                    <option value="usa">USA Super Store</option>
+                  </select>
+                </div>
                 <div className={styles.field}>
                   <label>Fecha</label>
                   <input type="date" className={styles.input} value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />

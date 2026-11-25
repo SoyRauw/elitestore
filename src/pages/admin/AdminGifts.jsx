@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useStore } from '../../context/StoreContext'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import Pagination from '../../components/admin/Pagination'
@@ -73,6 +74,7 @@ function itemsText(items, max = 2) {
 
 export default function AdminGifts() {
   const { isAdmin } = useAuth()
+  const { store } = useStore()
 
   const [gifts, setGifts] = useState([])
   const [total, setTotal] = useState(0)
@@ -111,12 +113,14 @@ export default function AdminGifts() {
     const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
     const to = localISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0))
 
-    const { data, error: statsError } = await supabase
+    let statsQuery = supabase
       .from('gift_movements')
       .select('total_cost, gift_items(quantity)')
       .eq('status', 'entregado')
       .gte('gift_date', from)
       .lte('gift_date', to)
+    if (store !== 'all') statsQuery = statsQuery.eq('store_id', store)
+    const { data, error: statsError } = await statsQuery
 
     if (statsError) {
       if (missingSchema(statsError)) setMissingSql(true)
@@ -129,7 +133,7 @@ export default function AdminGifts() {
       units: rows.reduce((sum, gift) => sum + unitsOf(gift), 0),
       cost: rows.reduce((sum, gift) => sum + (parseFloat(gift.total_cost) || 0), 0),
     })
-  }, [isAdmin])
+  }, [isAdmin, store])
 
   const fetchGifts = useCallback(async () => {
     if (!isAdmin) return
@@ -155,6 +159,7 @@ export default function AdminGifts() {
     if (statusFilter) query = query.eq('status', statusFilter)
     if (fromDate) query = query.gte('gift_date', fromDate)
     if (toDate) query = query.lte('gift_date', toDate)
+    if (store !== 'all') query = query.eq('store_id', store)
 
     const offset = (page - 1) * PAGE_SIZE
     query = query.range(offset, offset + PAGE_SIZE - 1)
@@ -173,7 +178,7 @@ export default function AdminGifts() {
     }
 
     setLoading(false)
-  }, [isAdmin, page, search, reasonFilter, statusFilter, fromDate, toDate])
+  }, [isAdmin, page, search, reasonFilter, statusFilter, fromDate, toDate, store])
 
   useEffect(() => { fetchGifts() }, [fetchGifts])
   useEffect(() => { loadStats() }, [loadStats])
@@ -564,7 +569,7 @@ export default function AdminGifts() {
                   <div className={styles.searchColumn}>
                     <p className={styles.sectionLabel}>Buscar prenda</p>
                     <div className={styles.searchBox}>
-                      <POSProductSearch onAdd={addItem} exchangeRate={0} />
+                      <POSProductSearch onAdd={addItem} exchangeRate={0} storeId={store === 'all' ? 'elite' : store} />
                     </div>
                     <p className={styles.hint}>
                       El precio de venta no se usa. El gasto se calcula con costo + envío + flete.

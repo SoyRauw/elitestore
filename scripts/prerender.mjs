@@ -43,7 +43,7 @@ async function fetchProducts() {
   }
 
   const response = await fetch(
-    `${url}/rest/v1/products?select=id,name&active=eq.true&order=created_at.desc`,
+    `${url}/rest/v1/products?select=id,name&active=eq.true&store_id=eq.elite&order=created_at.desc`,
     { headers: { apikey: key, Authorization: `Bearer ${key}` } }
   )
   if (!response.ok) {

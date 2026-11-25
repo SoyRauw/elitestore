@@ -87,7 +87,7 @@ export default function AdminReturns() {
       .from('movements')
       .select(`
         id, created_at, customer_id, customer_name, total_amount,
-        movement_items(*, product_variants(id, sku, barcode, stock, size, color, variant_name, price, products(id, name, categories(size_label))))
+        movement_items(*, product_variants(id, sku, barcode, stock, size, color, variant_name, price, products(id, name, store_id, categories(size_label))))
       `)
       .eq('customer_id', customerId)
       .eq('movement_type', 'venta')
@@ -310,11 +310,17 @@ export default function AdminReturns() {
         .limit(1)
         .maybeSingle()
 
+      const returnStoreIds = [...new Set(
+        cart.map((c) => c.variant?.products?.store_id || c.product?.store_id || 'elite')
+      )]
+      const returnStoreId = returnStoreIds.length === 1 ? returnStoreIds[0] : 'mixed'
+
       const { data: movement, error: movError } = await supabase
         .from('movements')
         .insert([{
           movement_type: 'devolucion',
           status: 'completada',
+          store_id: returnStoreId,
           user_id: user.id,
           cash_session_id: openSession?.id || null,
           customer_id: customer.id,

@@ -8,17 +8,21 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
+import { useStore } from '../../context/StoreContext'
 import styles from './AdminDashboard.module.css'
 
 export default function AdminDashboard() {
   const { user } = useAuth()
+  const { store, storeLabel } = useStore()
   const [stats, setStats] = useState(null)
   const [recentProducts, setRecentProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { data: products } = await supabase.from('products').select('*, product_variants(stock)')
+      let query = supabase.from('products').select('*, product_variants(stock)')
+      if (store !== 'all') query = query.eq('store_id', store)
+      const { data: products } = await query
       if (!products) { setLoading(false); return }
 
       const totalProducts = products.length
@@ -43,7 +47,7 @@ export default function AdminDashboard() {
       setLoading(false)
     }
     fetchStats()
-  }, [])
+  }, [store])
 
   const statCards = stats ? [
     { icon: Package,      label: 'Productos',      value: stats.totalProducts, color: 'primary' },
@@ -57,7 +61,7 @@ export default function AdminDashboard() {
         <div className={styles.topBar}>
           <div>
             <h1 className={styles.pageTitle}>Dashboard</h1>
-            <p className={styles.pageSubtitle}>Bienvenida, {user?.email}</p>
+            <p className={styles.pageSubtitle}>Bienvenida, {user?.email} · {storeLabel}</p>
           </div>
           <Link to="/admin/products" className="btn btn-primary">
             <Plus size={16} /> Ir a productos

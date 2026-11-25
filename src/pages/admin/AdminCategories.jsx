@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Plus, Edit2, Trash2, X } from 'lucide-react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import { useStore } from '../../context/StoreContext'
 import { generateCategoryPrefix } from '../../lib/sku'
 import * as V from '../../lib/validation'
 import styles from './AdminCategories.module.css'
@@ -11,10 +12,12 @@ import styles from './AdminCategories.module.css'
 const DEFAULT_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', '2XL', 'UNI']
 
 export default function AdminCategories() {
+  const { store } = useStore()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editCategory, setEditCategory] = useState(null)
+  const [storeId, setStoreId] = useState('elite')
   const [name, setName] = useState('')
   const [prefix, setPrefix] = useState('')
   const [sizeLabel, setSizeLabel] = useState('Talla')
@@ -35,6 +38,7 @@ export default function AdminCategories() {
 
   const handleNew = () => {
     setEditCategory(null)
+    setStoreId(store === 'all' ? 'elite' : store)
     setName('')
     setPrefix('')
     setSizeLabel('Talla')
@@ -45,6 +49,7 @@ export default function AdminCategories() {
 
   const handleEdit = (cat) => {
     setEditCategory(cat)
+    setStoreId(cat.store_id || 'elite')
     setName(cat.name)
     setPrefix(cat.prefix || '')
     setSizeLabel(cat.size_label || 'Talla')
@@ -61,6 +66,11 @@ export default function AdminCategories() {
   }
 
   const otherCategories = useMemo(() => categories.filter(c => !editCategory || c.id !== editCategory.id), [categories, editCategory])
+
+  const visibleCategories = useMemo(
+    () => categories.filter((cat) => store === 'all' || cat.store_id === store),
+    [categories, store]
+  )
 
   const options = useMemo(() =>
     sizeOptions.split(',').map(s => s.trim()).filter(Boolean)
@@ -98,6 +108,7 @@ export default function AdminCategories() {
       size_label: sizeLabel.trim() || 'Talla',
       size_options: options,
       sizes_enabled: sizesEnabled,
+      store_id: storeId,
     }
 
     setSaving(true)
@@ -112,6 +123,7 @@ export default function AdminCategories() {
       }
       setShowForm(false)
       setEditCategory(null)
+      setStoreId('elite')
       setName('')
       setPrefix('')
       setSizeLabel('Talla')
@@ -164,9 +176,19 @@ export default function AdminCategories() {
               </tr>
             </thead>
             <tbody>
-              {categories.map(c => (
+              {visibleCategories.map(c => (
                 <motion.tr key={c.id} className={styles.tableRow} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <td style={{ fontWeight: 600 }}>{c.name}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    {c.name}
+                    {store === 'all' && (
+                      <span
+                        className={`badge ${c.store_id === 'usa' ? 'badge-warning' : 'badge-primary'}`}
+                        style={{ marginLeft: '0.4rem', verticalAlign: 'middle' }}
+                      >
+                        {c.store_id === 'usa' ? 'USA' : 'Elite'}
+                      </span>
+                    )}
+                  </td>
                   <td><span className="badge badge-primary">{c.prefix || '—'}</span></td>
                   <td>{c.sizes_enabled === false ? 'No aplica' : (c.size_label || 'Talla')}</td>
                   <td style={{ color: 'var(--color-dark-soft)' }}>
@@ -198,6 +220,13 @@ export default function AdminCategories() {
               <button className={styles.closeBtn} onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }} noValidate onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
+              <div>
+                <label className="label">Tienda</label>
+                <select className="input" value={storeId} onChange={e => setStoreId(e.target.value)}>
+                  <option value="elite">Elite Store</option>
+                  <option value="usa">USA Super Store</option>
+                </select>
+              </div>
               <div>
                 <label className="label">Nombre de Categoría</label>
                 <input

@@ -7,6 +7,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import VariantMovementHistory from '../../components/admin/VariantMovementHistory'
 import Pagination from '../../components/admin/Pagination'
 import { useAuth } from '../../hooks/useAuth'
+import { useStore } from '../../context/StoreContext'
 import { formatVariantLabel, getVariantImage, sortVariants } from '../../lib/sku'
 import styles from './AdminInventory.module.css'
 
@@ -14,6 +15,7 @@ const PAGE_SIZE = 24
 
 export default function AdminInventory() {
   const { isAdmin } = useAuth()
+  const { store, isAllStores } = useStore()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -35,11 +37,14 @@ export default function AdminInventory() {
 
   const fetchData = async () => {
     setLoading(true)
+    let prodQuery = supabase
+      .from('products')
+      .select('id, name, price, store_id, wholesale_price, images, category_id, categories(id, name, size_label, size_options), product_variants(id, product_id, sku, barcode, color, variant_name, size, price, stock, image, created_at)')
+      .order('name')
+    if (store !== 'all') prodQuery = prodQuery.eq('store_id', store)
+
     const [prodRes, catRes] = await Promise.all([
-      supabase
-        .from('products')
-        .select('id, name, price, wholesale_price, images, category_id, categories(id, name, size_label, size_options), product_variants(id, product_id, sku, barcode, color, variant_name, size, price, stock, image, created_at)')
-        .order('name'),
+      prodQuery,
       supabase.from('categories').select('id, name, size_label, size_options, sizes_enabled').order('name')
     ])
     const data = prodRes.data || []
@@ -56,7 +61,7 @@ export default function AdminInventory() {
     setSelectedIds(new Set())
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData() }, [store])
 
   const updateStockDraft = (variantId, value) => {
     setDraftStocks(prev => ({ ...prev, [variantId]: Math.max(0, parseInt(value) || 0) }))
@@ -372,7 +377,17 @@ export default function AdminInventory() {
                           {product.images?.[0] ? <img src={product.images[0]} alt={product.name}/> : <ShoppingBag size={16}/>}
                         </button>
                         <div>
-                          <div className={styles.productName}>{product.name}</div>
+                          <div className={styles.productName}>
+                            {product.name}
+                            {isAllStores && (
+                              <span
+                                className={`badge ${product.store_id === 'usa' ? 'badge-warning' : 'badge-primary'}`}
+                                style={{ marginLeft: '0.4rem', verticalAlign: 'middle' }}
+                              >
+                                {product.store_id === 'usa' ? 'USA' : 'Elite'}
+                              </span>
+                            )}
+                          </div>
                           <div className={styles.productId}>#{product.id}</div>
                         </div>
                       </div>

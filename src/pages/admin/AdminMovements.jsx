@@ -6,6 +6,7 @@ import { Eye, Store, Undo2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import { useStore } from '../../context/StoreContext'
 import styles from './AdminMovements.module.css'
 
 const PAYMENT_METHODS = {
@@ -24,6 +25,7 @@ const PAYMENT_METHODS = {
 }
 
 export default function AdminMovements() {
+  const { store } = useStore()
   const [movements, setMovements] = useState([])
   const [loading, setLoading] = useState(true)
   const [includeReturns, setIncludeReturns] = useState(false)
@@ -41,6 +43,9 @@ export default function AdminMovements() {
     if (!includeReturns) {
       query = query.eq('movement_type', 'venta')
     }
+    if (store !== 'all') {
+      query = query.in('store_id', [store, 'mixed'])
+    }
 
     const { data, error } = await query
 
@@ -49,7 +54,7 @@ export default function AdminMovements() {
     }
     setMovements(data || [])
     setLoading(false)
-  }, [includeReturns])
+  }, [includeReturns, store])
 
   useEffect(() => { fetchMovements() }, [fetchMovements])
 
@@ -124,6 +129,12 @@ export default function AdminMovements() {
                     <td data-label="Tipo">
                       <span className={`badge ${m.movement_type === 'venta' ? 'badge-primary' : m.movement_type === 'devolucion' ? 'badge-warning' : m.movement_type === 'apartado' ? 'badge-info' : m.movement_type === 'abono' ? 'badge-success' : m.movement_type === 'giftcard' ? 'badge-warning' : 'badge-secondary'}`}>
                         {m.movement_type}
+                      </span>
+                      <span
+                        className={`badge ${m.store_id === 'usa' ? 'badge-warning' : m.store_id === 'mixed' ? 'badge-info' : 'badge-primary'}`}
+                        style={{ marginLeft: '0.35rem' }}
+                      >
+                        {m.store_id === 'usa' ? 'USA' : m.store_id === 'mixed' ? 'Mixta' : 'Elite'}
                       </span>
                     </td>
                     <td data-label="Cliente">{m.customer_name || 'Sin nombre'}</td>

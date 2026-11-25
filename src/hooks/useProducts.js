@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase'
 import { useState, useEffect } from 'react'
 
+// La tienda pública de Elite solo debe mostrar su propio catálogo.
+const STORE_ID = 'elite'
+
 // Solo lo necesario para cards/carrusel: sin costos, sin galerías completas
 // ni campos que no se muestran. El detalle sigue usando useProduct con *.
 const CARD_SELECT = `
@@ -22,6 +25,7 @@ export const useProducts = ({ category_id, featured, limit } = {}) => {
           .from('products')
           .select(CARD_SELECT)
           .eq('active', true)
+          .eq('store_id', STORE_ID)
           .order('created_at', { ascending: false })
 
         if (category_id) query = query.eq('category_id', category_id)
@@ -61,6 +65,7 @@ export const useProduct = (id) => {
           .select('*, categories(*), product_variants(*)')
           .eq('id', id)
           .eq('active', true)
+          .eq('store_id', STORE_ID)
           .single()
         if (error) throw error
         setProduct(data)
@@ -82,7 +87,11 @@ export const useCategories = () => {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase.from('categories').select('*').order('name')
+      const { data } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('store_id', STORE_ID)
+        .order('name')
       setCategories(data || [])
       setLoading(false)
     }

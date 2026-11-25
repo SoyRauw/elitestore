@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { Calendar, FileSpreadsheet, FileText, Filter, TrendingUp, DollarSign, ShoppingBag, CreditCard, Package } from 'lucide-react'
+import { Calendar, FileSpreadsheet, FileText, Filter, TrendingUp, DollarSign, ShoppingBag, CreditCard, Package, Store } from 'lucide-react'
 import { formatVariantLabel } from '../../lib/sku'
 import AdminLayout from '../../components/admin/AdminLayout'
+import { useStore, STORES } from '../../context/StoreContext'
 import styles from './AdminReports.module.css'
 
 const PAYMENT_METHODS = {
@@ -48,6 +49,7 @@ function toEndOfDay(dateStr) {
 }
 
 export default function AdminReports() {
+  const { store, setStore, storeLabel } = useStore()
   const today = formatDateInput(new Date())
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
@@ -102,16 +104,36 @@ export default function AdminReports() {
   }, [startDate, endDate, userId, method])
 
   const filteredMovements = useMemo(() => {
-    return movements
-  }, [movements])
+    if (store === 'all') return movements
+    return movements.filter((movement) => {
+      if (movement.movement_type === 'giftcard') return movement.store_id === store
+      return (movement.movement_items || []).some((item) => item.store_id === store)
+    })
+  }, [movements, store])
+
+  const filteredItems = useMemo(() => {
+    if (store === 'all') return movementItems
+    return movementItems.filter((item) => item.store_id === store)
+  }, [movementItems, store])
 
   const summary = useMemo(() => {
-    const totalSales = filteredMovements.reduce((sum, m) => sum + (parseFloat(m.total_amount) || 0), 0)
+    const lineRevenue = filteredItems.reduce(
+      (sum, item) => sum + Math.max(0, ((item.quantity || 0) * (item.unit_price || 0)) - (parseFloat(item.discount_amount) || 0)),
+      0
+    )
+    const giftcardRevenue = filteredMovements
+      .filter((movement) => movement.movement_type === 'giftcard')
+      .reduce((sum, movement) => sum + (parseFloat(movement.total_amount) || 0), 0)
+    const totalSales = lineRevenue + giftcardRevenue
     const totalTransactions = filteredMovements.length
     const averageTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0
 
+    const methodMovements = store === 'all'
+      ? filteredMovements
+      : filteredMovements.filter((movement) => movement.store_id !== 'mixed')
+
     const byMethod = {}
-    filteredMovements.forEach(m => {
+    methodMovements.forEach(m => {
       const total = parseFloat(m.total_amount) || 0
       const pays = (m.movement_payments || [])
         .map(p => ({ method: p.method, amount: parseFloat(p.amount) || 0 }))
@@ -144,7 +166,7 @@ export default function AdminReports() {
     })
 
     const productSales = {}
-    movementItems.forEach(item => {
+    filteredItems.forEach(item => {
       const name = item.products?.name || '—'
       const key = `${name}-${formatVariantLabel(item.product_variants || {})}`
       const lineNet = Math.max(
@@ -164,7 +186,7 @@ export default function AdminReports() {
       .slice(0, 5)
 
     const categorySales = {}
-    movementItems.forEach(item => {
+    filteredItems.forEach(item => {
       const cat = item.products?.categories?.name || 'Sin categoría'
       const lineNet = Math.max(
         0,
@@ -189,7 +211,7 @@ export default function AdminReports() {
       topProducts,
       categorySales,
     }
-  }, [filteredMovements, movementItems])
+  }, [filteredMovements, filteredItems, store])
 
   const getExportFilename = () => {
     if (startDate && endDate && startDate !== endDate) {
@@ -201,7 +223,7 @@ export default function AdminReports() {
 
   const handleExportExcel = async () => {
     const { exportMovementsToExcel } = await import('../../lib/reports')
-    exportMovementsToExcel(filteredMovements, movementItems, getExportFilename())
+    exportMovementsToExcel(filteredMovements, filteredItems, getExportFilename())
   }
 
   const handleExportPDF = async () => {
@@ -215,7 +237,7 @@ export default function AdminReports() {
         <div className={styles.topBar}>
           <div>
             <h1 className={styles.pageTitle}>Reportes de Ventas</h1>
-            <p className={styles.pageSubtitle}>Analiza y exporta tus ventas</p>
+            <p className={styles.pageSubtitle}>Analiza y exporta tus ventas · {storeLabel}</p>
           </div>
           <div className={styles.exportActions}>
             <button className="btn btn-outline" onClick={handleExportExcel}>
@@ -243,6 +265,14 @@ export default function AdminReports() {
                 <option value="">Todos</option>
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.name || u.email || u.id}</option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.field}>
+              <label><Store size={12} /> Tienda</label>
+              <select className={styles.input} value={store} onChange={(e) => setStore(e.target.value)}>
+                {STORES.map((item) => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
                 ))}
               </select>
             </div>

@@ -9,6 +9,7 @@ import {
   Receipt, Package, CircleDollarSign, ArrowDownRight,
 } from 'lucide-react'
 import styles from '../AdminFinance.module.css'
+import { useStore } from '../../../context/StoreContext'
 import { fetchFinanceSummary, money, presetRange } from '../../../lib/finance'
 
 const PRESETS = [
@@ -40,6 +41,7 @@ function StatCard({ icon: Icon, label, value, hint, tone }) {
 }
 
 export default function FinanceSummary() {
+  const { store, storeLabel } = useStore()
   const [preset, setPreset] = useState('this-month')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -50,14 +52,14 @@ export default function FinanceSummary() {
     setError('')
     try {
       const r = presetRange(preset)
-      setData(await fetchFinanceSummary(r.from, r.to))
+      setData(await fetchFinanceSummary(r.from, r.to, store))
     } catch (e) {
       console.error(e)
       setError(e.message || 'Error cargando finanzas')
     } finally {
       setLoading(false)
     }
-  }, [preset])
+  }, [preset, store])
 
   useEffect(() => { load() }, [load])
 
@@ -79,7 +81,8 @@ export default function FinanceSummary() {
             {p.label}
           </button>
         ))}
-        <span className={styles.pill} style={{ marginLeft: 'auto' }}>{range.from} → {range.to}</span>
+        <span className={styles.pill} style={{ marginLeft: 'auto' }}>Tienda: {storeLabel}</span>
+        <span className={styles.pill}>{range.from} → {range.to}</span>
       </div>
 
       {error && <p className={styles.error}>{error}</p>}

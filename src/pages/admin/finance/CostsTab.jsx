@@ -4,6 +4,7 @@ import {
   Search, Save, RefreshCw, Tags, CheckSquare, LayoutGrid, List, X, ImageOff, Pencil,
 } from 'lucide-react'
 import styles from '../AdminFinance.module.css'
+import { useStore } from '../../../context/StoreContext'
 import { supabase } from '../../../lib/supabase'
 import { fetchProductsWithCosts, backfillCosts, money } from '../../../lib/finance'
 
@@ -11,6 +12,7 @@ const totalCostOf = (p) => (parseFloat(p.cost_price) || 0) + (parseFloat(p.shipp
 const imageOf = (p) => p.images?.[0] || (p.product_variants || []).find((v) => v.image)?.image || null
 
 export default function CostsTab() {
+  const { store } = useStore()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -34,7 +36,7 @@ export default function CostsTab() {
     setLoading(true)
     setError('')
     try {
-      setProducts(await fetchProductsWithCosts())
+      setProducts(await fetchProductsWithCosts(store))
       setEdits({})
       setSelected(new Set())
     } catch (e) {
@@ -43,7 +45,7 @@ export default function CostsTab() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [store])
 
   useEffect(() => { load() }, [load])
 

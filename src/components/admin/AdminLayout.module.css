@@ -12,6 +12,10 @@
 .sidebar { width:220px; background:var(--color-dark); display:flex; flex-direction:column; padding:var(--space-6) 0; position:fixed; top:0; left:0; bottom:0; z-index:50; transition: transform 0.3s ease; }
 .sidebarLogo { display:flex; align-items:center; gap:var(--space-3); padding:0 var(--space-6) var(--space-6); border-bottom:1px solid rgba(255,255,255,0.08); color:var(--color-primary-light); font-family:var(--font-display); font-size:var(--text-xl); font-weight:600; }
 .sidebarNav { flex:1; padding:var(--space-4) 0; display:flex; flex-direction:column; gap:var(--space-1); overflow-y:auto; }
+.storeSwitcher { padding: var(--space-4) var(--space-6); border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 0.3rem; }
+.storeSwitcher label { color: rgba(255,255,255,0.45); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.storeSwitcher select { width: 100%; padding: 0.45rem 0.55rem; border-radius: 0.45rem; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 0.78rem; outline: none; }
+.storeSwitcher select:focus { border-color: var(--color-primary); }
 .navItem { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-6); color:rgba(255,255,255,0.6); font-size:var(--text-sm); font-weight:500; transition:all var(--transition-fast); border-left:3px solid transparent; text-decoration: none; }
 .navItem:hover { color:white; background:rgba(255,255,255,0.05); }
 .navActive { color:white!important; background:rgba(196,120,138,0.2)!important; border-left-color:var(--color-primary)!important; }

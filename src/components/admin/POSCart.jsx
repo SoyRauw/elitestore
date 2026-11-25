@@ -213,6 +213,12 @@ export default function POSCart({
                     <div className={styles.itemInfo}>
                       <p className={styles.itemName}>
                         {item.product.name}
+                        <span
+                          className={`badge ${item.product?.store_id === 'usa' ? 'badge-warning' : 'badge-primary'}`}
+                          style={{ marginLeft: '0.35rem', verticalAlign: 'middle' }}
+                        >
+                          {item.product?.store_id === 'usa' ? 'USA' : 'Elite'}
+                        </span>
                         {hasWsPrice && (
                           <span className={`${styles.modeBadge} ${item.wholesale ? styles.modeBadgeWholesale : styles.modeBadgeRetail}`}>
                             {item.wholesale ? 'Mayor' : 'Detal'}

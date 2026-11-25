@@ -60,17 +60,21 @@ export function dayDiscountValueLabel(discount) {
   return discount.discount_type === 'percentage' ? `${value}%` : `$${value.toFixed(2)}`
 }
 
-/** Reparte un descuento entre las líneas, opcionalmente solo en las de detal. */
-export function allocateDiscount(items, amount, { onlyRetail = false } = {}) {
+/** Reparte un descuento entre las líneas, opcionalmente solo en las de detal y por tienda. */
+export function allocateDiscount(items, amount, { onlyRetail = false, storeIds = null } = {}) {
   const allocations = (items || []).map(() => 0)
   const totalAmount = Number(amount) || 0
   if (totalAmount <= 0) return allocations
 
-  const eligible = (items || []).map((item, index) => ({
-    index,
-    subtotal: (Number(item.price) || 0) * (Number(item.quantity) || 0),
-    eligible: !onlyRetail || !item.wholesale,
-  }))
+  const eligible = (items || []).map((item, index) => {
+    const itemStore = item.product?.store_id || item.variant?.store_id || 'elite'
+    const matchesStore = !storeIds || storeIds.includes(itemStore)
+    return {
+      index,
+      subtotal: (Number(item.price) || 0) * (Number(item.quantity) || 0),
+      eligible: (!onlyRetail || !item.wholesale) && matchesStore,
+    }
+  })
   const eligibleTotal = eligible
     .filter((line) => line.eligible)
     .reduce((sum, line) => sum + line.subtotal, 0)
