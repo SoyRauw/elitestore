@@ -302,7 +302,9 @@ export default function AdminProducts() {
           </div>
           <select className={styles.filterSelect} value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setSizeFilter('') }}>
             <option value="">Todas las categorías</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories
+              .filter(c => store === 'all' || c.store_id === store || c.store_id === 'both')
+              .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select className={styles.filterSelect} value={stockFilter} onChange={(e) => setStockFilter(e.target.value)}>
             <option value="">Todo stock</option>
@@ -566,6 +568,20 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
   const category = useMemo(() => {
     return categories.find(c => c.id === form.category_id)
   }, [categories, form.category_id])
+
+  const availableCategories = useMemo(
+    () => categories.filter((c) => c.store_id === form.store_id || c.store_id === 'both'),
+    [categories, form.store_id]
+  )
+
+  const handleStoreChange = (value) => {
+    setForm((prev) => {
+      const stillValid = categories.some(
+        (c) => c.id === prev.category_id && (c.store_id === value || c.store_id === 'both')
+      )
+      return { ...prev, store_id: value, category_id: stillValid ? prev.category_id : '' }
+    })
+  }
 
   const categoryName = category?.name || ''
   const categorySizeLabel = category?.size_label || 'Talla'
@@ -1413,7 +1429,7 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
 
           <div className={styles.field}>
             <label className="label">Tienda</label>
-            <select className="input" value={form.store_id} onChange={(e) => setForm({ ...form, store_id: e.target.value })}>
+            <select className="input" value={form.store_id} onChange={(e) => handleStoreChange(e.target.value)}>
               <option value="elite">Elite Store</option>
               <option value="usa">USA Super Store</option>
             </select>
@@ -1423,7 +1439,7 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
             <label className="label">Categoría</label>
             <select className={`input ${validationErrors.category_id ? styles.inputError : ''}`} value={form.category_id} onChange={(e) => setForm({...form,category_id:e.target.value})}>
               <option value="">Selecciona una categoría</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {availableCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             {validationErrors.category_id && <span className={styles.fieldError}>{validationErrors.category_id}</span>}
           </div>

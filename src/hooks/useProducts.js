@@ -90,7 +90,7 @@ export const useCategories = () => {
       const { data } = await supabase
         .from('categories')
         .select('*')
-        .eq('store_id', STORE_ID)
+        .in('store_id', [STORE_ID, 'both'])
         .order('name')
       setCategories(data || [])
       setLoading(false)

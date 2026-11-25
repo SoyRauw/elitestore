@@ -38,7 +38,7 @@ export default function AdminCategories() {
 
   const handleNew = () => {
     setEditCategory(null)
-    setStoreId(store === 'all' ? 'elite' : store)
+    setStoreId(store === 'all' ? 'both' : store)
     setName('')
     setPrefix('')
     setSizeLabel('Talla')
@@ -68,7 +68,7 @@ export default function AdminCategories() {
   const otherCategories = useMemo(() => categories.filter(c => !editCategory || c.id !== editCategory.id), [categories, editCategory])
 
   const visibleCategories = useMemo(
-    () => categories.filter((cat) => store === 'all' || cat.store_id === store),
+    () => categories.filter((cat) => store === 'all' || cat.store_id === store || cat.store_id === 'both'),
     [categories, store]
   )
 
@@ -123,7 +123,7 @@ export default function AdminCategories() {
       }
       setShowForm(false)
       setEditCategory(null)
-      setStoreId('elite')
+      setStoreId(store === 'all' ? 'both' : store)
       setName('')
       setPrefix('')
       setSizeLabel('Talla')
@@ -182,10 +182,10 @@ export default function AdminCategories() {
                     {c.name}
                     {store === 'all' && (
                       <span
-                        className={`badge ${c.store_id === 'usa' ? 'badge-warning' : 'badge-primary'}`}
+                        className={`badge ${c.store_id === 'usa' ? 'badge-warning' : c.store_id === 'both' ? 'badge-info' : 'badge-primary'}`}
                         style={{ marginLeft: '0.4rem', verticalAlign: 'middle' }}
                       >
-                        {c.store_id === 'usa' ? 'USA' : 'Elite'}
+                        {c.store_id === 'usa' ? 'USA' : c.store_id === 'both' ? 'Ambas' : 'Elite'}
                       </span>
                     )}
                   </td>
@@ -225,6 +225,7 @@ export default function AdminCategories() {
                 <select className="input" value={storeId} onChange={e => setStoreId(e.target.value)}>
                   <option value="elite">Elite Store</option>
                   <option value="usa">USA Super Store</option>
+                  <option value="both">Ambas tiendas</option>
                 </select>
               </div>
               <div>

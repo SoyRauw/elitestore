@@ -43,9 +43,15 @@ export default function AdminInventory() {
       .order('name')
     if (store !== 'all') prodQuery = prodQuery.eq('store_id', store)
 
+    let catQuery = supabase
+      .from('categories')
+      .select('id, name, size_label, size_options, sizes_enabled')
+      .order('name')
+    if (store !== 'all') catQuery = catQuery.in('store_id', [store, 'both'])
+
     const [prodRes, catRes] = await Promise.all([
       prodQuery,
-      supabase.from('categories').select('id, name, size_label, size_options, sizes_enabled').order('name')
+      catQuery
     ])
     const data = prodRes.data || []
     setProducts(data)
