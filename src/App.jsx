@@ -2,10 +2,13 @@ import { Suspense, lazy } from 'react'
 import { Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { StoreProvider } from './context/StoreContext'
+import { StorefrontProvider } from './context/StorefrontContext'
 
 /* Store Components */
 import Navbar from './components/store/Navbar'
 import Home from './pages/store/Home'
+import StorePortal from './pages/store/StorePortal'
+import MenComingSoon from './pages/store/MenComingSoon'
 import Footer from './components/store/Footer'
 
 import ScrollToTop from './components/store/ScrollToTop'
@@ -13,6 +16,7 @@ import ScrollToTop from './components/store/ScrollToTop'
 const Catalog = lazy(() => import('./pages/store/Catalog'))
 const ProductDetailPage = lazy(() => import('./pages/store/ProductDetailPage'))
 const Nosotros = lazy(() => import('./pages/store/Nosotros'))
+const UsaHome = lazy(() => import('./pages/store/UsaHome'))
 
 /* Admin Components — lazy loaded to keep public bundle small */
 import AdminLogin from './pages/admin/AdminLogin'
@@ -63,13 +67,13 @@ function ProtectedRoute({ children }) {
   return children ? children : <Outlet />
 }
 
-function StoreLayout() {
+function StorefrontLayout({ store }) {
   return (
-    <>
+    <StorefrontProvider store={store}>
       <Navbar />
       <Outlet />
       <Footer />
-    </>
+    </StorefrontProvider>
   )
 }
 
@@ -94,12 +98,37 @@ function App() {
     <AuthProvider>
       <ScrollToTop />
       <Routes>
-        {/* Store Routes */}
-        <Route element={<Suspense fallback={<StoreLoading />}><StoreLayout /></Suspense>}>
-          <Route path="/" element={<Home />} />
+        {/* Portal de las tres tiendas */}
+        <Route
+          path="/"
+          element={
+            <Suspense fallback={<StoreLoading />}>
+              <StorePortal />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/men"
+          element={
+            <Suspense fallback={<StoreLoading />}>
+              <MenComingSoon />
+            </Suspense>
+          }
+        />
+
+        {/* Store Routes — Women */}
+        <Route element={<Suspense fallback={<StoreLoading />}><StorefrontLayout store="elite" /></Suspense>}>
+          <Route path="/women" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/nosotros" element={<Nosotros />} />
+        </Route>
+
+        {/* Store Routes — USA Super Store */}
+        <Route element={<Suspense fallback={<StoreLoading />}><StorefrontLayout store="usa" /></Suspense>}>
+          <Route path="/usa" element={<UsaHome />} />
+          <Route path="/usa/catalog" element={<Catalog />} />
+          <Route path="/usa/product/:id" element={<ProductDetailPage />} />
         </Route>
 
         {/* Admin Routes */}

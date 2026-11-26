@@ -166,3 +166,53 @@
     box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.18);
   }
 }
+
+/* === USA THEME === */
+.panel.usa .header {
+  border-bottom-color: rgba(185, 28, 28, 0.16);
+}
+
+.panel.usa .header h2 {
+  color: #14213d;
+  font-family: var(--font-body);
+  font-weight: 800;
+}
+
+.panel.usa .section {
+  border-bottom-color: rgba(185, 28, 28, 0.1);
+}
+
+.panel.usa .section h3 {
+  color: #14213d;
+}
+
+.panel.usa .chip {
+  border-color: rgba(185, 28, 28, 0.25);
+  color: #5b6475;
+}
+
+.panel.usa .chip:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.panel.usa .chipActive {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  color: white;
+}
+
+.panel.usa .input,
+.panel.usa .select {
+  border-color: rgba(185, 28, 28, 0.22);
+  color: #14213d;
+}
+
+.panel.usa .input:focus,
+.panel.usa .select:focus {
+  border-color: #b91c1c;
+}
+
+.panel.usa .priceRow,
+.panel.usa .hint {
+  color: #5b6475;
+}

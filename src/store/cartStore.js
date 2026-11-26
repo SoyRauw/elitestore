@@ -24,7 +24,9 @@ export const useCartStore = create(
               {
                 id: variant.id,
                 product_id: product.id,
+                store_id: product.store_id || 'elite',
                 name: product.name,
+                category_name: product.categories?.name || null,
                 variant_name: variant.variant_name,
                 color: variant.color,
                 size: variant.size,
@@ -68,6 +70,18 @@ export const useCartStore = create(
         return get().items.reduce((sum, i) => sum + i.quantity, 0)
       },
     }),
-    { name: 'elite-store-cart' }
+    {
+      name: 'elite-store-cart',
+      version: 2,
+      migrate: (persistedState) => {
+        const state = persistedState || {}
+        const items = (state.items || []).map((item) => ({
+          ...item,
+          store_id: item.store_id || 'elite',
+        }))
+        return { ...state, items }
+      },
+    }
   )
 )
+

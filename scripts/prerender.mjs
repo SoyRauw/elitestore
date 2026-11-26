@@ -33,7 +33,7 @@ function writeDist(relativePath, content) {
   fs.writeFileSync(fullPath, content, 'utf8')
 }
 
-async function fetchProducts() {
+async function fetchProducts(storeId) {
   const env = readEnv(path.join(ROOT, '.env'))
   const url = process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL
   const key = process.env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY
@@ -43,7 +43,7 @@ async function fetchProducts() {
   }
 
   const response = await fetch(
-    `${url}/rest/v1/products?select=id,name&active=eq.true&store_id=eq.elite&order=created_at.desc`,
+    `${url}/rest/v1/products?select=id,name&active=eq.true&store_id=eq.${storeId}&order=created_at.desc`,
     { headers: { apikey: key, Authorization: `Bearer ${key}` } }
   )
   if (!response.ok) {
@@ -54,15 +54,24 @@ async function fetchProducts() {
   return Array.isArray(products) ? products : []
 }
 
-function buildSitemap(products) {
+function buildSitemap(eliteProducts, usaProducts) {
   const today = new Date().toISOString().slice(0, 10)
   const urls = [
     { loc: `${SITE_URL}/`, priority: '1.0', changefreq: 'weekly' },
+    { loc: `${SITE_URL}/women`, priority: '0.9', changefreq: 'weekly' },
     { loc: `${SITE_URL}/catalog`, priority: '0.9', changefreq: 'weekly' },
+    { loc: `${SITE_URL}/usa`, priority: '0.9', changefreq: 'weekly' },
+    { loc: `${SITE_URL}/usa/catalog`, priority: '0.9', changefreq: 'weekly' },
+    { loc: `${SITE_URL}/men`, priority: '0.4', changefreq: 'monthly' },
     { loc: `${SITE_URL}/nosotros`, priority: '0.5', changefreq: 'monthly' },
-    ...products.map((product) => ({
+    ...eliteProducts.map((product) => ({
       loc: `${SITE_URL}/product/${product.id}`,
       priority: '0.8',
+      changefreq: 'weekly',
+    })),
+    ...usaProducts.map((product) => ({
+      loc: `${SITE_URL}/usa/product/${product.id}`,
+      priority: '0.7',
       changefreq: 'weekly',
     })),
   ]
@@ -111,7 +120,7 @@ async function waitForPage(page, route) {
     ).catch(() => {})
   } else if (route.kind === 'catalog') {
     await page.waitForSelector('h1', { timeout: 20000 })
-    await page.waitForSelector('a[href^="/product/"]', { timeout: 10000 }).catch(() => {})
+    await page.waitForSelector(`a[href^="${route.productPrefix || '/product/'}"]`, { timeout: 10000 }).catch(() => {})
   } else {
     await page.waitForSelector('h1', { timeout: 20000 })
   }
@@ -136,16 +145,29 @@ async function main() {
     : fs.readFileSync(shellPath, 'utf8')
 
   console.log('Leyendo productos activos...')
-  const products = await fetchProducts()
-  console.log(`  ${products.length} productos activos`)
+  const [eliteProducts, usaProducts] = await Promise.all([
+    fetchProducts('elite'),
+    fetchProducts('usa'),
+  ])
+  console.log(`  ${eliteProducts.length} productos Women, ${usaProducts.length} USA`)
 
   const routes = [
-    { path: '/', file: 'index.html', kind: 'home' },
-    { path: '/catalog', file: 'catalog.html', kind: 'catalog' },
+    { path: '/', file: 'index.html', kind: 'portal' },
+    { path: '/women', file: 'women.html', kind: 'home' },
+    { path: '/catalog', file: 'catalog.html', kind: 'catalog', productPrefix: '/product/' },
     { path: '/nosotros', file: 'nosotros.html', kind: 'static' },
-    ...products.map((product) => ({
+    { path: '/men', file: 'men.html', kind: 'static' },
+    { path: '/usa', file: 'usa.html', kind: 'home' },
+    { path: '/usa/catalog', file: 'usa/catalog.html', kind: 'catalog', productPrefix: '/usa/product/' },
+    ...eliteProducts.map((product) => ({
       path: `/product/${product.id}`,
       file: `product/${product.id}.html`,
+      kind: 'product',
+      productName: product.name,
+    })),
+    ...usaProducts.map((product) => ({
+      path: `/usa/product/${product.id}`,
+      file: `usa/product/${product.id}.html`,
       kind: 'product',
       productName: product.name,
     })),
@@ -203,7 +225,7 @@ async function main() {
     console.log(`Prerenderizando ${routes.length} páginas con ${CONCURRENCY} pestañas...`)
     await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
 
-    writeDist('sitemap.xml', buildSitemap(products))
+    writeDist('sitemap.xml', buildSitemap(eliteProducts, usaProducts))
     writeDist('robots.txt', `User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${SITE_URL}/sitemap.xml\n`)
     writeDist(
       'spa.html',
@@ -220,7 +242,7 @@ async function main() {
     }
 
     console.log(`\nListo: ${completed - failures.length} páginas OK, ${failures.length} con error.`)
-    console.log(`Sitemap: ${products.length + 3} URLs`)
+    console.log(`Sitemap: ${eliteProducts.length + usaProducts.length + 7} URLs`)
     if (failures.length > 0) {
       console.log('Productos que quedaron sin prerender (se servirán como SPA):')
       failures.slice(0, 10).forEach((failure) => console.log(`  - ${failure.route}: ${failure.error}`))

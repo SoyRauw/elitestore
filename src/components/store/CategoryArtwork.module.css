@@ -1,0 +1,100 @@
+.art {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--from) 0%, var(--to) 100%);
+}
+
+.pattern {
+  position: absolute;
+  inset: -20%;
+  background-image:
+    radial-gradient(circle at 20% 25%, rgba(255, 255, 255, 0.14) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 75% 70%, rgba(255, 255, 255, 0.1) 0 1px, transparent 1.6px),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 22px);
+  background-size: 34px 34px, 46px 46px, auto;
+  opacity: 0.6;
+}
+
+.glow {
+  position: absolute;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.28), transparent 68%);
+  filter: blur(2px);
+}
+
+.icon {
+  position: relative;
+  z-index: 1;
+  width: 44%;
+  max-width: 128px;
+  height: auto;
+  color: var(--accent);
+  opacity: 0.95;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
+}
+
+.brand {
+  position: absolute;
+  bottom: 12%;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+}
+
+.category {
+  position: absolute;
+  top: 12%;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.detail .icon {
+  width: 38%;
+  max-width: 190px;
+}
+
+.detail .brand {
+  bottom: 9%;
+  font-size: 10px;
+}
+
+.detail .category {
+  top: 9%;
+  font-size: 11px;
+}
+
+.categoryCard .icon {
+  width: 34%;
+  max-width: 54px;
+}
+
+.categoryCard .brand {
+  display: none;
+}
+
+.categoryCard .category {
+  top: auto;
+  bottom: 14%;
+  font-size: 11px;
+}
+
+.mini .icon {
+  width: 46%;
+  max-width: 38px;
+}
+
+.mini .brand,
+.mini .category {
+  display: none;
+}

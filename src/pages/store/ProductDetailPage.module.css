@@ -411,6 +411,77 @@
   background: linear-gradient(135deg, #10b981, #059669) !important;
 }
 
+/* === USA THEME === */
+.page.usa {
+  background: #fff8ee;
+}
+
+.usa .breadcrumbLink {
+  color: #b91c1c;
+}
+
+.usa .breadcrumbLink:hover {
+  color: #7f1d1d;
+}
+
+.usa .breadcrumbCurrent {
+  color: #14213d;
+}
+
+.usa .category {
+  color: #b91c1c;
+}
+
+.usa .productName {
+  font-family: var(--font-body);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #14213d;
+}
+
+.usa .price {
+  font-family: var(--font-body);
+  font-weight: 800;
+  color: #b91c1c;
+}
+
+.usa .modelBtnActive {
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.35);
+}
+
+.usa .sizeBtn {
+  border-color: rgba(185, 28, 28, 0.25);
+  color: #14213d;
+}
+
+.usa .sizeBtn:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.usa .sizeBtnActive {
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+
+.usa .addBtn {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+}
+
+.usa .backLink {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+}
+
+.usa .mainImgWrap {
+  background: #fff8ee;
+}
+
+.usa .sectionLabel {
+  color: #14213d;
+}
+
 /* === DETAILS FOOTER === */
 .detailsFooter {
   margin-top: auto;

@@ -18,6 +18,7 @@ export default function CatalogFilters({
   sizesByCategory = {},
   value,
   onApply,
+  theme = 'women',
 }) {
   const [draft, setDraft] = useState(EMPTY)
 
@@ -64,7 +65,7 @@ export default function CatalogFilters({
           role="presentation"
         >
           <motion.aside
-            className={styles.panel}
+            className={`${styles.panel} ${styles[theme] || ''}`}
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 40, opacity: 0 }}

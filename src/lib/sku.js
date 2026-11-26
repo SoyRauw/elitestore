@@ -229,7 +229,7 @@ export const getVariantOptions = (product) => {
     product?.id,
     product?.categories?.size_options || []
   )
-  const variants = ordered.filter((v) => v.stock > 0)
+  const variants = ordered.filter((v) => v.active !== false && v.stock > 0)
   const colors = [...new Set(variants.map((v) => v.color).filter(Boolean))]
   const variantNames = [...new Set(variants.map((v) => v.variant_name).filter(Boolean))]
   const sizes = [...new Set(variants.map((v) => v.size).filter(Boolean))]

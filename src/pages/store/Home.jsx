@@ -1,16 +1,16 @@
 import { Suspense, lazy } from 'react'
 import { motion } from 'framer-motion'
 import HeroSection from '../../components/store/HeroSection'
-import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, usePageMeta } from '../../lib/seo'
+import { DEFAULT_DESCRIPTION, usePageMeta } from '../../lib/seo'
 import fondoImg from '../../assets/fondo.webp'
 
 const ClothingCarousel = lazy(() => import('../../components/store/ClothingCarousel'))
 
 export default function Home() {
   usePageMeta({
-    title: DEFAULT_TITLE,
+    title: 'Elite Store Women | Pijamas y ropa elegante para damas',
     description: DEFAULT_DESCRIPTION,
-    path: '/',
+    path: '/women',
   })
 
   return (

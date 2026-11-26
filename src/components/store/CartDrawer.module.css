@@ -135,6 +135,7 @@
 }
 
 .itemImage {
+  position: relative;
   width: 84px;
   height: 96px;
   border-radius: var(--radius-md);
@@ -318,4 +319,46 @@
 
 .clearBtn:hover {
   color: #dc2626;
+}
+
+/* === STORE GROUPS === */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.storeGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.storeGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(196, 120, 138, 0.12);
+}
+
+.storeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.storeGroupName {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.storeGroupCount {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--color-dark-soft);
 }

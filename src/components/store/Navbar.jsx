@@ -3,15 +3,16 @@ import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, Menu, X } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
+import { useStorefront } from '../../context/StorefrontContext'
 import CartDrawer from './CartDrawer'
 import styles from './Navbar.module.css'
-import logoImg from '../../assets/logo.png'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const location = useLocation()
+  const storefront = useStorefront()
   const count = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0))
 
   useEffect(() => {
@@ -24,24 +25,28 @@ export default function Navbar() {
     setMenuOpen(false)
   }, [location])
 
-  const navLinks = [
-    { to: '/', label: 'Inicio' },
-    { to: '/catalog', label: 'Catálogo' },
-    { to: '/nosotros', label: 'Nosotros' },
-  ]
+  const navLinks = storefront.navLinks
 
   return (
     <>
       <motion.header
-        className={`${styles.navbar} ${scrolled ? styles.scrolled : ''} ${menuOpen ? styles.menuOpenState : ''}`}
+        className={`${styles.navbar} ${styles[storefront.theme] || ''} ${scrolled ? styles.scrolled : ''} ${menuOpen ? styles.menuOpenState : ''}`}
         initial={{ y: -80 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className={styles.inner}>
           {/* Logo */}
-          <Link to="/" className={styles.logo}>
-            <img src={logoImg} alt="Elite Store Logo" className={styles.logoImg} />
+          <Link to={storefront.homePath} className={styles.logo}>
+            <img
+              src={storefront.logo}
+              alt={storefront.fullName}
+              className={styles.logoImg}
+              style={{ '--nav-logo-height': `${storefront.navLogoHeight || 60}px` }}
+            />
+            {storefront.navTitle && (
+              <span className={styles.navTitle}>{storefront.navTitle}</span>
+            )}
           </Link>
 
           {/* Desktop Nav */}
@@ -133,7 +138,12 @@ export default function Navbar() {
         </AnimatePresence>
       </motion.header>
 
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        browseLabel={storefront.catalogPath ? 'Ver catálogo' : 'Ver tiendas'}
+        browsePath={storefront.catalogPath || '/'}
+      />
     </>
   )
 }

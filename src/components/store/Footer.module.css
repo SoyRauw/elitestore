@@ -98,3 +98,31 @@
     margin-bottom: 0.75rem;
   }
 }
+
+/* === USA THEME === */
+.footer.usa {
+  background: #fff8ee;
+  border-top-color: rgba(185, 28, 28, 0.15);
+  color: #5b6475;
+}
+
+.footer.usa .logoText {
+  color: #14213d;
+  font-family: var(--font-body);
+  font-weight: 800;
+}
+
+.footer.usa .col h4 {
+  color: #14213d;
+}
+
+.footer.usa .nav a:hover,
+.footer.usa .socialLinks a:hover {
+  color: #b91c1c;
+}
+
+.footer.usa .bottom {
+  background: #fdf0e2;
+  border-top-color: rgba(185, 28, 28, 0.12);
+  color: #5b6475;
+}

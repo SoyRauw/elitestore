@@ -5,12 +5,18 @@ import {
   getVariantModels,
   getProductPriceRange,
 } from '../../lib/sku'
+import { useStorefront } from '../../context/StorefrontContext'
+import CategoryArtwork from './CategoryArtwork'
 import styles from './ProductCard.module.css'
 
 function ProductCard({ product, index = 0 }) {
   const navigate = useNavigate()
+  const storefront = useStorefront()
   const models = useMemo(() => getVariantModels(product), [product])
   const priceRange = useMemo(() => getProductPriceRange(product), [product])
+  const productPath = storefront.productPath
+    ? storefront.productPath(product.id)
+    : `/product/${product.id}`
 
   const [selectedModel, setSelectedModel] = useState(models[0] || null)
 
@@ -37,16 +43,18 @@ function ProductCard({ product, index = 0 }) {
 
   const handleMoreClick = (event) => {
     event.stopPropagation()
-    navigate(`/product/${product.id}`)
+    navigate(productPath)
   }
 
   const handleCardClick = () => {
-    navigate(`/product/${product.id}`)
+    navigate(productPath)
   }
+
+  const isUsa = storefront.id === 'usa'
 
   return (
     <article
-      className={styles.card}
+      className={`${styles.card} ${isUsa ? styles.usa : ''}`}
       style={{ '--delay': `${index * 0.04}s` }}
       onClick={handleCardClick}
     >
@@ -59,6 +67,8 @@ function ProductCard({ product, index = 0 }) {
             loading="lazy"
             decoding="async"
           />
+        ) : isUsa ? (
+          <CategoryArtwork category={product.categories?.name} />
         ) : (
           <div className={styles.placeholder}>
             <ShoppingBag size={32} />
@@ -76,7 +86,7 @@ function ProductCard({ product, index = 0 }) {
       <div className={styles.body}>
         <span className={styles.category}>{product.categories?.name}</span>
         <h3 className={styles.name}>
-          <Link to={`/product/${product.id}`} onClick={(event) => event.stopPropagation()}>
+          <Link to={productPath} onClick={(event) => event.stopPropagation()}>
             {product.name}
           </Link>
         </h3>
@@ -133,7 +143,7 @@ function ProductCard({ product, index = 0 }) {
               'Agotado'
             ) : (
               <>
-                <ShoppingBag size={14} /> Elegir talla
+                <ShoppingBag size={14} /> {isUsa ? 'Ver producto' : 'Elegir talla'}
               </>
             )}
           </button>

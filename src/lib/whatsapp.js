@@ -1,10 +1,22 @@
 export const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '584226594559'
 
+const STORE_LABELS = {
+  elite: 'Women',
+  usa: 'USA Super Store',
+  men: "Elite Store Men's",
+}
+
+const STORE_EMOJIS = {
+  elite: '👗',
+  usa: '🇺🇸',
+  men: '👔',
+}
+
 const formatVariant = (item) => {
   const parts = []
   if (item.color) parts.push(item.color)
   if (item.variant_name) parts.push(item.variant_name)
-  if (item.size) parts.push(`Talla ${item.size}`)
+  if (item.size) parts.push(`${item.size_label || 'Talla'} ${item.size}`)
   const variant = parts.join(' / ') || 'Única'
   return `${item.name} (${variant})`
 }
@@ -12,21 +24,33 @@ const formatVariant = (item) => {
 export const formatWhatsAppMessage = (cartItems) => {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
-  const lines = cartItems.map(
-    (item) =>
-      `• ${item.quantity}x ${formatVariant(item)} - $${(item.price * item.quantity).toFixed(2)}`
-  )
+  const groups = new Map()
+  cartItems.forEach((item) => {
+    const storeId = item.store_id || 'elite'
+    if (!groups.has(storeId)) groups.set(storeId, [])
+    groups.get(storeId).push(item)
+  })
+
+  const lines = []
+  groups.forEach((items, storeId) => {
+    lines.push(`${STORE_EMOJIS[storeId] || '🛍️'} *${STORE_LABELS[storeId] || 'Elite Store'}*`)
+    items.forEach((item) => {
+      lines.push(
+        `• ${item.quantity}x ${formatVariant(item)} - $${(item.price * item.quantity).toFixed(2)}`
+      )
+    })
+    lines.push('')
+  })
 
   const message = [
-    '🌹 *PEDIDO ELITE STORE* 🌹',
+    '🛍️ *PEDIDO ELITE STORE*',
     '',
     '📦 *Mis productos:*',
     ...lines,
-    '',
     `💰 *Total: $${total.toFixed(2)}*`,
     '',
-    '📍 Por favor confirmar disponibilidad y forma de envío.',
-    '¡Gracias! 💕',
+    '📍 Por favor confirmar disponibilidad y forma de entrega.',
+    '¡Gracias! ✨',
   ].join('\n')
 
   return message
@@ -63,6 +87,6 @@ function formatVariantLabel(item) {
   const parts = []
   if (item.color) parts.push(item.color)
   if (item.variant_name) parts.push(item.variant_name)
-  if (item.size) parts.push(`Talla ${item.size}`)
+  if (item.size) parts.push(`${item.size_label || 'Talla'} ${item.size}`)
   return parts.join(' / ') || 'Única'
 }

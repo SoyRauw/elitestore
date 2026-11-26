@@ -325,3 +325,68 @@
     margin-top: 0.2rem;
   }
 }
+
+/* === USA THEME === */
+.card.usa {
+  border-color: rgba(185, 28, 28, 0.12);
+}
+
+.card.usa:hover {
+  box-shadow: 0 14px 34px rgba(185, 28, 28, 0.2);
+}
+
+.usa .imageWrap {
+  background: #fff8ee;
+}
+
+.usa .category {
+  color: #b91c1c;
+  letter-spacing: 0.08em;
+}
+
+.usa .name {
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: #14213d;
+}
+
+.usa .price {
+  font-family: var(--font-body);
+  font-weight: 800;
+  color: #b91c1c;
+}
+
+.usa .addBtn {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  font-weight: 700;
+}
+
+.usa .footer {
+  border-top-color: rgba(185, 28, 28, 0.1);
+}
+
+.usa .featuredBadge {
+  background: linear-gradient(135deg, #f2c14e, #e0a800);
+  color: #14213d;
+}
+
+.usa .modelBtn {
+  border-color: rgba(185, 28, 28, 0.18);
+}
+
+.usa .modelBtn:hover,
+.usa .modelBtnActive {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.18), var(--shadow-sm);
+}
+
+.usa .moreBtn {
+  border-color: rgba(185, 28, 28, 0.3);
+  background: rgba(185, 28, 28, 0.06);
+}
+
+.usa .moreBtn:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.1);
+}

@@ -5,6 +5,7 @@ import { EffectCoverflow, Pagination, Autoplay } from 'swiper/modules'
 import { motion } from 'framer-motion'
 import { ShoppingBag, Eye } from 'lucide-react'
 import { useProducts } from '../../hooks/useProducts'
+import { useStorefront } from '../../context/StorefrontContext'
 import { getVariantModels, getProductPriceRange } from '../../lib/sku'
 import 'swiper/css'
 import 'swiper/css/effect-coverflow'
@@ -14,14 +15,15 @@ import styles from './ClothingCarousel.module.css'
 
 export default function ClothingCarousel() {
   const navigate = useNavigate()
-  const { products, loading } = useProducts({ limit: 10 })
+  const storefront = useStorefront()
+  const { products, loading } = useProducts({ limit: 10, storeId: storefront.id })
 
   const availableProducts = useMemo(() => {
     return products.filter((p) => getVariantModels(p).length > 0)
   }, [products])
 
   const handleViewProduct = (id) => {
-    navigate(`/product/${id}`)
+    navigate(storefront.productPath ? storefront.productPath(id) : `/product/${id}`)
   }
 
   return (

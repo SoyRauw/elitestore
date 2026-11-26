@@ -33,13 +33,39 @@
 .logo {
   display: flex;
   align-items: center;
+  gap: 0.65rem;
   text-decoration: none;
 }
 
 .logoImg {
-  height: 60px;
+  height: var(--nav-logo-height, 60px);
   width: auto;
   object-fit: contain;
+}
+
+.navTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--color-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+  .logoImg {
+    height: 40px;
+  }
+
+  .usa .logoImg {
+    height: 36px;
+  }
+
+  .navTitle {
+    display: inline;
+    font-size: 0.72rem;
+  }
 }
 
 /* === DESKTOP NAV === */
@@ -183,4 +209,57 @@
 .mobileNavLink:hover,
 .mobileNavLink.active {
   color: var(--color-primary);
+}
+
+/* === USA THEME === */
+.navbar.usa.scrolled {
+  background: rgba(255, 248, 238, 0.97);
+  border-bottom-color: rgba(185, 28, 28, 0.16);
+}
+
+.navbar.usa.menuOpenState {
+  background: #fff8ee;
+  border-bottom-color: rgba(185, 28, 28, 0.16);
+}
+
+.usa .navLink:hover,
+.usa .navLink.active {
+  color: #b91c1c;
+}
+
+.usa .navLink::after {
+  background: #b91c1c;
+}
+
+.usa .cartBtn {
+  background: #fff8ee;
+  border-color: rgba(185, 28, 28, 0.2);
+  color: #14213d;
+}
+
+.usa .cartBtn:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+  box-shadow: 0 8px 22px rgba(185, 28, 28, 0.18);
+}
+
+.usa .cartBadge {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  border-color: #fff8ee;
+}
+
+.usa .navTitle {
+  color: #14213d;
+}
+
+.usa .menuBtn {
+  background: #fff8ee;
+  border-color: rgba(185, 28, 28, 0.2);
+  color: #14213d;
+}
+
+.navbar.usa {
+  background: rgba(255, 248, 238, 0.97);
+  border-bottom: 1px solid rgba(185, 28, 28, 0.12);
+  box-shadow: 0 6px 22px rgba(20, 33, 61, 0.06);
 }

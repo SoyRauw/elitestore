@@ -1,0 +1,235 @@
+.page {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0b1326;
+  color: #fff6ea;
+}
+
+.bgPattern {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 22px),
+    radial-gradient(circle at 50% 22%, rgba(59, 111, 224, 0.4), transparent 58%),
+    linear-gradient(160deg, #1e2e52 0%, #0c1427 58%, #070d1a 100%);
+}
+
+.watermark {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  width: min(880px, 90vw);
+  height: auto;
+  transform: translate(-50%, -50%);
+  opacity: 0.045;
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+.glow {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  z-index: 0;
+  width: min(620px, 80vw);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 111, 224, 0.28), transparent 68%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 130px 1.25rem 60px;
+}
+
+.card {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.85rem;
+  padding: 2.4rem 2rem;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+.logo {
+  width: min(250px, 64%);
+  height: auto;
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.35));
+}
+
+.badge {
+  margin-top: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(59, 111, 224, 0.22);
+  color: #dbe7ff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.title {
+  font-family: var(--font-body);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff6ea;
+  line-height: 1.05;
+}
+
+.subtitle {
+  max-width: 380px;
+  color: rgba(255, 246, 234, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.igBtn,
+.waBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 1.05rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.igBtn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #fff6ea;
+}
+
+.igBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.waBtn {
+  background: #3b6fe0;
+  border: 1px solid #3b6fe0;
+  color: white;
+}
+
+.waBtn:hover {
+  background: #2f5cc0;
+  transform: translateY(-1px);
+}
+
+.igBtn svg,
+.waBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  color: rgba(255, 246, 234, 0.6);
+  font-size: 0.78rem;
+  transition: color var(--transition-fast);
+}
+
+.backLink:hover {
+  color: #fff6ea;
+}
+
+.footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 246, 234, 0.55);
+  font-size: 0.72rem;
+}
+
+.footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.footerLinks a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgba(255, 246, 234, 0.65);
+  transition: color var(--transition-fast);
+}
+
+.footerLinks a:hover {
+  color: #fff6ea;
+}
+
+.footerLinks svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 112px 1rem 40px;
+  }
+
+  .card {
+    padding: 1.8rem 1.2rem;
+    border-radius: 24px;
+  }
+
+  .logo {
+    width: min(210px, 70%);
+  }
+
+  .footer {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .igBtn,
+  .waBtn,
+  .backLink {
+    transition: none;
+  }
+}

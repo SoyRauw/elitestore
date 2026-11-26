@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
+import { useSearchParams } from 'react-router-dom'
 import { ShoppingBag, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useProducts, useCategories } from '../../hooks/useProducts'
 import { formatVariantLabel, getVariantModels } from '../../lib/sku'
+import { useStorefront } from '../../context/StorefrontContext'
 import ProductCard from '../../components/store/ProductCard'
 import CatalogFilters from '../../components/store/CatalogFilters'
 import { usePageMeta } from '../../lib/seo'
@@ -11,23 +13,33 @@ import styles from './Catalog.module.css'
 const PRODUCTS_PER_PAGE = 24
 
 export default function Catalog() {
+  const storefront = useStorefront()
+  const [searchParams] = useSearchParams()
+
   usePageMeta({
-    title: 'Catálogo | Elite Store',
-    description: 'Explora el catálogo de Elite Store: pijamas, conjuntos, blusas, calzado y accesorios elegantes para damas.',
-    path: '/catalog',
+    title: storefront.catalogSeoTitle,
+    description: storefront.catalogSeoDescription,
+    path: storefront.catalogPath,
   })
 
-  const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '')
   const [selectedSize, setSelectedSize] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [sortBy, setSortBy] = useState('newest')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const { categories } = useCategories()
-  const { products, loading } = useProducts()
+  const { categories } = useCategories(storefront.id)
+  const { products, loading } = useProducts({ storeId: storefront.id })
+
+  useEffect(() => {
+    const nextCategory = searchParams.get('category') || ''
+    const nextQuery = searchParams.get('q') || ''
+    setSelectedCategory(nextCategory)
+    setSearchQuery(nextQuery)
+  }, [searchParams])
   const sentinelRef = useRef(null)
 
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -42,6 +54,16 @@ export default function Catalog() {
     [products]
   )
 
+  const categoryIdsWithProducts = useMemo(
+    () => new Set(availableProducts.map((product) => product.category_id).filter(Boolean)),
+    [availableProducts]
+  )
+
+  const visibleCategories = useMemo(() => {
+    if (storefront.id !== 'usa') return categories
+    return categories.filter((category) => categoryIdsWithProducts.has(category.id))
+  }, [categories, categoryIdsWithProducts, storefront.id])
+
   const sizesByCategory = useMemo(() => {
     const disabled = new Set(
       categories.filter((category) => category.sizes_enabled === false).map((category) => category.id)
@@ -51,7 +73,7 @@ export default function Catalog() {
       if (disabled.has(product.category_id)) return
       const set = map[product.category_id] || (map[product.category_id] = new Set())
       ;(product.product_variants || []).forEach((variant) => {
-        if (variant.size && (variant.stock || 0) > 0) set.add(variant.size)
+        if (variant.active !== false && variant.size && (variant.stock || 0) > 0) set.add(variant.size)
       })
     })
     const result = {}
@@ -63,7 +85,7 @@ export default function Catalog() {
     return result
   }, [availableProducts, categories])
 
-  const selectedCategoryData = categories.find((category) => category.id === selectedCategory)
+  const selectedCategoryData = visibleCategories.find((category) => category.id === selectedCategory)
   const selectedCategorySizes = useMemo(
     () => (selectedCategory ? (sizesByCategory[selectedCategory] || []) : []),
     [selectedCategory, sizesByCategory]
@@ -175,7 +197,7 @@ export default function Catalog() {
     return () => observer.disconnect()
   }, [filtered.length, visibleCount])
 
-  const categoryName = categories.find((category) => category.id === selectedCategory)?.name
+  const categoryName = visibleCategories.find((category) => category.id === selectedCategory)?.name
   const activeFilterCount = [selectedCategory, selectedSize, minPrice, maxPrice].filter(Boolean).length
   const hasActiveFilters = activeFilterCount > 0 || sortBy !== 'newest'
 
@@ -203,10 +225,15 @@ export default function Catalog() {
   const hasMore = visibleCount < filtered.length
 
   return (
-    <motion.main className={styles.page} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <motion.main
+      className={`${styles.page} ${storefront.id === 'usa' ? styles.usa : ''}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
       <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Colección</h1>
-        <p className={styles.pageSubtitle}>Elegancia que te abraza</p>
+        <h1 className={styles.pageTitle}>{storefront.catalogTitle}</h1>
+        <p className={styles.pageSubtitle}>{storefront.catalogSubtitle}</p>
       </div>
 
       <div className={styles.filters}>
@@ -215,7 +242,7 @@ export default function Catalog() {
             <Search size={16} className={styles.searchIcon} />
             <input
               className={`input ${styles.searchInput}`}
-              placeholder="Buscar por nombre, SKU o variante..."
+              placeholder={storefront.id === 'usa' ? 'Buscar en USA Super Store...' : 'Buscar por nombre, SKU o variante...'}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               id="catalog-search"
@@ -298,8 +325,9 @@ export default function Catalog() {
       <CatalogFilters
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        categories={categories}
+        categories={visibleCategories}
         sizesByCategory={sizesByCategory}
+        theme={storefront.id === 'usa' ? 'usa' : 'women'}
         value={{
           category: selectedCategory,
           size: selectedSize,

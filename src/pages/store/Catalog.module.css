@@ -166,6 +166,51 @@
   color: var(--color-primary);
 }
 
+/* === USA THEME === */
+.page.usa {
+  background: #fff8ee;
+}
+
+.usa .pageTitle {
+  font-family: var(--font-body);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #14213d;
+}
+
+.usa .pageSubtitle {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.usa .filterBtn {
+  border-color: rgba(185, 28, 28, 0.3);
+  color: #14213d;
+}
+
+.usa .filterBtn:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.usa .filterCount {
+  background: #b91c1c;
+}
+
+.usa .activeChip {
+  border-color: rgba(185, 28, 28, 0.25);
+  background: rgba(185, 28, 28, 0.08);
+  color: #b91c1c;
+}
+
+.usa .searchIcon {
+  color: #b91c1c;
+}
+
+.usa .clearAll {
+  color: #5b6475;
+}
+
 .sizeActive {
   background: var(--gradient-primary) !important;
   border-color: transparent !important;

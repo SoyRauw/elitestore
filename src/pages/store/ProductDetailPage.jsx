@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ShoppingBag, Home, ChevronRight as ChevronRightIcon, ArrowLeft, Maximize2 } from 'lucide-react'
 import { useProduct } from '../../hooks/useProducts'
 import { useCartStore } from '../../store/cartStore'
+import { useStorefront } from '../../context/StorefrontContext'
+import CategoryArtwork from '../../components/store/CategoryArtwork'
 import ImageLightbox from '../../components/store/ImageLightbox'
 import {
   getVariantModels,
@@ -15,7 +17,9 @@ import styles from './ProductDetailPage.module.css'
 
 export default function ProductDetailPage() {
   const { id } = useParams()
-  const { product, loading, error } = useProduct(id)
+  const storefront = useStorefront()
+  const pageClass = `${styles.page} ${storefront.id === 'usa' ? styles.usa : ''}`
+  const { product, loading, error } = useProduct(id, storefront.id)
   const addItem = useCartStore((s) => s.addItem)
 
   const models = useMemo(() => getVariantModels(product || {}), [product])
@@ -92,31 +96,35 @@ export default function ProductDetailPage() {
       '@type': 'Product',
       name: product.name,
       image: product.images?.length ? product.images : seoImage ? [seoImage] : undefined,
-      description: cleanText(product.description || `Compra ${product.name} en Elite Store.`, 300),
+      description: cleanText(product.description || `Compra ${product.name} en ${storefront.fullName}.`, 300),
       sku: product.id,
+      brand: {
+        '@type': 'Brand',
+        name: storefront.footerTitle,
+      },
       offers: {
         '@type': 'Offer',
         priceCurrency: 'USD',
         price: price.toFixed(2),
         availability: isOutOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
-        url: absoluteUrl(`/product/${product.id}`),
+        url: absoluteUrl(storefront.productPath(product.id)),
       },
     }
-  }, [product, priceRange.min, isOutOfStock, seoImage])
+  }, [product, priceRange.min, isOutOfStock, seoImage, storefront])
 
   usePageMeta({
     title: product
-      ? `${product.name} | Elite Store`
+      ? `${product.name} | ${storefront.footerTitle}`
       : productMissing
-        ? 'Producto no encontrado | Elite Store'
-        : 'Producto | Elite Store',
+        ? `Producto no encontrado | ${storefront.footerTitle}`
+        : `Producto | ${storefront.footerTitle}`,
     description: product
-      ? cleanText(product.description || `Compra ${product.name} en Elite Store.`)
+      ? cleanText(product.description || `Compra ${product.name} en ${storefront.fullName}.`)
       : productMissing
         ? 'El producto que buscas no está disponible.'
-        : 'Cargando producto de Elite Store.',
+        : `Cargando producto de ${storefront.fullName}.`,
     image: seoImage,
-    path: product ? `/product/${product.id}` : `/product/${id}`,
+    path: product ? storefront.productPath(product.id) : storefront.productPath(id),
     type: 'product',
     noindex: productMissing,
     jsonLd: seoJsonLd,
@@ -150,7 +158,7 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <main className={styles.page}>
+      <main className={pageClass}>
         <div className={styles.container}>
           <div className={styles.skeletonLayout}>
             <div className={`skeleton ${styles.skeletonGallery}`} />
@@ -168,12 +176,12 @@ export default function ProductDetailPage() {
 
   if (error || !product) {
     return (
-      <main className={styles.page}>
+      <main className={pageClass}>
         <div className={styles.container}>
           <div className={styles.notFound}>
             <h2>Producto no encontrado</h2>
             <p>El producto que buscas no existe o ya no está disponible.</p>
-            <Link to="/catalog" className={styles.backLink}>
+            <Link to={storefront.catalogPath} className={styles.backLink}>
               <ArrowLeft size={18} /> Ver catálogo
             </Link>
           </div>
@@ -183,15 +191,15 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <main className={pageClass}>
       <div className={styles.container}>
         {/* Breadcrumb */}
         <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-          <Link to="/" className={styles.breadcrumbLink}>
+          <Link to={storefront.homePath} className={styles.breadcrumbLink}>
             <Home size={14} /> Inicio
           </Link>
           <ChevronRightIcon size={14} />
-          <Link to="/catalog" className={styles.breadcrumbLink}>Colección</Link>
+          <Link to={storefront.catalogPath} className={styles.breadcrumbLink}>{storefront.catalogTitle}</Link>
           <ChevronRightIcon size={14} />
           <span className={styles.breadcrumbCurrent}>{product.name}</span>
         </nav>
@@ -232,6 +240,12 @@ export default function ProductDetailPage() {
                   <div className={styles.imgCounter}>{activeImg + 1} / {galleryImages.length}</div>
                   <div className={styles.zoomHint}><Maximize2 size={14} /> Ampliar</div>
                 </>
+              ) : storefront.id === 'usa' ? (
+                <CategoryArtwork
+                  category={product.categories?.name}
+                  label={product.categories?.name}
+                  size="detail"
+                />
               ) : (
                 <div className={styles.noImage}>
                   <ShoppingBag size={48} />
@@ -284,32 +298,34 @@ export default function ProductDetailPage() {
             <div className={styles.divider} />
 
             {/* Models */}
-            <div className={styles.section}>
-              <span className={styles.sectionLabel}>Modelo</span>
-              {models.length > 0 ? (
-                <div className={styles.modelGrid}>
-                  {models.map((model) => {
-                    const active = selectedModel?.key === model.key
-                    return (
-                      <button
-                        key={model.key}
-                        type="button"
-                        className={`${styles.modelBtn} ${active ? styles.modelBtnActive : ''}`}
-                        onClick={() => handleModelSelect(model)}
-                        title={model.key}
-                      >
-                        {model.image ? (
-                          <img src={model.image} alt={model.key} className={styles.modelBtnImg} />
-                        ) : null}
-                        <span className={styles.modelBtnLabel}>{model.key}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className={styles.outOfStockMsg}>Sin stock disponible</p>
-              )}
-            </div>
+            {models.length !== 1 && (
+              <div className={styles.section}>
+                <span className={styles.sectionLabel}>Modelo</span>
+                {models.length > 0 ? (
+                  <div className={styles.modelGrid}>
+                    {models.map((model) => {
+                      const active = selectedModel?.key === model.key
+                      return (
+                        <button
+                          key={model.key}
+                          type="button"
+                          className={`${styles.modelBtn} ${active ? styles.modelBtnActive : ''}`}
+                          onClick={() => handleModelSelect(model)}
+                          title={model.key}
+                        >
+                          {model.image ? (
+                            <img src={model.image} alt={model.key} className={styles.modelBtnImg} />
+                          ) : null}
+                          <span className={styles.modelBtnLabel}>{model.key}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className={styles.outOfStockMsg}>Sin stock disponible</p>
+                )}
+              </div>
+            )}
 
             {/* Sizes */}
             {selectedModel && selectedModel.sizes.length > 0 && !selectedModel.sizes.includes('Única') && (
