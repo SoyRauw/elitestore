@@ -314,7 +314,7 @@ export default function ProductDetailPage() {
             {/* Sizes */}
             {selectedModel && selectedModel.sizes.length > 0 && !selectedModel.sizes.includes('Única') && (
               <div className={styles.section}>
-                <span className={styles.sectionLabel}>Talla</span>
+                <span className={styles.sectionLabel}>{product.categories?.size_label || 'Talla'}</span>
                 <div className={styles.sizeGrid}>
                   {selectedModel.sizes.map((size) => {
                     const active = selectedSize === size

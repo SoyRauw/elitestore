@@ -20,9 +20,9 @@ export default function AdminCategories() {
   const [storeId, setStoreId] = useState('elite')
   const [name, setName] = useState('')
   const [prefix, setPrefix] = useState('')
+  const [sizeMode, setSizeMode] = useState('list')
   const [sizeLabel, setSizeLabel] = useState('Talla')
   const [sizeOptions, setSizeOptions] = useState('')
-  const [sizesEnabled, setSizesEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState('')
@@ -41,9 +41,9 @@ export default function AdminCategories() {
     setStoreId(store === 'all' ? 'both' : store)
     setName('')
     setPrefix('')
+    setSizeMode('list')
     setSizeLabel('Talla')
     setSizeOptions(DEFAULT_OPTIONS.join(', '))
-    setSizesEnabled(true)
     setShowForm(true)
   }
 
@@ -52,9 +52,16 @@ export default function AdminCategories() {
     setStoreId(cat.store_id || 'elite')
     setName(cat.name)
     setPrefix(cat.prefix || '')
+    const options = cat.size_options || []
+    setSizeMode(
+      cat.sizes_enabled === false
+        ? 'none'
+        : options.length > 0
+          ? 'list'
+          : 'manual'
+    )
     setSizeLabel(cat.size_label || 'Talla')
-    setSizeOptions((cat.size_options || DEFAULT_OPTIONS).join(', '))
-    setSizesEnabled(cat.sizes_enabled !== false)
+    setSizeOptions(((cat.size_options || DEFAULT_OPTIONS)).join(', '))
     setShowForm(true)
   }
 
@@ -85,11 +92,11 @@ export default function AdminCategories() {
       (v) => V.noSpaces(v, 'El prefijo'),
       (v) => V.unique(v, 'El prefijo', otherCategories.map(c => c.prefix)),
     ])
-    errs.sizeLabel = sizesEnabled ? V.required(sizeLabel, 'La etiqueta de medida') : ''
-    if (sizesEnabled && options.length === 0) errs.sizeOptions = 'Debe agregar al menos una medida'
+    errs.sizeLabel = sizeMode !== 'none' ? V.required(sizeLabel, 'La etiqueta de medida') : ''
+    if (sizeMode === 'list' && options.length === 0) errs.sizeOptions = 'Debe agregar al menos una medida'
     Object.keys(errs).forEach(k => { if (!errs[k]) delete errs[k] })
     return errs
-  }, [name, prefix, sizeLabel, options, sizesEnabled, otherCategories])
+  }, [name, prefix, sizeLabel, options, sizeMode, otherCategories])
 
   const hasErrors = useMemo(() => Object.keys(validationErrors).length > 0, [validationErrors])
 
@@ -102,12 +109,13 @@ export default function AdminCategories() {
 
   const executeSave = async () => {
     const finalPrefix = prefix.trim().toUpperCase() || generateCategoryPrefix(name, otherCategories.map(c => c.prefix))
+    const preservedOptions = editCategory?.size_options || []
     const payload = {
       name: name.trim(),
       prefix: finalPrefix,
       size_label: sizeLabel.trim() || 'Talla',
-      size_options: options,
-      sizes_enabled: sizesEnabled,
+      size_options: sizeMode === 'list' ? options : (sizeMode === 'none' ? preservedOptions : []),
+      sizes_enabled: sizeMode !== 'none',
       store_id: storeId,
     }
 
@@ -126,9 +134,9 @@ export default function AdminCategories() {
       setStoreId(store === 'all' ? 'both' : store)
       setName('')
       setPrefix('')
+      setSizeMode('list')
       setSizeLabel('Talla')
       setSizeOptions('')
-      setSizesEnabled(true)
       fetchCategories()
     } catch (e) {
       console.error('Error guardando categoría:', e)
@@ -193,10 +201,16 @@ export default function AdminCategories() {
                   <td>{c.sizes_enabled === false ? 'No aplica' : (c.size_label || 'Talla')}</td>
                   <td style={{ color: 'var(--color-dark-soft)' }}>
                     {c.sizes_enabled === false ? '—' : (
-                      <>
-                        {(c.size_options || []).slice(0, 6).join(', ')}
-                        {(c.size_options || []).length > 6 && '...'}
-                      </>
+                      (c.size_options || []).length === 0 ? (
+                        <span className="badge badge-warning" title="La medida se escribe en cada variante">
+                          Manual
+                        </span>
+                      ) : (
+                        <>
+                          {(c.size_options || []).slice(0, 6).join(', ')}
+                          {(c.size_options || []).length > 6 && '...'}
+                        </>
+                      )
                     )}
                   </td>
                   <td>
@@ -259,26 +273,51 @@ export default function AdminCategories() {
                   <small style={{ color: 'var(--color-dark-soft)', fontSize: '0.8rem' }}>Se usa para generar códigos como BLU-001</small>
                 )}
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={sizesEnabled}
-                  onChange={e => setSizesEnabled(e.target.checked)}
-                />
-                <span style={{ fontWeight: 600 }}>Esta categoría usa tallas/medidas</span>
-              </label>
-              {sizesEnabled && (
+              <div>
+                <label className="label">Tallas o medidas</label>
+                <div className={styles.modeGroup}>
+                  {[
+                    { id: 'none', label: 'No usa' },
+                    { id: 'list', label: 'Lista predefinida' },
+                    { id: 'manual', label: 'Manual' },
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      className={`${styles.modeBtn} ${sizeMode === mode.id ? styles.modeBtnActive : ''}`}
+                      onClick={() => setSizeMode(mode.id)}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+                <p className={styles.hint}>
+                  {sizeMode === 'none'
+                    ? 'Una sola variante por color/modelo, sin talla ni medida.'
+                    : sizeMode === 'list'
+                      ? 'Eliges la talla o medida desde una lista en cada variante.'
+                      : 'La talla o medida se escribe a mano en cada variante (ej. 950ml, 300g, 34x32).'}
+                </p>
+              </div>
+              {sizeMode !== 'none' && (
                 <>
                   <div>
                     <label className="label">Etiqueta de medida</label>
-                    <input className={`input ${validationErrors.sizeLabel ? styles.inputError : ''}`} value={sizeLabel} onChange={e => setSizeLabel(e.target.value)} placeholder="Ej: Talla, Onzas, Talla calzado" />
+                    <input className={`input ${validationErrors.sizeLabel ? styles.inputError : ''}`} value={sizeLabel} onChange={e => setSizeLabel(e.target.value)} placeholder="Ej: Talla, Medida, Peso, Onzas" />
                     {validationErrors.sizeLabel && <span className={styles.fieldError}>{validationErrors.sizeLabel}</span>}
                   </div>
-                  <div>
-                    <label className="label">Medidas disponibles (separadas por comas)</label>
-                    <input className={`input ${validationErrors.sizeOptions ? styles.inputError : ''}`} value={sizeOptions} onChange={e => setSizeOptions(e.target.value)} placeholder="XS, S, M, L, XL" />
-                    {validationErrors.sizeOptions && <span className={styles.fieldError}>{validationErrors.sizeOptions}</span>}
-                  </div>
+                  {sizeMode === 'list' && (
+                    <div>
+                      <label className="label">Medidas disponibles (separadas por comas)</label>
+                      <input className={`input ${validationErrors.sizeOptions ? styles.inputError : ''}`} value={sizeOptions} onChange={e => setSizeOptions(e.target.value)} placeholder="XS, S, M, L, XL" />
+                      {validationErrors.sizeOptions && <span className={styles.fieldError}>{validationErrors.sizeOptions}</span>}
+                    </div>
+                  )}
+                  {sizeMode === 'manual' && (
+                    <p className={styles.hint}>
+                      En el producto verás un campo de texto por variante. Puedes escribir varias medidas separadas por coma al crear las variantes.
+                    </p>
+                  )}
                 </>
               )}
               {error && <p className={styles.formError}>{error}</p>}
@@ -299,8 +338,8 @@ export default function AdminCategories() {
               <ul className={styles.summaryList}>
                 <li><span className={styles.summaryLabel}>Nombre</span><span className={styles.summaryValue}>{name || '—'}</span></li>
                 <li><span className={styles.summaryLabel}>Prefijo</span><span className={styles.summaryValue}>{prefix.trim().toUpperCase() || generateCategoryPrefix(name, otherCategories.map(c => c.prefix)) || '—'}</span></li>
-                <li><span className={styles.summaryLabel}>Etiqueta</span><span className={styles.summaryValue}>{sizesEnabled ? (sizeLabel || '—') : 'No aplica'}</span></li>
-                <li><span className={styles.summaryLabel}>Medidas</span><span className={styles.summaryValue}>{sizesEnabled ? options.length : '—'}</span></li>
+                <li><span className={styles.summaryLabel}>Etiqueta</span><span className={styles.summaryValue}>{sizeMode === 'none' ? 'No aplica' : (sizeLabel || '—')}</span></li>
+                <li><span className={styles.summaryLabel}>Medidas</span><span className={styles.summaryValue}>{sizeMode === 'none' ? '—' : sizeMode === 'manual' ? 'Manual (se escribe en cada variante)' : `${options.length} opciones`}</span></li>
               </ul>
             </ConfirmModal>
           </div>

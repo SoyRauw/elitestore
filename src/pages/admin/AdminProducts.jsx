@@ -14,7 +14,7 @@ import Pagination from '../../components/admin/Pagination'
 import { useStore } from '../../context/StoreContext'
 import {
   generateProductId, generateProductCode, generateVariantCode,
-  sortVariants, variantGroupKey
+  sortVariants, variantGroupKey, sizeSkuSuffix
 } from '../../lib/sku'
 import * as V from '../../lib/validation'
 import styles from './AdminProducts.module.css'
@@ -56,6 +56,15 @@ function collectGalleryImages(variants = []) {
     if (variant.image) push(variant.image)
   })
   return list
+}
+
+function parseManualSizes(value) {
+  return [...new Set(
+    String(value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )]
 }
 
 function sortVariantState(list, productId, sizeOptions) {
@@ -557,7 +566,7 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
   const [variants, setVariants] = useState(initialVariants)
   const [groupImages, setGroupImages] = useState({})
   const [sizesModalOpen, setSizesModalOpen] = useState(false)
-  const [quick, setQuick] = useState({ color: '', model: '', sizes: [], stock: '1', price: '', wholesale: '' })
+  const [quick, setQuick] = useState({ color: '', model: '', sizes: [], manualSizes: '', stock: '1', price: '', wholesale: '' })
   const [pendingFiles, setPendingFiles] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -590,8 +599,14 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
     return categoryUsesSizes ? (category?.size_options || []) : []
   }, [category, categoryUsesSizes])
 
+  const categorySizeMode = !form.category_id || !categoryUsesSizes
+    ? 'none'
+    : categorySizeOptions.length > 0
+      ? 'list'
+      : 'manual'
+
   useEffect(() => {
-    setQuick((q) => ({ ...q, sizes: categorySizeOptions }))
+    setQuick((q) => ({ ...q, sizes: categorySizeOptions, manualSizes: '' }))
   }, [categorySizeOptions])
 
   const costPrice = parseFloat(form.cost_price) || 0
@@ -735,6 +750,18 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
     variants.forEach(v => { if (v.variant_name) values.add(v.variant_name) })
     return [...values].sort((a, b) => a.localeCompare(b, 'es'))
   }, [allProducts, variants])
+
+  const getAllSizes = useMemo(() => {
+    const values = new Set()
+    allProducts.forEach(p => {
+      if (form.category_id && p.category_id !== form.category_id) return
+      ;(p.product_variants || []).forEach(v => {
+        if (v.size) values.add(v.size)
+      })
+    })
+    variants.forEach(v => { if (v.size) values.add(v.size) })
+    return [...values].sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }))
+  }, [allProducts, variants, form.category_id])
 
   const sortState = (list) => sortVariantState(list, form.id, categorySizeOptions)
 
@@ -911,12 +938,12 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
         updated.barcode = value
       }
       if (field === 'size') {
-        const oldSize = String(v.size || '').trim()
-        const newSize = String(value || '').trim()
+        const oldSuffix = sizeSkuSuffix(v.size)
+        const newSuffix = sizeSkuSuffix(value)
         const sku = String(v.sku || '')
-        if (oldSize && sku.toUpperCase().endsWith(`-${oldSize.toUpperCase()}`)) {
-          const base = sku.slice(0, sku.length - oldSize.length - 1)
-          const nextSku = newSize ? `${base}-${newSize}` : base
+        if (oldSuffix && sku.toUpperCase().endsWith(`-${oldSuffix}`)) {
+          const base = sku.slice(0, sku.length - oldSuffix.length - 1)
+          const nextSku = newSuffix ? `${base}-${newSuffix}` : base
           updated.sku = nextSku
           if (!v.barcode || String(v.barcode).toUpperCase() === sku.toUpperCase()) {
             updated.barcode = nextSku
@@ -998,23 +1025,36 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
       setError('Selecciona una categoría')
       return
     }
-    if (categoryUsesSizes && quick.sizes.length === 0) {
+    if (categorySizeMode === 'list' && quick.sizes.length === 0) {
       setError('Selecciona al menos una talla')
       return
     }
+    const manualSizes = categorySizeMode === 'manual' ? parseManualSizes(quick.manualSizes) : []
     const color = quick.color.trim()
     const model = quick.model.trim()
     const targetKey = `${color.toLowerCase()}::${model.toLowerCase()}`
     const existingGroup = groupList.find(g => g.key === targetKey)
     const template = existingGroup?.variants[existingGroup.variants.length - 1] || null
     const existingSizes = new Set((existingGroup?.variants || []).map(v => v.size).filter(Boolean))
-    if (!categoryUsesSizes && (existingGroup?.variants || []).some(v => !v.size)) {
+    if (categorySizeMode === 'none' && (existingGroup?.variants || []).some(v => !v.size)) {
       setError('Ya existe una variante para ese color/modelo')
       return
     }
-    const sizes = categoryUsesSizes ? quick.sizes.filter(size => !existingSizes.has(size)) : ['']
-    if (categoryUsesSizes && sizes.length === 0) {
+    const sizes = categorySizeMode === 'list'
+      ? quick.sizes.filter(size => !existingSizes.has(size))
+      : categorySizeMode === 'manual'
+        ? (manualSizes.length ? manualSizes.filter(size => !existingSizes.has(size)) : [''])
+        : ['']
+    if (categorySizeMode === 'list' && sizes.length === 0) {
       setError('Esas tallas ya existen para ese color/modelo')
+      return
+    }
+    if (categorySizeMode === 'manual' && manualSizes.length > 0 && sizes.length === 0) {
+      setError('Esas medidas ya existen para ese color/modelo')
+      return
+    }
+    if (categorySizeMode === 'manual' && manualSizes.length === 0 && (existingGroup?.variants || []).some(v => !v.size)) {
+      setError('Ya existe una variante sin medida para ese color/modelo')
       return
     }
     const images = existingGroup ? collectGalleryImages(existingGroup.variants) : []
@@ -1028,7 +1068,7 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
     }))
     setVariants(prev => sortState([...prev, ...additions]))
     setError('')
-    setQuick(q => ({ ...q, color: '', model: '' }))
+    setQuick(q => ({ ...q, color: '', model: '', manualSizes: '' }))
   }
 
   const duplicateLastColor = () => {
@@ -1614,39 +1654,40 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
             </div>
 
             <div>
-              <label className="label">{categoryUsesSizes ? categorySizeLabel : 'Talla / medida'}</label>
-              {categoryUsesSizes ? (
+              <label className="label">{categorySizeMode === 'none' ? 'Talla / medida' : categorySizeLabel}</label>
+              {categorySizeMode === 'list' ? (
                 <div className={styles.sizeChips}>
-                  {categorySizeOptions.length === 0 ? (
-                    <span className={styles.quickHint}>
-                      {form.category_id
-                        ? 'No hay tallas configuradas en esta categoría.'
-                        : 'Selecciona una categoría.'}
-                    </span>
-                  ) : (
-                    <>
-                      {categorySizeOptions.map(size => {
-                        const active = quick.sizes.includes(size)
-                        return (
-                          <button
-                            key={size}
-                            type="button"
-                            className={`${styles.sizeChip} ${active ? styles.sizeChipActive : ''}`}
-                            onClick={() => setQuick(q => ({
-                              ...q,
-                              sizes: active ? q.sizes.filter(s => s !== size) : [...q.sizes, size],
-                            }))}
-                          >
-                            {size}
-                          </button>
-                        )
-                      })}
-                      <button type="button" className={styles.sizeChip} onClick={() => setQuick(q => ({ ...q, sizes: categorySizeOptions }))}>
-                        Todas
+                  {categorySizeOptions.map(size => {
+                    const active = quick.sizes.includes(size)
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        className={`${styles.sizeChip} ${active ? styles.sizeChipActive : ''}`}
+                        onClick={() => setQuick(q => ({
+                          ...q,
+                          sizes: active ? q.sizes.filter(s => s !== size) : [...q.sizes, size],
+                        }))}
+                      >
+                        {size}
                       </button>
-                    </>
-                  )}
+                    )
+                  })}
+                  <button type="button" className={styles.sizeChip} onClick={() => setQuick(q => ({ ...q, sizes: categorySizeOptions }))}>
+                    Todas
+                  </button>
                 </div>
+              ) : categorySizeMode === 'manual' ? (
+                <>
+                  <input
+                    className="input"
+                    list="manual-size-options"
+                    value={quick.manualSizes}
+                    onChange={(e) => setQuick(q => ({ ...q, manualSizes: e.target.value }))}
+                    placeholder="Ej: 950ml, 300g, 34x32"
+                  />
+                  <span className={styles.quickHint}>Escribe una o varias medidas separadas por coma.</span>
+                </>
               ) : (
                 <span className={styles.quickHint}>
                   {form.category_id
@@ -1655,6 +1696,10 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
                 </span>
               )}
             </div>
+
+            <datalist id="manual-size-options">
+              {getAllSizes.map(size => <option key={size} value={size} />)}
+            </datalist>
 
             <div className={`${styles.quickGrid} ${styles.quickGrid3}`}>
               <div className={styles.field}>
@@ -1676,7 +1721,7 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
                 type="button"
                 className="btn btn-primary"
                 onClick={addQuickVariants}
-                disabled={!form.category_id || (categoryUsesSizes && quick.sizes.length === 0)}
+                disabled={!form.category_id || (categorySizeMode === 'list' && quick.sizes.length === 0)}
               >
                 <Plus size={14} /> Agregar variantes
               </button>
@@ -1710,9 +1755,11 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
                 <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={duplicateLastVariant}>
                   <Copy size={12} /> Duplicar última
                 </button>
-                <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={() => setSizesModalOpen(true)}>
-                  <Plus size={12} /> Agregar {categorySizeLabel.toLowerCase()}s
-                </button>
+                {categorySizeMode === 'list' && (
+                  <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={() => setSizesModalOpen(true)}>
+                    <Plus size={12} /> Agregar {categorySizeLabel.toLowerCase()}s
+                  </button>
+                )}
                 <button type="button" className="btn btn-outline" style={{ fontSize: '12px', padding: '0.4rem 0.6rem' }} onClick={completeMissingSKUs}>
                   <RefreshCw size={12} /> Completar SKUs
                 </button>
@@ -1767,11 +1814,31 @@ function ProductFormModal({ product, categories, allProducts, defaultStore = 'el
                       <td><input className="input" style={{ minWidth: '90px' }} value={v.color || ''} onChange={(e) => updateVariant(v.id, 'color', e.target.value)} placeholder="Color" /></td>
                       <td><input className="input" style={{ minWidth: '110px' }} value={v.variant_name || ''} onChange={(e) => updateVariant(v.id, 'variant_name', e.target.value)} placeholder="Corazones" /></td>
                       <td>
-                        <select className="input" style={{ minWidth: '70px' }} title="Si cambias la talla, el sufijo del SKU se actualiza automáticamente" value={v.size || ''} onChange={(e) => updateVariant(v.id, 'size', e.target.value)}>
-                          <option value="">—</option>
-                          {categorySizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                          {categorySizeOptions.length === 0 && <option value="" disabled>No hay medidas</option>}
-                        </select>
+                        {categorySizeMode === 'list' ? (
+                          <select className="input" style={{ minWidth: '70px' }} title="Si cambias la talla, el sufijo del SKU se actualiza automáticamente" value={v.size || ''} onChange={(e) => updateVariant(v.id, 'size', e.target.value)}>
+                            <option value="">—</option>
+                            {categorySizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        ) : categorySizeMode === 'manual' ? (
+                          <input
+                            className="input"
+                            style={{ minWidth: '110px' }}
+                            list="manual-size-options"
+                            title={`Escribe la ${categorySizeLabel.toLowerCase()} de esta variante`}
+                            value={v.size || ''}
+                            onChange={(e) => updateVariant(v.id, 'size', e.target.value)}
+                            placeholder={categorySizeLabel}
+                          />
+                        ) : (
+                          <input
+                            className="input"
+                            style={{ minWidth: '90px' }}
+                            value={v.size || ''}
+                            disabled
+                            title="Esta categoría no usa tallas ni medidas"
+                            placeholder="No aplica"
+                          />
+                        )}
                       </td>
                       <td>
                         <input type="number" step="0.01" className={`input ${validationErrors[`${vKey}_price`] ? styles.inputError : ''}`} style={{ minWidth: '80px' }} value={v.price ?? ''} onChange={(e) => updateVariant(v.id, 'price', e.target.value)} placeholder={form.price} />

@@ -41,6 +41,13 @@ export const generateProductId = (categoryName, productName, existingIds = []) =
   return `${base}-${suffix}`
 }
 
+/**
+ * Convierte una talla/medida escrita a mano en un sufijo seguro para SKU.
+ * "950 ml" -> "950ML", "34x32" -> "34X32", "1.27 kg" -> "127KG".
+ */
+export const sizeSkuSuffix = (size) =>
+  normalize(size).replace(/\s+/g, '')
+
 export const generateVariantSKU = (productId, variant, existingSKUs = []) => {
   const parts = [productId]
 
@@ -50,7 +57,7 @@ export const generateVariantSKU = (productId, variant, existingSKUs = []) => {
   const model = normalize(variant.variant_name)
   if (model) parts.push(abbreviate(model, 3))
 
-  const size = normalize(variant.size)
+  const size = sizeSkuSuffix(variant.size)
   if (size) parts.push(size)
 
   const base = parts.filter(Boolean).join('-')
@@ -118,7 +125,8 @@ export const generateVariantCode = (productCode, size, existingVariantCodes = []
     }
   })
   const next = max + 1
-  const sizeSuffix = size ? `-${size}` : ''
+  const sizeValue = sizeSkuSuffix(size)
+  const sizeSuffix = sizeValue ? `-${sizeValue}` : ''
   return `${productCode}-${String(next).padStart(3, '0')}${sizeSuffix}`
 }
 
