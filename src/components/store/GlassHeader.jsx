@@ -21,11 +21,11 @@ export default function GlassHeader({
         '--glass-accent': accent,
         backdropFilter:
           variant === 'dark'
-            ? 'blur(20px) saturate(160%)'
+            ? 'blur(26px) saturate(170%)'
             : 'blur(22px) saturate(160%)',
         WebkitBackdropFilter:
           variant === 'dark'
-            ? 'blur(20px) saturate(160%)'
+            ? 'blur(26px) saturate(170%)'
             : 'blur(22px) saturate(160%)',
       }}
       initial={{ y: -28, opacity: 0 }}
