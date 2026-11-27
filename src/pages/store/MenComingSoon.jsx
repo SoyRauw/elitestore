@@ -104,6 +104,7 @@ export default function MenComingSoon() {
         onClose={() => setCartOpen(false)}
         browseLabel="Ver tiendas"
         browsePath="/"
+        theme="men"
       />
     </main>
   )

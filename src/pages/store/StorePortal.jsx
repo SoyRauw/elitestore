@@ -114,6 +114,7 @@ export default function StorePortal() {
         onClose={() => setCartOpen(false)}
         browseLabel="Ver tiendas"
         onBrowse={() => setCartOpen(false)}
+        theme="glass"
       />
     </main>
   )

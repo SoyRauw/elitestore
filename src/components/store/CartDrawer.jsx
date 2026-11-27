@@ -29,10 +29,18 @@ export default function CartDrawer({
   browseLabel = 'Ver catálogo',
   browsePath = null,
   onBrowse = null,
+  theme = 'women',
 }) {
   const navigate = useNavigate()
   const { percentageFor } = useDayDiscounts()
   const { items, removeItem, updateQuantity, clearCart } = useCartStore()
+  const themeClass = styles[theme] || ''
+  const drawerStyle = theme === 'glass'
+    ? {
+        backdropFilter: 'blur(26px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(26px) saturate(150%)',
+      }
+    : undefined
 
   const pricedItems = useMemo(() => items.map((item) => {
     const storeId = item.store_id || 'elite'
@@ -90,7 +98,7 @@ export default function CartDrawer({
         <>
           {/* Overlay */}
           <motion.div
-            className={styles.overlay}
+            className={`${styles.overlay} ${themeClass}`}
             variants={overlayVariants}
             initial="hidden"
             animate="visible"
@@ -100,7 +108,9 @@ export default function CartDrawer({
 
           {/* Drawer */}
           <motion.div
-            className={styles.drawer}
+            className={`${styles.drawer} ${themeClass}`}
+            style={drawerStyle}
+            data-cart-theme={theme}
             variants={drawerVariants}
             initial="hidden"
             animate="visible"

@@ -143,6 +143,7 @@ export default function Navbar() {
         onClose={() => setCartOpen(false)}
         browseLabel={storefront.catalogPath ? 'Ver catálogo' : 'Ver tiendas'}
         browsePath={storefront.catalogPath || '/'}
+        theme={storefront.theme}
       />
     </>
   )
