@@ -9,7 +9,13 @@ export default function PortalFooter() {
   const waText = encodeURIComponent('Hola Elite Store 👋, quiero información de las tiendas')
 
   return (
-    <footer className={styles.footer}>
+    <footer
+      className={styles.footer}
+      style={{
+        backdropFilter: 'blur(18px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(150%)',
+      }}
+    >
       <span className={styles.copy}>© 2026 Elite Store</span>
 
       <div className={styles.socials}>

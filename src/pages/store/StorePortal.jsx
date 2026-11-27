@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import GlassHeader from '../../components/store/GlassHeader'
 import PortalFooter from '../../components/store/PortalFooter'
@@ -9,18 +8,19 @@ import { useCartStore } from '../../store/cartStore'
 import { usePageMeta } from '../../lib/seo'
 import { PORTAL_STORES } from '../../lib/storefronts'
 import fondoImg from '../../assets/fondo.webp'
-import womenLogo from '../../assets/logo.png'
 import menMarkLight from '../../assets/portal/men-mark-light.png'
 import usaLogo from '../../assets/portal/usa-logo.webp'
 import styles from './StorePortal.module.css'
 
-const MotionLink = motion.create(Link)
-
 const DEFAULT_ACCENT = '#C4788A'
+
+const GLASS_BLUR = {
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
+}
 
 export default function StorePortal() {
   const [cartOpen, setCartOpen] = useState(false)
-  const [hovered, setHovered] = useState(null)
   const count = useCartStore((s) => s.items.reduce((sum, item) => sum + item.quantity, 0))
 
   usePageMeta({
@@ -30,94 +30,81 @@ export default function StorePortal() {
     path: '/',
   })
 
-  const hoveredStore = PORTAL_STORES.find((store) => store.id === hovered)
-  const accent = hoveredStore?.accent || DEFAULT_ACCENT
-
   return (
-    <main className={styles.page} style={{ '--portal-accent': accent }}>
+    <main className={styles.page} style={{ '--portal-accent': DEFAULT_ACCENT }}>
       <h1 className="sr-only">Elite Store | Women, Men&apos;s y USA Super Store</h1>
 
       <GlassHeader
-        logoSrc={womenLogo}
-        logoAlt="Elite Store"
-        title="ELITE STORE"
-        accent={accent}
+        variant="dark"
+        eyebrow="ELITE STORE"
+        title="NUESTRAS TIENDAS"
+        accent={DEFAULT_ACCENT}
         homePath="/"
         onCartOpen={() => setCartOpen(true)}
         cartCount={count}
       />
 
       <section className={styles.cards} aria-label="Tiendas de Elite Store">
-        {PORTAL_STORES.map((store, index) => {
-          const isDimmed = hovered && hovered !== store.id
-          return (
-            <MotionLink
-              key={store.id}
-              to={store.homePath}
-              className={[
-                styles.card,
-                styles[store.id],
-                isDimmed ? styles.dimmed : '',
-              ].filter(Boolean).join(' ')}
-              aria-label={`Entrar a ${store.fullName}`}
-              onMouseEnter={() => setHovered(store.id)}
-              onMouseLeave={() => setHovered(null)}
-              onFocus={() => setHovered(store.id)}
-              onBlur={() => setHovered(null)}
-              initial={{ opacity: 0, y: 26 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.7,
-                delay: 0.15 + index * 0.09,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <div className={styles.bgLayer} aria-hidden="true">
-                {store.id === 'elite' ? (
-                  <img src={fondoImg} alt="" className={styles.bgImage} fetchPriority="high" />
-                ) : (
-                  <>
-                    <span className={styles.bgPattern} />
-                    <img
-                      src={store.id === 'men' ? menMarkLight : usaLogo}
-                      alt=""
-                      className={styles.watermark}
-                    />
-                  </>
+        {PORTAL_STORES.map((store) => (
+          <Link
+            key={store.id}
+            to={store.homePath}
+            className={[styles.card, styles[store.id]].filter(Boolean).join(' ')}
+            aria-label={`Entrar a ${store.fullName}`}
+          >
+            <div className={styles.bgLayer} aria-hidden="true">
+              {store.id === 'elite' ? (
+                <img
+                  src={fondoImg}
+                  alt=""
+                  className={styles.bgImage}
+                  fetchPriority="high"
+                  draggable={false}
+                />
+              ) : (
+                <>
+                  <span className={styles.bgPattern} />
+                  <img
+                    src={store.id === 'men' ? menMarkLight : usaLogo}
+                    alt=""
+                    className={styles.watermark}
+                    draggable={false}
+                  />
+                </>
+              )}
+            </div>
+            <span className={styles.overlay} aria-hidden="true" />
+            <span className={styles.grain} aria-hidden="true" />
+
+            <div className={styles.content}>
+              <div className={styles.topRow}>
+                <span className={styles.index}>{store.portalIndex}</span>
+                {store.portalBadge && (
+                  <span className={styles.badge} style={GLASS_BLUR}>{store.portalBadge}</span>
                 )}
               </div>
-              <span className={styles.overlay} aria-hidden="true" />
-              <span className={styles.grain} aria-hidden="true" />
 
-              <div className={styles.content}>
-                <div className={styles.topRow}>
-                  <span className={styles.index}>{store.portalIndex}</span>
-                  {store.portalBadge && (
-                    <span className={styles.badge}>{store.portalBadge}</span>
-                  )}
-                </div>
-
-                <div className={styles.logoWrap}>
-                  <img
-                    src={store.portalLogo}
-                    alt={store.fullName}
-                    className={styles.logo}
-                    loading="eager"
-                    decoding="async"
-                  />
-                </div>
-
-                <div className={styles.bottom}>
-                  <span className={styles.label}>{store.portalLabel}</span>
-                  <span className={styles.tagline}>{store.portalTagline}</span>
-                  <span className={styles.cta}>
-                    {store.portalCta} <ArrowRight size={14} />
-                  </span>
-                </div>
+              <div className={styles.logoWrap}>
+                <img
+                  src={store.portalLogo}
+                  alt={store.fullName}
+                  className={styles.logo}
+                  loading="eager"
+                  decoding="async"
+                  draggable={false}
+                />
               </div>
-            </MotionLink>
-          )
-        })}
+
+              <div className={styles.bottom}>
+                <span className={styles.label}>{store.portalLabel}</span>
+                <span className={styles.tagline}>{store.portalTagline}</span>
+                <span className={styles.cta} style={GLASS_BLUR}>
+                  {store.portalCta} <ArrowRight size={14} />
+                </span>
+              </div>
+            </div>
+          </Link>
+        ))}
       </section>
 
       <PortalFooter />

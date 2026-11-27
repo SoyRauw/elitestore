@@ -213,13 +213,18 @@
 
 /* === USA THEME === */
 .navbar.usa.scrolled {
-  background: rgba(255, 248, 238, 0.97);
+  background: rgba(238, 243, 251, 0.97);
   border-bottom-color: rgba(185, 28, 28, 0.16);
 }
 
 .navbar.usa.menuOpenState {
-  background: #fff8ee;
+  background: #eef3fb;
   border-bottom-color: rgba(185, 28, 28, 0.16);
+}
+
+.usa .mobileMenu {
+  background: #eef3fb;
+  border-top-color: rgba(185, 28, 28, 0.12);
 }
 
 .usa .navLink:hover,
@@ -232,7 +237,7 @@
 }
 
 .usa .cartBtn {
-  background: #fff8ee;
+  background: #eef3fb;
   border-color: rgba(185, 28, 28, 0.2);
   color: #14213d;
 }
@@ -245,7 +250,7 @@
 
 .usa .cartBadge {
   background: linear-gradient(135deg, #b91c1c, #7f1d1d);
-  border-color: #fff8ee;
+  border-color: #eef3fb;
 }
 
 .usa .navTitle {
@@ -253,13 +258,13 @@
 }
 
 .usa .menuBtn {
-  background: #fff8ee;
+  background: #eef3fb;
   border-color: rgba(185, 28, 28, 0.2);
   color: #14213d;
 }
 
 .navbar.usa {
-  background: rgba(255, 248, 238, 0.97);
+  background: rgba(238, 243, 251, 0.97);
   border-bottom: 1px solid rgba(185, 28, 28, 0.12);
   box-shadow: 0 6px 22px rgba(20, 33, 61, 0.06);
 }

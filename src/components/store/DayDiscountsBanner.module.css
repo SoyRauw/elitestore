@@ -42,7 +42,7 @@
 
 .banner.usa {
   border-color: rgba(185, 28, 28, 0.18);
-  background: linear-gradient(135deg, #fff8ee, rgba(185, 28, 28, 0.08));
+  background: linear-gradient(135deg, #f7f9ff 0%, #e6efff 100%);
 }
 
 .usa .label {

@@ -413,7 +413,15 @@
 
 /* === USA THEME === */
 .page.usa {
-  background: #fff8ee;
+  background: #eef3fb;
+}
+
+.usa .layout {
+  border: 1px solid rgba(20, 33, 61, 0.06);
+}
+
+.usa .galleryCol {
+  background: linear-gradient(135deg, #f7f9ff 0%, #e4ecfa 100%);
 }
 
 .usa .breadcrumbLink {

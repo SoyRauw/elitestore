@@ -101,28 +101,33 @@
 
 /* === USA THEME === */
 .footer.usa {
-  background: #fff8ee;
-  border-top-color: rgba(185, 28, 28, 0.15);
-  color: #5b6475;
+  background: #14213d;
+  border-top-color: rgba(242, 193, 78, 0.24);
+  color: rgba(255, 248, 238, 0.68);
 }
 
 .footer.usa .logoText {
-  color: #14213d;
+  color: #fff8ee;
   font-family: var(--font-body);
   font-weight: 800;
 }
 
 .footer.usa .col h4 {
-  color: #14213d;
+  color: #f2c14e;
+}
+
+.footer.usa .nav a,
+.footer.usa .socialLinks a {
+  color: rgba(255, 248, 238, 0.68);
 }
 
 .footer.usa .nav a:hover,
 .footer.usa .socialLinks a:hover {
-  color: #b91c1c;
+  color: #f2c14e;
 }
 
 .footer.usa .bottom {
-  background: #fdf0e2;
-  border-top-color: rgba(185, 28, 28, 0.12);
-  color: #5b6475;
+  background: #0d1629;
+  border-top-color: rgba(242, 193, 78, 0.16);
+  color: rgba(255, 248, 238, 0.55);
 }

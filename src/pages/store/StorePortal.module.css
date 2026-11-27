@@ -21,7 +21,8 @@
   isolation: isolate;
   text-decoration: none;
   color: white;
-  transition: filter 0.5s ease;
+  cursor: pointer;
+  transition: filter 0.45s ease;
 }
 
 .card:not(:last-child) {
@@ -33,8 +34,10 @@
   outline-offset: -6px;
 }
 
-.dimmed {
-  filter: brightness(0.78) saturate(0.9);
+@media (hover: hover) {
+  .cards:hover .card:not(:hover) {
+    filter: brightness(0.78) saturate(0.9);
+  }
 }
 
 .bgLayer {
@@ -42,6 +45,7 @@
   inset: 0;
   z-index: -3;
   overflow: hidden;
+  pointer-events: none;
   transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -53,11 +57,13 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none;
 }
 
 .bgPattern {
   position: absolute;
   inset: 0;
+  pointer-events: none;
 }
 
 .men .bgPattern {
@@ -99,6 +105,7 @@
   position: absolute;
   inset: 0;
   z-index: -2;
+  pointer-events: none;
 }
 
 .elite .overlay {
@@ -133,6 +140,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
+  pointer-events: none;
   opacity: 0.08;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
@@ -283,16 +291,22 @@
 
 @media (max-width: 900px) {
   .page {
-    overflow: visible;
+    height: 100svh;
+    min-height: 100svh;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   .cards {
-    grid-template-columns: 1fr;
+    height: 100svh;
     min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
   }
 
   .card {
-    min-height: 72svh;
+    min-height: 0;
+    height: 100%;
   }
 
   .card:not(:last-child) {
@@ -301,29 +315,163 @@
   }
 
   .content {
-    padding: 96px 1.25rem 64px;
+    padding: 0.65rem 1rem 0.75rem;
+  }
+
+  .card:first-child .content {
+    padding-top: 5.1rem;
+  }
+
+  .card:last-child .content {
+    padding-bottom: 3.3rem;
+  }
+
+  .topRow {
+    min-height: 1rem;
+  }
+
+  .index {
+    font-size: 0.58rem;
+  }
+
+  .badge {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.52rem;
+  }
+
+  .logoWrap {
+    min-height: 0;
+    padding: 0.15rem 0;
   }
 
   .logo {
-    max-width: min(50%, 190px);
-    max-height: 24vh;
+    max-width: min(30%, 120px);
+    max-height: 12svh;
   }
 
   .men .logo {
-    max-width: min(44%, 180px);
+    max-width: min(34%, 120px);
+    max-height: 11svh;
   }
 
   .usa .logo {
-    max-width: min(56%, 205px);
+    max-width: min(42%, 150px);
+    max-height: 13svh;
+  }
+
+  .bottom {
+    gap: 0.15rem;
   }
 
   .label {
-    font-size: 1.05rem;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+  }
+
+  .elite .label {
+    letter-spacing: 0.2em;
+  }
+
+  .tagline {
+    font-size: 0.66rem;
+    line-height: 1.25;
   }
 
   .cta {
+    margin-top: 0.2rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.58rem;
     opacity: 1;
     transform: none;
+  }
+}
+
+@media (max-width: 900px) and (max-height: 700px) {
+  .content {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
+
+  .card:first-child .content {
+    padding-top: 4.6rem;
+  }
+
+  .card:last-child .content {
+    padding-bottom: 3rem;
+  }
+
+  .logo {
+    max-width: min(26%, 100px);
+    max-height: 8svh;
+  }
+
+  .men .logo {
+    max-width: min(30%, 100px);
+  }
+
+  .usa .logo {
+    max-width: min(38%, 120px);
+  }
+
+  .tagline {
+    display: none;
+  }
+
+  .label {
+    font-size: 0.82rem;
+  }
+
+  .cta {
+    padding: 0.32rem 0.65rem;
+    font-size: 0.54rem;
+  }
+
+  .badge {
+    padding: 0.22rem 0.5rem;
+    font-size: 0.48rem;
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+  }
+
+  .card:not(:last-child) {
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+    border-bottom: none;
+  }
+
+  .content {
+    padding: 6rem 0.6rem 3.4rem;
+  }
+
+  .card:first-child .content {
+    padding-top: 6rem;
+  }
+
+  .card:last-child .content {
+    padding-bottom: 3.4rem;
+  }
+
+  .logo {
+    max-width: 58%;
+    max-height: 22svh;
+  }
+
+  .men .logo {
+    max-width: 62%;
+    max-height: 22svh;
+  }
+
+  .usa .logo {
+    max-width: 72%;
+    max-height: 24svh;
+  }
+
+  .tagline {
+    display: none;
   }
 }
 
