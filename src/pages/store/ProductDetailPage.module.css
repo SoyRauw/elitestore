@@ -436,8 +436,32 @@
   color: #14213d;
 }
 
+.usa .navBtn {
+  border-color: rgba(185, 28, 28, 0.2);
+  color: #14213d;
+}
+
+.usa .navBtn:hover {
+  background: #b91c1c;
+  color: white;
+}
+
+.usa .thumb:hover {
+  border-color: rgba(185, 28, 28, 0.5);
+}
+
+.usa .thumbActive {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.18);
+}
+
 .usa .category {
   color: #b91c1c;
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.usa .divider {
+  background: linear-gradient(to right, rgba(185, 28, 28, 0.2), transparent);
 }
 
 .usa .productName {
@@ -451,6 +475,10 @@
   font-family: var(--font-body);
   font-weight: 800;
   color: #b91c1c;
+}
+
+.usa .modelBtn {
+  border-color: rgba(185, 28, 28, 0.22);
 }
 
 .usa .modelBtnActive {
@@ -483,11 +511,25 @@
 }
 
 .usa .mainImgWrap {
-  background: #fff8ee;
+  background: #f7f9ff;
 }
 
 .usa .sectionLabel {
   color: #14213d;
+}
+
+.usa .detailsFooter {
+  border-top-color: rgba(185, 28, 28, 0.12);
+}
+
+.usa .notFound h2 {
+  color: #14213d;
+  font-family: var(--font-body);
+  font-weight: 800;
+}
+
+.usa .notFound p {
+  color: #5b6475;
 }
 
 /* === DETAILS FOOTER === */

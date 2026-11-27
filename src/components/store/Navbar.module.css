@@ -225,6 +225,19 @@
 .usa .mobileMenu {
   background: #eef3fb;
   border-top-color: rgba(185, 28, 28, 0.12);
+  box-shadow: 0 10px 30px rgba(20, 33, 61, 0.14);
+}
+
+.usa .mobileNavLink {
+  color: #14213d;
+  border-bottom-color: rgba(185, 28, 28, 0.12);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.usa .mobileNavLink:hover,
+.usa .mobileNavLink.active {
+  color: #b91c1c;
 }
 
 .usa .navLink:hover,

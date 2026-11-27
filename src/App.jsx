@@ -71,9 +71,11 @@ function ProtectedRoute({ children }) {
 function StorefrontLayout({ store }) {
   return (
     <StorefrontProvider store={store}>
-      <Navbar />
-      <Outlet />
-      <Footer />
+      <div className={store === 'usa' ? 'usa-theme' : undefined}>
+        <Navbar />
+        <Outlet />
+        <Footer />
+      </div>
     </StorefrontProvider>
   )
 }

@@ -57,7 +57,7 @@ export default function CatalogFilters({
     <AnimatePresence>
       {open && (
         <motion.div
-          className={styles.overlay}
+          className={`${styles.overlay} ${styles[theme] || ''}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

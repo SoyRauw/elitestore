@@ -306,7 +306,7 @@ export default function Catalog() {
         </div>
       ) : filtered.length === 0 ? (
         <motion.div className={styles.empty} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <ShoppingBag size={48} style={{ color: 'var(--color-secondary)' }} />
+          <ShoppingBag size={48} className={styles.emptyIcon} />
           <p>No hay productos para los filtros seleccionados</p>
           <button className={styles.emptyCta} onClick={clearFilters}>Limpiar filtros</button>
         </motion.div>

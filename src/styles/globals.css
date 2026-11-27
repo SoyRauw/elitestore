@@ -243,11 +243,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(196,120,138,0.15);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
 }
 
 .input::placeholder {
-  color: #c0a0a8;
+  color: var(--input-placeholder);
 }
 
 .label {
@@ -291,7 +291,7 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(
     90deg,
     var(--color-cream-dark) 0%,
-    #f9e8ee 50%,
+    var(--skeleton-mid) 50%,
     var(--color-cream-dark) 100%
   );
   background-size: 200% auto;

@@ -73,6 +73,11 @@
   --glass-border: rgba(196, 120, 138, 0.2);
   --glass-blur:   blur(16px);
 
+  /* === FORM / FEEDBACK === */
+  --input-placeholder: #c0a0a8;
+  --input-focus-ring:  rgba(196, 120, 138, 0.15);
+  --skeleton-mid:      #f9e8ee;
+
   /* === TRANSITIONS === */
   --transition-fast:   150ms ease;
   --transition-base:   250ms ease;
@@ -86,4 +91,33 @@
   --z-overlay:  300;
   --z-modal:    400;
   --z-toast:    500;
+}
+
+/* ============================================
+   USA SUPER STORE — Theme tokens
+   Se aplica al layout completo de /usa.
+   ============================================ */
+.usa-theme {
+  --color-primary:       #B91C1C;
+  --color-primary-dark:  #7F1D1D;
+  --color-primary-light: #FCA5A5;
+  --color-secondary:     #93C5FD;
+  --color-cream:         #EEF3FB;
+  --color-cream-dark:    #E4ECFA;
+  --color-dark:          #14213D;
+  --color-dark-soft:     #5B6475;
+
+  --gradient-primary: linear-gradient(135deg, #B91C1C 0%, #7F1D1D 100%);
+  --gradient-pink-soft: linear-gradient(135deg, #F7F9FF 0%, #E4ECFA 100%);
+  --gradient-card: linear-gradient(180deg, rgba(238, 243, 251, 0) 0%, rgba(185, 28, 28, 0.06) 100%);
+
+  --shadow-sm: 0 1px 3px rgba(20, 33, 61, 0.08);
+  --shadow-md: 0 4px 16px rgba(20, 33, 61, 0.12);
+  --shadow-lg: 0 8px 32px rgba(20, 33, 61, 0.18);
+  --shadow-xl: 0 16px 48px rgba(20, 33, 61, 0.22);
+
+  --glass-border: rgba(185, 28, 28, 0.2);
+  --input-placeholder: #8A94A6;
+  --input-focus-ring: rgba(185, 28, 28, 0.15);
+  --skeleton-mid: #F7FAFF;
 }

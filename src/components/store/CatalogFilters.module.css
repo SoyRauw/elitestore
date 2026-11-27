@@ -168,8 +168,39 @@
 }
 
 /* === USA THEME === */
+.overlay.usa {
+  background: rgba(15, 27, 51, 0.5);
+}
+
+.panel.usa {
+  background: #f7f9ff;
+  box-shadow: -20px 0 50px rgba(20, 33, 61, 0.2);
+}
+
+.panel.usa .header,
+.panel.usa .footer {
+  background: #ffffff;
+  border-color: rgba(185, 28, 28, 0.16);
+}
+
 .panel.usa .header {
   border-bottom-color: rgba(185, 28, 28, 0.16);
+}
+
+.panel.usa .footer {
+  border-top-color: rgba(185, 28, 28, 0.16);
+}
+
+.panel.usa .closeBtn {
+  border-color: rgba(185, 28, 28, 0.25);
+  background: #ffffff;
+  color: #14213d;
+}
+
+.panel.usa .closeBtn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #ffffff;
 }
 
 .panel.usa .header h2 {
@@ -184,6 +215,7 @@
 
 .panel.usa .section h3 {
   color: #14213d;
+  font-family: var(--font-body);
 }
 
 .panel.usa .chip {
@@ -205,14 +237,38 @@
 .panel.usa .select {
   border-color: rgba(185, 28, 28, 0.22);
   color: #14213d;
+  background: #ffffff;
 }
 
 .panel.usa .input:focus,
 .panel.usa .select:focus {
   border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.15);
 }
 
 .panel.usa .priceRow,
 .panel.usa .hint {
   color: #5b6475;
+}
+
+.panel.usa :global(.btn-primary) {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  box-shadow: 0 4px 16px rgba(20, 33, 61, 0.15);
+}
+
+.panel.usa .footer :global(.btn) {
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.panel.usa :global(.btn-ghost):hover {
+  background: #e4ecfa;
+}
+
+@media (max-width: 767px) {
+  .panel.usa {
+    box-shadow: 0 -20px 50px rgba(20, 33, 61, 0.22);
+  }
 }
