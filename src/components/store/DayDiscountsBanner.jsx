@@ -13,13 +13,8 @@ export default function DayDiscountsBanner() {
   return (
     <div className={`${styles.banner} ${storefront.id === 'usa' ? styles.usa : ''}`}>
       <span className={styles.label}>
-        <Sparkles size={15} /> Descuentos de hoy
+        <Sparkles size={15} /> Hay descuentos
       </span>
-      <div className={styles.chips}>
-        {promotions.map((promotion) => (
-          <span key={promotion} className={styles.chip}>{promotion}</span>
-        ))}
-      </div>
     </div>
   )
 }

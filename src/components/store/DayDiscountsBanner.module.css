@@ -1,13 +1,13 @@
 .banner {
-  width: min(1100px, calc(100% - 2rem));
+  width: fit-content;
+  max-width: calc(100% - 2rem);
   margin: 0 auto 1.25rem;
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-  padding: 0.7rem 0.9rem;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
   border: 1px solid rgba(196, 120, 138, 0.22);
-  border-radius: 1rem;
+  border-radius: 999px;
   background: linear-gradient(135deg, rgba(253, 246, 240, 0.95), rgba(232, 180, 184, 0.22));
   box-shadow: var(--shadow-sm);
 }
@@ -18,26 +18,9 @@
   gap: 0.4rem;
   color: var(--color-primary-dark);
   font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   white-space: nowrap;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.chip {
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  background: white;
-  border: 1px solid rgba(196, 120, 138, 0.2);
-  color: var(--color-dark);
-  font-size: 0.74rem;
-  font-weight: 600;
 }
 
 .banner.usa {
@@ -49,18 +32,14 @@
   color: #b91c1c;
 }
 
-.usa .chip {
-  border-color: rgba(185, 28, 28, 0.18);
-  color: #14213d;
-}
-
 @media (max-width: 640px) {
   .banner {
-    width: calc(100% - 1.5rem);
+    max-width: calc(100% - 1.5rem);
     margin-bottom: 1rem;
+    padding: 0.45rem 0.8rem;
   }
 
   .label {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
   }
 }
