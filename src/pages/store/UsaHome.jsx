@@ -14,6 +14,7 @@ import { getVariantModels } from '../../lib/sku'
 import { getCategoryVisual } from '../../lib/categoryVisuals'
 import { usePageMeta } from '../../lib/seo'
 import ProductCard from '../../components/store/ProductCard'
+import DayDiscountsBanner from '../../components/store/DayDiscountsBanner'
 import usaLogo from '../../assets/portal/usa-logo.webp'
 import styles from './UsaHome.module.css'
 
@@ -125,6 +126,8 @@ export default function UsaHome() {
           </motion.div>
         </div>
       </section>
+
+      <DayDiscountsBanner />
 
       <section className={styles.categoriesSection} id="categorias">
         <div className={styles.sectionHeader}>

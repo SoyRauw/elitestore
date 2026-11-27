@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { ShoppingBag, Eye } from 'lucide-react'
 import { useProducts } from '../../hooks/useProducts'
 import { useStorefront } from '../../context/StorefrontContext'
+import { useDayDiscounts } from '../../context/DayDiscountsContext'
 import { getVariantModels, getProductPriceRange } from '../../lib/sku'
 import 'swiper/css'
 import 'swiper/css/effect-coverflow'
@@ -16,6 +17,7 @@ import styles from './ClothingCarousel.module.css'
 export default function ClothingCarousel() {
   const navigate = useNavigate()
   const storefront = useStorefront()
+  const { discountFor } = useDayDiscounts()
   const { products, loading } = useProducts({ limit: 10, storeId: storefront.id })
 
   const availableProducts = useMemo(() => {
@@ -74,6 +76,12 @@ export default function ClothingCarousel() {
             const firstModel = models[0] || null
             const image = firstModel?.image || item.images?.[0] || null
             const priceRange = getProductPriceRange(item)
+            const discount = discountFor(storefront.id, item.category_id || item.categories?.id)
+            const discountPercentage = discount?.percentage || 0
+            const basePrice = priceRange.min
+            const displayPrice = discountPercentage > 0
+              ? Math.round(basePrice * (1 - discountPercentage / 100) * 100) / 100
+              : basePrice
             const variantLabel = models.length > 1
               ? `${models.length} modelos`
               : firstModel?.key || null
@@ -82,6 +90,9 @@ export default function ClothingCarousel() {
               <SwiperSlide key={item.id} className={styles.slide}>
                 <div className={styles.card}>
                   {item.featured && <div className={styles.tag}>Destacado</div>}
+                  {discountPercentage > 0 && (
+                    <div className={styles.discountTag}>-{Number(discountPercentage.toFixed(2))}%</div>
+                  )}
 
                   <div
                     className={styles.imageWrap}
@@ -108,7 +119,12 @@ export default function ClothingCarousel() {
                     <p className={styles.category}>{item.categories?.name || 'Ropa'}</p>
                     {variantLabel && <span className={styles.variantLabel}>{variantLabel}</span>}
                     <div className={styles.footer}>
-                      <span className={styles.price}>${priceRange.min.toFixed(2)}</span>
+                      <span className={`${styles.price} ${discountPercentage > 0 ? styles.priceDiscounted : ''}`}>
+                        {discountPercentage > 0 && (
+                          <span className={styles.oldPrice}>${basePrice.toFixed(2)}</span>
+                        )}
+                        ${displayPrice.toFixed(2)}
+                      </span>
                       <button
                         type="button"
                         className={styles.addBtn}

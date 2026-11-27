@@ -7,7 +7,7 @@ export const useCartStore = create(
     (set, get) => ({
       items: [],
 
-      addItem: (product, variant) => {
+      addItem: (product, variant, pricing = null) => {
         const { items } = get()
         const existingIndex = items.findIndex((i) => i.id === variant.id)
 
@@ -26,13 +26,16 @@ export const useCartStore = create(
                 product_id: product.id,
                 store_id: product.store_id || 'elite',
                 name: product.name,
+                category_id: product.category_id || product.categories?.id || null,
                 category_name: product.categories?.name || null,
                 variant_name: variant.variant_name,
                 color: variant.color,
                 size: variant.size,
                 size_label: product.categories?.size_label || 'Talla',
                 sku: variant.sku,
-                price: variant.price,
+                price: pricing?.price ?? variant.price,
+                original_price: pricing?.originalPrice ?? variant.price,
+                discount_percentage: pricing?.discountPercentage || 0,
                 image: getVariantImage(product, variant),
                 stock: variant.stock,
                 quantity: 1,

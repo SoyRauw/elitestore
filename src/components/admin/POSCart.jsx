@@ -156,7 +156,7 @@ export default function POSCart({
                       : ''}
                 </p>
                 <span className={styles.dayDiscountNote}>
-                  Aplica solo a las prendas de detal. No se acumula con cupones.
+                  Aplica solo a productos de detal. No se acumula con cupones.
                 </span>
               </div>
             ) : (

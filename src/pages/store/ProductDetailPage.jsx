@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ShoppingBag, Home, ChevronRight as ChevronRi
 import { useProduct } from '../../hooks/useProducts'
 import { useCartStore } from '../../store/cartStore'
 import { useStorefront } from '../../context/StorefrontContext'
+import { useDayDiscounts } from '../../context/DayDiscountsContext'
 import CategoryArtwork from '../../components/store/CategoryArtwork'
 import ImageLightbox from '../../components/store/ImageLightbox'
 import {
@@ -20,7 +21,12 @@ export default function ProductDetailPage() {
   const storefront = useStorefront()
   const pageClass = `${styles.page} ${storefront.id === 'usa' ? styles.usa : ''}`
   const { product, loading, error } = useProduct(id, storefront.id)
+  const { discountFor } = useDayDiscounts()
   const addItem = useCartStore((s) => s.addItem)
+
+  const discountPercentage = product
+    ? discountFor(storefront.id, product.category_id || product.categories?.id)?.percentage || 0
+    : 0
 
   const models = useMemo(() => getVariantModels(product || {}), [product])
   const priceRange = useMemo(() => getProductPriceRange(product || {}), [product])
@@ -90,7 +96,10 @@ export default function ProductDetailPage() {
 
   const seoJsonLd = useMemo(() => {
     if (!product) return null
-    const price = Number(priceRange.min || product.price) || 0
+    const basePrice = Number(priceRange.min || product.price) || 0
+    const price = discountPercentage > 0
+      ? basePrice * (1 - discountPercentage / 100)
+      : basePrice
     return {
       '@context': 'https://schema.org',
       '@type': 'Product',
@@ -110,7 +119,7 @@ export default function ProductDetailPage() {
         url: absoluteUrl(storefront.productPath(product.id)),
       },
     }
-  }, [product, priceRange.min, isOutOfStock, seoImage, storefront])
+  }, [product, priceRange.min, isOutOfStock, seoImage, storefront, discountPercentage])
 
   usePageMeta({
     title: product
@@ -130,17 +139,27 @@ export default function ProductDetailPage() {
     jsonLd: seoJsonLd,
   })
 
-  const displayPrice = useMemo(() => {
+  const basePrice = useMemo(() => {
     if (selectedVariant) return selectedVariant.price || 0
     if (selectedModel) return selectedModel.minPrice || 0
     return priceRange.min || 0
   }, [selectedVariant, selectedModel, priceRange])
 
+  const displayPrice = useMemo(() => {
+    if (discountPercentage <= 0) return basePrice
+    const value = basePrice * (1 - discountPercentage / 100)
+    return Math.round(value * 100) / 100
+  }, [basePrice, discountPercentage])
+
   const displayPriceLabel = selectedVariant ? '' : 'Desde '
 
   const handleAdd = () => {
     if (!selectedVariant || !product) return
-    addItem(product, selectedVariant)
+    addItem(product, selectedVariant, {
+      price: displayPrice,
+      originalPrice: basePrice,
+      discountPercentage,
+    })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
   }
@@ -287,8 +306,16 @@ export default function ProductDetailPage() {
 
             <div className={styles.priceBlock}>
               <span className={styles.price}>
+                {discountPercentage > 0 && (
+                  <span className={styles.oldPrice}>${basePrice.toFixed(2)}</span>
+                )}
                 {displayPriceLabel}${displayPrice.toFixed(2)}
               </span>
+              {discountPercentage > 0 && (
+                <span className={styles.discountBadge}>
+                  -{Number(discountPercentage.toFixed(2))}%
+                </span>
+              )}
             </div>
 
             {product.description && (

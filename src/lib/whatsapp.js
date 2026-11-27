@@ -23,6 +23,10 @@ const formatVariant = (item) => {
 
 export const formatWhatsAppMessage = (cartItems) => {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const savings = cartItems.reduce((sum, item) => {
+    const original = Number(item.original_price ?? item.price) || 0
+    return sum + Math.max(0, original - item.price) * item.quantity
+  }, 0)
 
   const groups = new Map()
   cartItems.forEach((item) => {
@@ -35,8 +39,12 @@ export const formatWhatsAppMessage = (cartItems) => {
   groups.forEach((items, storeId) => {
     lines.push(`${STORE_EMOJIS[storeId] || '🛍️'} *${STORE_LABELS[storeId] || 'Elite Store'}*`)
     items.forEach((item) => {
+      const hasDiscount = Number(item.original_price) > Number(item.price)
+      const priceText = hasDiscount
+        ? `$${item.price.toFixed(2)} (antes $${Number(item.original_price).toFixed(2)})`
+        : `$${item.price.toFixed(2)}`
       lines.push(
-        `• ${item.quantity}x ${formatVariant(item)} - $${(item.price * item.quantity).toFixed(2)}`
+        `• ${item.quantity}x ${formatVariant(item)} - ${priceText}`
       )
     })
     lines.push('')
@@ -48,10 +56,11 @@ export const formatWhatsAppMessage = (cartItems) => {
     '📦 *Mis productos:*',
     ...lines,
     `💰 *Total: $${total.toFixed(2)}*`,
+    savings > 0 ? `🎉 *Descuento aplicado: -$${savings.toFixed(2)}*` : null,
     '',
     '📍 Por favor confirmar disponibilidad y forma de entrega.',
     '¡Gracias! ✨',
-  ].join('\n')
+  ].filter((line) => line !== null).join('\n')
 
   return message
 }

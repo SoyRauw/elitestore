@@ -15,8 +15,8 @@ import { sumBills } from '../../lib/bills'
 import { loadPosDraft, savePosDraft, clearPosDraft, posDraftHasContent } from '../../lib/posDraft'
 import {
   allocateDiscount,
-  fetchDayDiscounts,
-  findBestDayDiscount,
+  computeDayDiscountAllocations,
+  fetchActiveDayDiscounts,
   localISODate,
 } from '../../lib/dayDiscounts'
 import { Lock, CheckCircle, Printer, MessageCircle, X, LockOpen, ArrowDownUp, Loader2 } from 'lucide-react'
@@ -78,7 +78,7 @@ export default function AdminPOS() {
   const [payments, setPayments] = useState([])
   const [paymentDrafts, setPaymentDrafts] = useState({})
   const [appliedCoupon, setAppliedCoupon] = useState(null)
-  const [dayDiscounts, setDayDiscounts] = useState({ elite: [], usa: [] })
+  const [dayDiscounts, setDayDiscounts] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [completedSale, setCompletedSale] = useState(null)
@@ -207,39 +207,22 @@ export default function AdminPOS() {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   }, [items])
 
-  const retailSubtotalByStore = useMemo(() => {
-    const totals = { elite: 0, usa: 0 }
-    for (const item of items) {
-      if (item.wholesale) continue
-      const store = item.product?.store_id || item.variant?.store_id || 'elite'
-      totals[store] = (totals[store] || 0) + item.price * item.quantity
-    }
-    return totals
-  }, [items])
-
   const todayISO = localISODate()
-  const todayDayDiscounts = useMemo(() => ({
-    elite: findBestDayDiscount(dayDiscounts.elite, todayISO, retailSubtotalByStore.elite),
-    usa: findBestDayDiscount(dayDiscounts.usa, todayISO, retailSubtotalByStore.usa),
-  }), [dayDiscounts, todayISO, retailSubtotalByStore])
-
-  const dayDiscountAmount = Number(
-    (todayDayDiscounts.elite.amount + todayDayDiscounts.usa.amount).toFixed(2)
+  const dayDiscountCalc = useMemo(
+    () => computeDayDiscountAllocations(items, dayDiscounts, todayISO),
+    [items, dayDiscounts, todayISO]
   )
 
+  const dayDiscountAmount = dayDiscountCalc.total
+
   const dayDiscountInfo = useMemo(() => {
-    const elite = todayDayDiscounts.elite.discount
-    const usa = todayDayDiscounts.usa.discount
-    if (!elite && !usa) return null
-    const parts = []
-    if (elite) parts.push(`Elite: ${elite.name}`)
-    if (usa) parts.push(`USA: ${usa.name}`)
+    if (dayDiscountAmount <= 0) return null
     return {
-      name: parts.join(' · '),
+      name: dayDiscountCalc.label,
       discount_type: 'fixed',
       discount_value: dayDiscountAmount,
     }
-  }, [todayDayDiscounts, dayDiscountAmount])
+  }, [dayDiscountAmount, dayDiscountCalc.label])
 
   const getCouponFromApplied = useCallback(() => {
     if (!appliedCoupon) return null
@@ -310,15 +293,11 @@ export default function AdminPOS() {
 
   const refreshDayDiscounts = useCallback(async () => {
     try {
-      const [elite, usa] = await Promise.all([
-        fetchDayDiscounts('elite'),
-        fetchDayDiscounts('usa'),
-      ])
-      setDayDiscounts({ elite, usa })
+      setDayDiscounts(await fetchActiveDayDiscounts())
     } catch (e) {
       // Si la migración aún no está aplicada, el POS sigue funcionando sin promo.
       console.error('Error cargando descuentos por días:', e)
-      setDayDiscounts({ elite: [], usa: [] })
+      setDayDiscounts([])
     }
   }, [])
 
@@ -699,27 +678,9 @@ export default function AdminPOS() {
 
       const effectiveDiscount = Number((discount + dayDiscountAmount).toFixed(2))
 
-      let allocatedDiscounts
-      if (dayDiscountAmount > 0) {
-        const combined = items.map(() => 0)
-        if (todayDayDiscounts.elite.amount > 0) {
-          const eliteAlloc = allocateDiscount(items, todayDayDiscounts.elite.amount, {
-            onlyRetail: true,
-            storeIds: ['elite'],
-          })
-          eliteAlloc.forEach((value, index) => { combined[index] += value })
-        }
-        if (todayDayDiscounts.usa.amount > 0) {
-          const usaAlloc = allocateDiscount(items, todayDayDiscounts.usa.amount, {
-            onlyRetail: true,
-            storeIds: ['usa'],
-          })
-          usaAlloc.forEach((value, index) => { combined[index] += value })
-        }
-        allocatedDiscounts = combined.map((value) => Number(value.toFixed(2)))
-      } else {
-        allocatedDiscounts = allocateDiscount(items, discount)
-      }
+      const allocatedDiscounts = dayDiscountAmount > 0
+        ? dayDiscountCalc.allocations
+        : allocateDiscount(items, discount)
 
       const hasWholesale = items.some((i) => !!i.wholesale)
       const hasRetail = items.some((i) => !i.wholesale)
@@ -730,16 +691,11 @@ export default function AdminPOS() {
       )]
       const saleStoreId = saleStores.length === 1 ? saleStores[0] : 'mixed'
 
-      const eliteDay = todayDayDiscounts.elite.discount
-      const usaDay = todayDayDiscounts.usa.discount
-      const dayDiscountId =
-        eliteDay && !usaDay ? eliteDay.id :
-        usaDay && !eliteDay ? usaDay.id :
-        null
-      const dayDiscountName = [
-        eliteDay ? `Elite: ${eliteDay.name}` : null,
-        usaDay ? `USA: ${usaDay.name}` : null,
-      ].filter(Boolean).join(' · ') || null
+      const dayDiscountId = dayDiscountAmount > 0 && dayDiscountCalc.applied.length === 1
+        ? dayDiscountCalc.applied[0].discountId
+        : null
+
+      const dayDiscountName = dayDiscountAmount > 0 ? dayDiscountCalc.label : null
 
       const { data: movement, error: movError } = await supabase
         .from('movements')

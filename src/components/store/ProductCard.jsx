@@ -6,14 +6,22 @@ import {
   getProductPriceRange,
 } from '../../lib/sku'
 import { useStorefront } from '../../context/StorefrontContext'
+import { useDayDiscounts } from '../../context/DayDiscountsContext'
 import CategoryArtwork from './CategoryArtwork'
 import styles from './ProductCard.module.css'
+
+const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100
 
 function ProductCard({ product, index = 0 }) {
   const navigate = useNavigate()
   const storefront = useStorefront()
+  const { discountFor } = useDayDiscounts()
   const models = useMemo(() => getVariantModels(product), [product])
   const priceRange = useMemo(() => getProductPriceRange(product), [product])
+  const discount = discountFor(
+    storefront.id,
+    product.category_id || product.categories?.id
+  )
   const productPath = storefront.productPath
     ? storefront.productPath(product.id)
     : `/product/${product.id}`
@@ -28,10 +36,17 @@ function ProductCard({ product, index = 0 }) {
 
   const isOutOfStock = models.length === 0
 
-  const displayPrice = useMemo(() => {
+  const basePrice = useMemo(() => {
     if (!selectedModel) return priceRange.min || 0
     return selectedModel.minPrice || 0
   }, [selectedModel, priceRange])
+
+  const discountPercentage = discount?.percentage || 0
+
+  const displayPrice = useMemo(() => {
+    if (discountPercentage <= 0) return basePrice
+    return round2(basePrice * (1 - discountPercentage / 100))
+  }, [basePrice, discountPercentage])
 
   const visibleModels = models.slice(0, 4)
   const remainingModels = models.length - visibleModels.length
@@ -77,6 +92,9 @@ function ProductCard({ product, index = 0 }) {
 
         {product.featured && <span className={styles.featuredBadge}>Destacado</span>}
         {isOutOfStock && <span className={styles.outOfStockBadge}>Agotado</span>}
+        {discountPercentage > 0 && (
+          <span className={styles.discountBadge}>-{Number(discountPercentage.toFixed(2))}%</span>
+        )}
 
         <div className={styles.viewOverlay}>
           <span>Ver detalles</span>
@@ -132,7 +150,12 @@ function ProductCard({ product, index = 0 }) {
         )}
 
         <div className={styles.footer}>
-          <span className={styles.price}>${displayPrice.toFixed(2)}</span>
+          <span className={`${styles.price} ${discountPercentage > 0 ? styles.priceDiscounted : ''}`}>
+            {discountPercentage > 0 && (
+              <span className={styles.oldPrice}>${basePrice.toFixed(2)}</span>
+            )}
+            ${displayPrice.toFixed(2)}
+          </span>
           <button
             type="button"
             className={styles.addBtn}

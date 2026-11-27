@@ -7,6 +7,7 @@ import { formatVariantLabel, getVariantModels } from '../../lib/sku'
 import { useStorefront } from '../../context/StorefrontContext'
 import ProductCard from '../../components/store/ProductCard'
 import CatalogFilters from '../../components/store/CatalogFilters'
+import DayDiscountsBanner from '../../components/store/DayDiscountsBanner'
 import { usePageMeta } from '../../lib/seo'
 import styles from './Catalog.module.css'
 
@@ -235,6 +236,8 @@ export default function Catalog() {
         <h1 className={styles.pageTitle}>{storefront.catalogTitle}</h1>
         <p className={styles.pageSubtitle}>{storefront.catalogSubtitle}</p>
       </div>
+
+      <DayDiscountsBanner />
 
       <div className={styles.filters}>
         <div className={styles.topBar}>

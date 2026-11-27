@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { X, Trash2, ShoppingBag, MessageCircle, ArrowRight } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
+import { useDayDiscounts } from '../../context/DayDiscountsContext'
 import { sendWhatsAppOrder } from '../../lib/whatsapp'
 import { formatVariantLabel } from '../../lib/sku'
 import { STOREFRONTS } from '../../lib/storefronts'
@@ -20,6 +21,8 @@ const drawerVariants = {
   exit:   { x: '100%', transition: { duration: 0.25, ease: 'easeIn' } },
 }
 
+const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100
+
 export default function CartDrawer({
   isOpen,
   onClose,
@@ -28,12 +31,30 @@ export default function CartDrawer({
   onBrowse = null,
 }) {
   const navigate = useNavigate()
+  const { percentageFor } = useDayDiscounts()
   const { items, removeItem, updateQuantity, clearCart } = useCartStore()
-  const total = items.reduce((s, i) => s + i.price * i.quantity, 0)
+
+  const pricedItems = useMemo(() => items.map((item) => {
+    const storeId = item.store_id || 'elite'
+    const categoryId = item.category_id || null
+    const percentage = percentageFor(storeId, categoryId) || 0
+    const originalPrice = Number(item.original_price ?? item.price) || 0
+    const price = percentage > 0
+      ? round2(originalPrice * (1 - percentage / 100))
+      : originalPrice
+    return {
+      ...item,
+      original_price: originalPrice,
+      price,
+      discount_percentage: percentage,
+    }
+  }), [items, percentageFor])
+
+  const total = pricedItems.reduce((s, i) => s + i.price * i.quantity, 0)
 
   const groups = useMemo(() => {
     const map = new Map()
-    items.forEach((item) => {
+    pricedItems.forEach((item) => {
       const storeId = item.store_id || 'elite'
       if (!map.has(storeId)) map.set(storeId, [])
       map.get(storeId).push(item)
@@ -42,10 +63,10 @@ export default function CartDrawer({
       store: STOREFRONTS[storeId] || STOREFRONTS.elite,
       items: storeItems,
     }))
-  }, [items])
+  }, [pricedItems])
 
   const handleWhatsApp = () => {
-    sendWhatsAppOrder(items)
+    sendWhatsAppOrder(pricedItems)
   }
 
   const handleViewProduct = (item) => {
@@ -169,7 +190,19 @@ export default function CartDrawer({
                                 {formatVariantLabel(item, item.size_label)}
                               </span>
                               {item.sku && <span className={styles.itemSku}>SKU: {item.sku}</span>}
-                              <span className={styles.itemUnitPrice}>${item.price.toFixed(2)} c/u</span>
+                              <div className={styles.itemPriceRow}>
+                                <span className={styles.itemUnitPrice}>${item.price.toFixed(2)} c/u</span>
+                                {item.discount_percentage > 0 && (
+                                  <span className={styles.discountTag}>
+                                    -{Number(item.discount_percentage.toFixed(2))}%
+                                  </span>
+                                )}
+                              </div>
+                              {item.original_price > item.price && (
+                                <span className={styles.itemOldPrice}>
+                                  Antes ${item.original_price.toFixed(2)}
+                                </span>
+                              )}
                               <span className={styles.itemTotal}>
                                 Total: ${(item.price * item.quantity).toFixed(2)}
                               </span>

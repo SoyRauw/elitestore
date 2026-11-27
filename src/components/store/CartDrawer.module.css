@@ -362,3 +362,28 @@
   font-size: 0.68rem;
   color: var(--color-dark-soft);
 }
+
+/* === DESCUENTO DEL DÍA === */
+.itemPriceRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.discountTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  background: #b91c1c;
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.itemOldPrice {
+  color: #8b8b8b;
+  font-size: 0.68rem;
+  text-decoration: line-through;
+}

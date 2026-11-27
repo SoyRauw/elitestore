@@ -535,6 +535,16 @@
   max-width: 720px;
 }
 
+.dayModal .modalHeader {
+  position: sticky;
+  top: -1.5rem;
+  z-index: 3;
+  margin-top: -1.5rem;
+  padding-top: 1.5rem;
+  padding-bottom: 0.75rem;
+  background: white;
+}
+
 @media (max-width: 767px) {
   .dayModal {
     max-width: 100%;
@@ -544,3 +554,99 @@
   }
 }
 
+
+/* === ALCANCE POR CATEGORÍA === */
+.scopeButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.scopeBtn {
+  padding: 0.55rem 0.9rem;
+  border: 1.5px solid rgba(196, 120, 138, 0.25);
+  border-radius: 0.6rem;
+  background: white;
+  color: var(--color-dark-soft);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.scopeBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.scopeBtnActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.categoryEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.categoryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 36px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.categoryRow .fieldError {
+  grid-column: 1 / -1;
+}
+
+.categoryPercentWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.categoryPercentWrap span {
+  position: absolute;
+  right: 0.65rem;
+  color: var(--color-dark-soft);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.categoryPercentWrap input {
+  padding-right: 1.6rem;
+}
+
+.dayScopeHint {
+  margin: 0.2rem 0 0;
+  color: var(--color-dark-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.dayCategoryList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.dayCategoryChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(196, 120, 138, 0.18);
+  border-radius: 999px;
+  background: rgba(196, 120, 138, 0.08);
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .categoryRow {
+    grid-template-columns: minmax(0, 1fr) 88px 34px;
+  }
+}

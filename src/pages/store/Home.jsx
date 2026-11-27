@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { motion } from 'framer-motion'
 import HeroSection from '../../components/store/HeroSection'
+import DayDiscountsBanner from '../../components/store/DayDiscountsBanner'
 import { DEFAULT_DESCRIPTION, usePageMeta } from '../../lib/seo'
 import fondoImg from '../../assets/fondo.webp'
 
@@ -27,6 +28,7 @@ export default function Home() {
       }}
     >
       <HeroSection />
+      <DayDiscountsBanner />
       <Suspense fallback={<div style={{ minHeight: '460px' }} aria-hidden="true" />}>
         <ClothingCarousel />
       </Suspense>

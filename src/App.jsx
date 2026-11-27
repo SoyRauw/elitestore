@@ -3,6 +3,7 @@ import { Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { StoreProvider } from './context/StoreContext'
 import { StorefrontProvider } from './context/StorefrontContext'
+import { DayDiscountsProvider } from './context/DayDiscountsContext'
 
 /* Store Components */
 import Navbar from './components/store/Navbar'
@@ -77,6 +78,14 @@ function StorefrontLayout({ store }) {
   )
 }
 
+function PublicLayout() {
+  return (
+    <DayDiscountsProvider>
+      <Outlet />
+    </DayDiscountsProvider>
+  )
+}
+
 function AdminFallback() {
   return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-cream)' }}>
@@ -98,37 +107,39 @@ function App() {
     <AuthProvider>
       <ScrollToTop />
       <Routes>
-        {/* Portal de las tres tiendas */}
-        <Route
-          path="/"
-          element={
-            <Suspense fallback={<StoreLoading />}>
-              <StorePortal />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/men"
-          element={
-            <Suspense fallback={<StoreLoading />}>
-              <MenComingSoon />
-            </Suspense>
-          }
-        />
+        <Route element={<PublicLayout />}>
+          {/* Portal de las tres tiendas */}
+          <Route
+            path="/"
+            element={
+              <Suspense fallback={<StoreLoading />}>
+                <StorePortal />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/men"
+            element={
+              <Suspense fallback={<StoreLoading />}>
+                <MenComingSoon />
+              </Suspense>
+            }
+          />
 
-        {/* Store Routes — Women */}
-        <Route element={<Suspense fallback={<StoreLoading />}><StorefrontLayout store="elite" /></Suspense>}>
-          <Route path="/women" element={<Home />} />
-          <Route path="/catalog" element={<Catalog />} />
-          <Route path="/product/:id" element={<ProductDetailPage />} />
-          <Route path="/nosotros" element={<Nosotros />} />
-        </Route>
+          {/* Store Routes — Women */}
+          <Route element={<Suspense fallback={<StoreLoading />}><StorefrontLayout store="elite" /></Suspense>}>
+            <Route path="/women" element={<Home />} />
+            <Route path="/catalog" element={<Catalog />} />
+            <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/nosotros" element={<Nosotros />} />
+          </Route>
 
-        {/* Store Routes — USA Super Store */}
-        <Route element={<Suspense fallback={<StoreLoading />}><StorefrontLayout store="usa" /></Suspense>}>
-          <Route path="/usa" element={<UsaHome />} />
-          <Route path="/usa/catalog" element={<Catalog />} />
-          <Route path="/usa/product/:id" element={<ProductDetailPage />} />
+          {/* Store Routes — USA Super Store */}
+          <Route element={<Suspense fallback={<StoreLoading />}><StorefrontLayout store="usa" /></Suspense>}>
+            <Route path="/usa" element={<UsaHome />} />
+            <Route path="/usa/catalog" element={<Catalog />} />
+            <Route path="/usa/product/:id" element={<ProductDetailPage />} />
+          </Route>
         </Route>
 
         {/* Admin Routes */}

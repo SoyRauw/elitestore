@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CalendarDays, Pencil, Percent, DollarSign, Plus, Save, Trash2, X } from 'lucide-react'
+import { CalendarDays, Pencil, Percent, DollarSign, Plus, Save, Tags, Trash2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { addMonths, monthStart } from '../../lib/finance'
@@ -17,6 +17,8 @@ const emptyForm = () => ({
   dates: [],
   is_active: true,
   store_scope: 'ambos',
+  discount_scope: 'store',
+  categoryRows: [],
 })
 
 function formatDay(iso) {
@@ -25,6 +27,16 @@ function formatDay(iso) {
     month: 'short',
     year: '2-digit',
   })
+}
+
+function formatPercent(value) {
+  return `${Number(value).toLocaleString('es-VE', { maximumFractionDigits: 2 })}%`
+}
+
+function categoryStoreSuffix(category) {
+  if (category?.store_id === 'usa') return ' (USA)'
+  if (category?.store_id === 'elite') return ' (Elite)'
+  return ' (Ambas)'
 }
 
 function scopeLabel(scope) {
@@ -36,6 +48,7 @@ function scopeLabel(scope) {
 export default function DayDiscounts() {
   const { isAdmin, user } = useAuth()
   const [discounts, setDiscounts] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -63,28 +76,67 @@ export default function DayDiscounts() {
     }
   }, [])
 
+  const loadCategories = useCallback(async () => {
+    const { data } = await supabase
+      .from('categories')
+      .select('id, name, store_id, prefix')
+      .order('name')
+    setCategories(data || [])
+  }, [])
+
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadCategories() }, [loadCategories])
+
+  const categoriesForScope = useCallback((scope) => {
+    if (scope === 'elite') {
+      return categories.filter((category) => category.store_id === 'elite' || category.store_id === 'both')
+    }
+    if (scope === 'usa') {
+      return categories.filter((category) => category.store_id === 'usa' || category.store_id === 'both')
+    }
+    return categories
+  }, [categories])
+
+  const scopeCategories = useMemo(
+    () => categoriesForScope(form.store_scope),
+    [categoriesForScope, form.store_scope]
+  )
 
   const validationErrors = useMemo(() => {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Escribe el nombre del descuento'
-    const value = parseFloat(form.discount_value)
-    if (!Number.isFinite(value) || value <= 0) {
-      errs.discount_value = 'Ingresa un valor mayor a 0'
-    } else if (form.discount_type === 'percentage' && value > 100) {
-      errs.discount_value = 'El porcentaje no puede ser mayor a 100'
-    }
     if (form.dates.length === 0) errs.dates = 'Selecciona al menos un día'
-    if (form.is_active) {
-      const overlap = discounts.find((discount) => (
-        discount.id !== form.id
-        && discount.is_active
-        && (discount.dates || []).some((date) => form.dates.includes(date))
-      ))
-      if (overlap) errs.dates = `Se solapa con "${overlap.name}". Elige otros días.`
+
+    if (form.discount_scope === 'categories') {
+      if (form.categoryRows.length === 0) {
+        errs.categoryRows = 'Agrega al menos una categoría con su porcentaje'
+      } else {
+        const seen = new Set()
+        form.categoryRows.forEach((row, index) => {
+          if (!row.category_id) {
+            errs.categoryRows = 'Selecciona la categoría en todas las filas'
+          } else if (seen.has(row.category_id)) {
+            errs.categoryRows = 'No repitas la misma categoría'
+          }
+          seen.add(row.category_id)
+
+          const value = parseFloat(row.percentage)
+          if (!Number.isFinite(value) || value <= 0 || value > 100) {
+            errs[`category_pct_${index}`] = 'Entre 1 y 100'
+          }
+        })
+      }
+    } else {
+      const value = parseFloat(form.discount_value)
+      if (!Number.isFinite(value) || value <= 0) {
+        errs.discount_value = 'Ingresa un valor mayor a 0'
+      } else if (form.discount_type === 'percentage' && value > 100) {
+        errs.discount_value = 'El porcentaje no puede ser mayor a 100'
+      }
     }
+
     return errs
-  }, [form, discounts])
+  }, [form])
 
   const hasErrors = Object.keys(validationErrors).length > 0
 
@@ -97,6 +149,10 @@ export default function DayDiscounts() {
 
   const openEdit = (discount) => {
     const dates = [...(discount.dates || [])].sort()
+    const rows = (discount.day_discount_categories || []).map((row) => ({
+      category_id: row.category_id,
+      percentage: String(row.percentage ?? ''),
+    }))
     setForm({
       id: discount.id,
       name: discount.name || '',
@@ -105,6 +161,8 @@ export default function DayDiscounts() {
       dates,
       is_active: discount.is_active !== false,
       store_scope: discount.store_scope || 'ambos',
+      discount_scope: discount.discount_scope || 'store',
+      categoryRows: rows,
     })
     setMonth(dates.length ? monthStart(new Date(`${dates[0]}T12:00:00`)) : monthStart(new Date()))
     setError('')
@@ -121,6 +179,52 @@ export default function DayDiscounts() {
     })
   }
 
+  const handleStoreScopeChange = (value) => {
+    setForm((prev) => {
+      const allowed = new Set(categoriesForScope(value).map((category) => category.id))
+      return {
+        ...prev,
+        store_scope: value,
+        categoryRows: prev.categoryRows.filter(
+          (row) => !row.category_id || allowed.has(row.category_id)
+        ),
+      }
+    })
+  }
+
+  const addCategoryRow = () => {
+    setForm((prev) => ({
+      ...prev,
+      categoryRows: [...prev.categoryRows, { category_id: '', percentage: '' }],
+    }))
+  }
+
+  const updateCategoryRow = (index, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      categoryRows: prev.categoryRows.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, [field]: value } : row
+      ),
+    }))
+  }
+
+  const removeCategoryRow = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      categoryRows: prev.categoryRows.filter((_, rowIndex) => rowIndex !== index),
+    }))
+  }
+
+  const categoryOptionsFor = (index) => {
+    const used = new Set(
+      form.categoryRows
+        .filter((_, rowIndex) => rowIndex !== index)
+        .map((row) => row.category_id)
+        .filter(Boolean)
+    )
+    return scopeCategories.filter((category) => !used.has(category.id))
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     setError('')
@@ -132,14 +236,28 @@ export default function DayDiscounts() {
     setSaving(true)
     setError('')
     try {
+      const isCategoryScope = form.discount_scope === 'categories'
+      const cleanRows = isCategoryScope
+        ? form.categoryRows.map((row) => ({
+            category_id: row.category_id,
+            percentage: parseFloat(row.percentage),
+          }))
+        : []
+      const maxPercentage = cleanRows.length
+        ? Math.max(...cleanRows.map((row) => row.percentage))
+        : 0
+
       const payload = {
         name: form.name.trim(),
-        discount_type: form.discount_type,
-        discount_value: parseFloat(form.discount_value),
+        discount_type: isCategoryScope ? 'percentage' : form.discount_type,
+        discount_value: isCategoryScope ? maxPercentage : parseFloat(form.discount_value),
         dates: [...form.dates].sort(),
         is_active: form.is_active,
         store_scope: form.store_scope,
+        discount_scope: form.discount_scope,
       }
+
+      let discountId = form.id
       if (form.id) {
         const { error: updateError } = await supabase
           .from('day_discounts')
@@ -147,11 +265,34 @@ export default function DayDiscounts() {
           .eq('id', form.id)
         if (updateError) throw updateError
       } else {
-        const { error: insertError } = await supabase
+        const { data, error: insertError } = await supabase
           .from('day_discounts')
           .insert([{ ...payload, created_by: user?.id || null }])
+          .select('id')
+          .single()
         if (insertError) throw insertError
+        discountId = data.id
       }
+
+      if (discountId) {
+        const { error: deleteRowsError } = await supabase
+          .from('day_discount_categories')
+          .delete()
+          .eq('discount_id', discountId)
+        if (deleteRowsError) throw deleteRowsError
+
+        if (isCategoryScope && cleanRows.length > 0) {
+          const { error: rowsError } = await supabase
+            .from('day_discount_categories')
+            .insert(cleanRows.map((row) => ({
+              discount_id: discountId,
+              category_id: row.category_id,
+              percentage: row.percentage,
+            })))
+          if (rowsError) throw rowsError
+        }
+      }
+
       setShowForm(false)
       await load()
     } catch (e) {
@@ -186,14 +327,15 @@ export default function DayDiscounts() {
     <div className={styles.daySection}>
       <div className={styles.daySectionHead}>
         <div>
-          <h2 className={styles.daySectionTitle}><CalendarDays size={19} /> Descuentos por días</h2>
+          <h2 className={styles.daySectionTitle}><CalendarDays size={19} /> Descuentos por días y categorías</h2>
           <p className={styles.daySectionSub}>
-            Se aplican solos a las ventas de detal de los días marcados. No se acumulan con cupones.
+            Se aplican solos a las ventas de detal de los días marcados. Puedes crear varias promociones el mismo día:
+            cada producto toma la que más le convenga. No se acumulan con cupones.
           </p>
         </div>
         {isAdmin && (
           <button type="button" className="btn btn-primary" onClick={openNew}>
-            <Plus size={16} /> Descuento por días
+            <Plus size={16} /> Nuevo descuento
           </button>
         )}
       </div>
@@ -218,14 +360,22 @@ export default function DayDiscounts() {
             const dates = [...(discount.dates || [])].sort()
             const past = dates.length > 0 && dates.every((date) => date < todayISO)
             const today = dates.includes(todayISO)
+            const isCategoryScope = discount.discount_scope === 'categories'
+            const categoryRows = discount.day_discount_categories || []
             return (
               <div key={discount.id} className={`${styles.dayCard} ${!discount.is_active || past ? styles.dayCardInactive : ''}`}>
                 <div className={styles.dayCardTop}>
                   <div>
                     <h3 className={styles.dayCardName}>{discount.name}</h3>
                     <p className={styles.dayCardValue}>
-                      {discount.discount_type === 'percentage' ? <Percent size={14} /> : <DollarSign size={14} />}
-                      {dayDiscountValueLabel(discount)} de descuento
+                      {isCategoryScope
+                        ? <Tags size={14} />
+                        : discount.discount_type === 'percentage'
+                          ? <Percent size={14} />
+                          : <DollarSign size={14} />}
+                      {isCategoryScope
+                        ? `${categoryRows.length} ${categoryRows.length === 1 ? 'categoría' : 'categorías'}`
+                        : `${dayDiscountValueLabel(discount)} de descuento`}
                     </p>
                   </div>
                   {isAdmin && (
@@ -254,6 +404,16 @@ export default function DayDiscounts() {
                   {dates.length > 4 && <span className={styles.dayDateMore}>+{dates.length - 4}</span>}
                 </div>
 
+                {isCategoryScope && categoryRows.length > 0 && (
+                  <div className={styles.dayCategoryList}>
+                    {categoryRows.map((row) => (
+                      <span key={row.category_id} className={styles.dayCategoryChip}>
+                        {row.categories?.name || 'Categoría'} {formatPercent(row.percentage)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div className={styles.dayCardFooter}>
                   {!discount.is_active ? (
                     <span className={`${styles.badge} ${styles.badgeInactive}`}>Inactivo</span>
@@ -279,7 +439,7 @@ export default function DayDiscounts() {
           <motion.div className={styles.overlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className={`${styles.modal} ${styles.dayModal}`} initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}>
               <div className={styles.modalHeader}>
-                <h2>{form.id ? 'Editar descuento por días' : 'Nuevo descuento por días'}</h2>
+                <h2>{form.id ? 'Editar descuento' : 'Nuevo descuento'}</h2>
                 <button type="button" className={styles.closeBtn} onClick={() => setShowForm(false)}>
                   <X size={20} />
                 </button>
@@ -299,30 +459,130 @@ export default function DayDiscounts() {
 
                 <div className={styles.row}>
                   <div className={styles.field}>
-                    <label>Tipo de descuento</label>
+                    <label>Aplicar en</label>
                     <select
                       className={styles.input}
-                      value={form.discount_type}
-                      onChange={(e) => setForm({ ...form, discount_type: e.target.value })}
+                      value={form.store_scope}
+                      onChange={(e) => handleStoreScopeChange(e.target.value)}
                     >
-                      <option value="percentage">Porcentaje (%)</option>
-                      <option value="fixed">Monto fijo ($)</option>
+                      <option value="ambos">Elite + USA</option>
+                      <option value="elite">Solo Elite Store</option>
+                      <option value="usa">Solo USA Super Store</option>
                     </select>
                   </div>
-                  <div className={styles.field}>
-                    <label>Valor</label>
+                  <label className={styles.toggle} style={{ alignSelf: 'end', paddingBottom: '0.65rem' }}>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className={`${styles.input} ${validationErrors.discount_value ? styles.inputError : ''}`}
-                      value={form.discount_value}
-                      onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
-                      placeholder={form.discount_type === 'percentage' ? '10' : '5'}
+                      type="checkbox"
+                      checked={form.is_active}
+                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                     />
-                    {validationErrors.discount_value && <span className={styles.fieldError}>{validationErrors.discount_value}</span>}
+                    <span>Activo</span>
+                  </label>
+                </div>
+
+                <div className={styles.field}>
+                  <label>Alcance</label>
+                  <div className={styles.scopeButtons}>
+                    <button
+                      type="button"
+                      className={`${styles.scopeBtn} ${form.discount_scope === 'store' ? styles.scopeBtnActive : ''}`}
+                      onClick={() => setForm({ ...form, discount_scope: 'store' })}
+                    >
+                      Toda la tienda
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.scopeBtn} ${form.discount_scope === 'categories' ? styles.scopeBtnActive : ''}`}
+                      onClick={() => setForm({ ...form, discount_scope: 'categories' })}
+                    >
+                      Por categorías
+                    </button>
                   </div>
                 </div>
+
+                {form.discount_scope === 'store' ? (
+                  <div className={styles.row}>
+                    <div className={styles.field}>
+                      <label>Tipo de descuento</label>
+                      <select
+                        className={styles.input}
+                        value={form.discount_type}
+                        onChange={(e) => setForm({ ...form, discount_type: e.target.value })}
+                      >
+                        <option value="percentage">Porcentaje (%)</option>
+                        <option value="fixed">Monto fijo ($)</option>
+                      </select>
+                    </div>
+                    <div className={styles.field}>
+                      <label>Valor</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className={`${styles.input} ${validationErrors.discount_value ? styles.inputError : ''}`}
+                        value={form.discount_value}
+                        onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
+                        placeholder={form.discount_type === 'percentage' ? '10' : '5'}
+                      />
+                      {validationErrors.discount_value && <span className={styles.fieldError}>{validationErrors.discount_value}</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.field}>
+                    <label>Porcentaje por categoría</label>
+                    <div className={styles.categoryEditor}>
+                      {form.categoryRows.map((row, index) => (
+                        <div key={index} className={styles.categoryRow}>
+                          <select
+                            className={styles.input}
+                            value={row.category_id}
+                            onChange={(e) => updateCategoryRow(index, 'category_id', e.target.value)}
+                          >
+                            <option value="">Selecciona categoría</option>
+                            {categoryOptionsFor(index).map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}{categoryStoreSuffix(category)}
+                              </option>
+                            ))}
+                          </select>
+                          <div className={styles.categoryPercentWrap}>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="1"
+                              max="100"
+                              className={`${styles.input} ${validationErrors[`category_pct_${index}`] ? styles.inputError : ''}`}
+                              value={row.percentage}
+                              onChange={(e) => updateCategoryRow(index, 'percentage', e.target.value)}
+                              placeholder="20"
+                            />
+                            <span>%</span>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.iconBtn}
+                            onClick={() => removeCategoryRow(index)}
+                            aria-label="Quitar categoría"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          {validationErrors[`category_pct_${index}`] && (
+                            <span className={styles.fieldError}>{validationErrors[`category_pct_${index}`]}</span>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" className="btn btn-outline" onClick={addCategoryRow}>
+                        <Plus size={14} /> Agregar categoría
+                      </button>
+                      {validationErrors.categoryRows && (
+                        <span className={styles.fieldError}>{validationErrors.categoryRows}</span>
+                      )}
+                      <p className={styles.dayScopeHint}>
+                        Puedes poner un porcentaje distinto por categoría. Solo se aplicará a los productos de esas categorías.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className={styles.field}>
                   <label>Días que aplica</label>
@@ -351,29 +611,6 @@ export default function DayDiscounts() {
                   {validationErrors.dates && <span className={styles.fieldError}>{validationErrors.dates}</span>}
                 </div>
 
-                <div className={styles.row}>
-                  <div className={styles.field}>
-                    <label>Aplicar en</label>
-                    <select
-                      className={styles.input}
-                      value={form.store_scope}
-                      onChange={(e) => setForm({ ...form, store_scope: e.target.value })}
-                    >
-                      <option value="ambos">Elite + USA</option>
-                      <option value="elite">Solo Elite Store</option>
-                      <option value="usa">Solo USA Super Store</option>
-                    </select>
-                  </div>
-                  <label className={styles.toggle} style={{ alignSelf: 'end', paddingBottom: '0.65rem' }}>
-                    <input
-                      type="checkbox"
-                      checked={form.is_active}
-                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                    />
-                    <span>Activo</span>
-                  </label>
-                </div>
-
                 {error && <p className={styles.formError}>{error}</p>}
 
                 <div className={styles.formActions}>
@@ -386,7 +623,7 @@ export default function DayDiscounts() {
 
               <ConfirmModal
                 isOpen={confirmOpen}
-                title={form.id ? '¿Guardar cambios?' : '¿Crear descuento por días?'}
+                title={form.id ? '¿Guardar cambios?' : '¿Crear descuento?'}
                 onCancel={() => setConfirmOpen(false)}
                 onConfirm={executeSave}
                 confirmText="Confirmar"
@@ -394,7 +631,32 @@ export default function DayDiscounts() {
               >
                 <ul className={styles.summaryList}>
                   <li><span className={styles.summaryLabel}>Nombre</span><span className={styles.summaryValue}>{form.name || '—'}</span></li>
-                  <li><span className={styles.summaryLabel}>Descuento</span><span className={styles.summaryValue}>{form.discount_type === 'percentage' ? `${form.discount_value}%` : `$${form.discount_value}`}</span></li>
+                  <li>
+                    <span className={styles.summaryLabel}>Alcance</span>
+                    <span className={styles.summaryValue}>
+                      {form.discount_scope === 'categories' ? 'Por categorías' : 'Toda la tienda'}
+                    </span>
+                  </li>
+                  {form.discount_scope === 'categories' ? (
+                    <li>
+                      <span className={styles.summaryLabel}>Categorías</span>
+                      <span className={styles.summaryValue}>
+                        {form.categoryRows
+                          .map((row) => {
+                            const category = categories.find((item) => item.id === row.category_id)
+                            return `${category?.name || 'Categoría'} ${formatPercent(row.percentage)}`
+                          })
+                          .join(' · ') || '—'}
+                      </span>
+                    </li>
+                  ) : (
+                    <li>
+                      <span className={styles.summaryLabel}>Descuento</span>
+                      <span className={styles.summaryValue}>
+                        {form.discount_type === 'percentage' ? formatPercent(form.discount_value) : `$${form.discount_value}`}
+                      </span>
+                    </li>
+                  )}
                   <li><span className={styles.summaryLabel}>Días</span><span className={styles.summaryValue}>{form.dates.length}</span></li>
                   <li><span className={styles.summaryLabel}>Aplica en</span><span className={styles.summaryValue}>{scopeLabel(form.store_scope)}</span></li>
                 </ul>
@@ -406,7 +668,7 @@ export default function DayDiscounts() {
 
       <ConfirmModal
         isOpen={!!deleteTarget}
-        title="¿Eliminar descuento por días?"
+        title="¿Eliminar descuento?"
         onCancel={() => setDeleteTarget(null)}
         onConfirm={executeDelete}
         confirmText="Eliminar"
