@@ -37,7 +37,7 @@ export default function CartDrawer({
   const pricedItems = useMemo(() => items.map((item) => {
     const storeId = item.store_id || 'elite'
     const categoryId = item.category_id || null
-    const percentage = percentageFor(storeId, categoryId) || 0
+    const percentage = percentageFor(storeId, categoryId, item.product_id) || 0
     const originalPrice = Number(item.original_price ?? item.price) || 0
     const price = percentage > 0
       ? round2(originalPrice * (1 - percentage / 100))

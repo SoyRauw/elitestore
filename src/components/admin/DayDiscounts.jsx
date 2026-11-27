@@ -19,6 +19,7 @@ const emptyForm = () => ({
   store_scope: 'ambos',
   discount_scope: 'store',
   categoryGroups: [{ percentage: '20', categoryIds: [] }],
+  productGroups: [],
 })
 
 function formatDay(iso) {
@@ -33,9 +34,9 @@ function formatPercent(value) {
   return `${Number(value).toLocaleString('es-VE', { maximumFractionDigits: 2 })}%`
 }
 
-function categoryStoreSuffix(category) {
-  if (category?.store_id === 'usa') return ' (USA)'
-  if (category?.store_id === 'elite') return ' (Elite)'
+function storeSuffix(item) {
+  if (item?.store_id === 'usa') return ' (USA)'
+  if (item?.store_id === 'elite') return ' (Elite)'
   return ' (Ambas)'
 }
 
@@ -49,28 +50,50 @@ function groupDiscountRows(rows = []) {
   return [...map.values()]
 }
 
-function CategoryGroup({
-  group,
+function groupProductRows(rows = []) {
+  const map = new Map()
+  rows.forEach((row) => {
+    const key = String(Number(row.percentage))
+    if (!map.has(key)) map.set(key, { percentage: key, names: [] })
+    map.get(key).names.push(row.products?.name || row.product_id || 'Producto')
+  })
+  return [...map.values()]
+}
+
+function SelectionGroup({
+  title,
   index,
-  categories,
+  group,
+  items,
   usedElsewhere,
   onChangePercentage,
-  onToggleCategory,
+  onToggleItem,
   onSelectAll,
   onClear,
   onRemove,
   errors = {},
+  percentageLabel,
+  searchLabel,
+  searchPlaceholder,
+  emptyText,
+  removeLabel,
+  countLabel,
 }) {
   const [search, setSearch] = useState('')
+  const selectedIds = group.categoryIds || group.productIds || []
   const term = search.trim().toLowerCase()
-  const visible = categories.filter(
-    (category) => !term || category.name.toLowerCase().includes(term)
-  )
+  const visible = items.filter((item) => {
+    if (!term) return true
+    return (
+      String(item.name || '').toLowerCase().includes(term) ||
+      String(item.id || '').toLowerCase().includes(term)
+    )
+  })
 
   return (
     <div className={styles.categoryGroup}>
       <div className={styles.categoryGroupHeader}>
-        <span className={styles.categoryGroupTitle}>Grupo {index + 1}</span>
+        <span className={styles.categoryGroupTitle}>{title} · Grupo {index + 1}</span>
         <div className={styles.categoryGroupPercent}>
           <input
             type="number"
@@ -80,7 +103,7 @@ function CategoryGroup({
             className={`${styles.input} ${errors.percentage ? styles.inputError : ''}`}
             value={group.percentage}
             onChange={(e) => onChangePercentage(e.target.value)}
-            aria-label={`Porcentaje del grupo ${index + 1}`}
+            aria-label={percentageLabel}
             placeholder="20"
           />
           <span>%</span>
@@ -89,7 +112,7 @@ function CategoryGroup({
           type="button"
           className={styles.iconBtn}
           onClick={onRemove}
-          aria-label={`Eliminar grupo ${index + 1}`}
+          aria-label={removeLabel}
         >
           <Trash2 size={14} />
         </button>
@@ -101,33 +124,33 @@ function CategoryGroup({
         className={styles.input}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar categoría..."
-        aria-label={`Buscar categoría para el grupo ${index + 1}`}
+        placeholder={searchPlaceholder}
+        aria-label={searchLabel}
       />
 
       <div className={styles.categoryChips}>
-        {visible.map((category) => {
-          const selected = group.categoryIds.includes(category.id)
-          const disabled = !selected && usedElsewhere.has(category.id)
+        {visible.map((item) => {
+          const selected = selectedIds.includes(item.id)
+          const disabled = !selected && usedElsewhere.has(item.id)
           return (
             <button
-              key={category.id}
+              key={item.id}
               type="button"
               className={[
                 styles.categoryChip,
                 selected ? styles.categoryChipActive : '',
                 disabled ? styles.categoryChipDisabled : '',
               ].filter(Boolean).join(' ')}
-              onClick={() => onToggleCategory(category.id)}
+              onClick={() => onToggleItem(item.id)}
               disabled={disabled}
-              title={disabled ? 'Ya está en otro grupo' : category.name}
+              title={disabled ? 'Ya está en otro grupo' : item.name}
             >
-              {category.name}{categoryStoreSuffix(category)}
+              {item.name}{storeSuffix(item)}
             </button>
           )
         })}
         {visible.length === 0 && (
-          <span className={styles.dayScopeHint}>No hay categorías con esa búsqueda.</span>
+          <span className={styles.dayScopeHint}>{emptyText}</span>
         )}
       </div>
 
@@ -139,7 +162,7 @@ function CategoryGroup({
           Limpiar
         </button>
         <span className={styles.categoryGroupCount}>
-          {group.categoryIds.length} {group.categoryIds.length === 1 ? 'seleccionada' : 'seleccionadas'}
+          {selectedIds.length} {countLabel}
         </span>
       </div>
 
@@ -158,6 +181,7 @@ export default function DayDiscounts() {
   const { isAdmin, user } = useAuth()
   const [discounts, setDiscounts] = useState([])
   const [categories, setCategories] = useState([])
+  const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -193,8 +217,17 @@ export default function DayDiscounts() {
     setCategories(data || [])
   }, [])
 
+  const loadProducts = useCallback(async () => {
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, store_id')
+      .order('name')
+    setProducts(data || [])
+  }, [])
+
   useEffect(() => { load() }, [load])
   useEffect(() => { loadCategories() }, [loadCategories])
+  useEffect(() => { loadProducts() }, [loadProducts])
 
   const categoriesForScope = useCallback((scope) => {
     if (scope === 'elite') {
@@ -206,9 +239,24 @@ export default function DayDiscounts() {
     return categories
   }, [categories])
 
+  const productsForScope = useCallback((scope) => {
+    if (scope === 'elite') {
+      return products.filter((product) => product.store_id === 'elite' || product.store_id === 'both')
+    }
+    if (scope === 'usa') {
+      return products.filter((product) => product.store_id === 'usa' || product.store_id === 'both')
+    }
+    return products
+  }, [products])
+
   const scopeCategories = useMemo(
     () => categoriesForScope(form.store_scope),
     [categoriesForScope, form.store_scope]
+  )
+
+  const scopeProducts = useMemo(
+    () => productsForScope(form.store_scope),
+    [productsForScope, form.store_scope]
   )
 
   const validationErrors = useMemo(() => {
@@ -217,26 +265,42 @@ export default function DayDiscounts() {
     if (form.dates.length === 0) errs.dates = 'Selecciona al menos un día'
 
     if (form.discount_scope === 'categories') {
-      if (form.categoryGroups.length === 0) {
-        errs.categoryGroups = 'Agrega al menos un grupo de descuento'
-      } else {
-        const seen = new Set()
-        form.categoryGroups.forEach((group, index) => {
-          const value = parseFloat(group.percentage)
-          if (!Number.isFinite(value) || value <= 0 || value > 100) {
-            errs[`group_pct_${index}`] = 'Entre 1 y 100'
-          }
-          if (group.categoryIds.length === 0) {
-            errs[`group_categories_${index}`] = 'Selecciona al menos una categoría'
-          }
-          group.categoryIds.forEach((categoryId) => {
-            if (seen.has(categoryId)) {
-              errs.categoryGroups = 'No repitas la misma categoría en dos grupos'
-            }
-            seen.add(categoryId)
-          })
-        })
+      const hasCategoryItems = form.categoryGroups.some((group) => group.categoryIds.length > 0)
+      const hasProductItems = form.productGroups.some((group) => group.productIds.length > 0)
+
+      if (!hasCategoryItems && !hasProductItems) {
+        errs.categoryGroups = 'Agrega al menos una categoría o producto'
       }
+
+      const seenCategories = new Set()
+      form.categoryGroups.forEach((group, index) => {
+        if (group.categoryIds.length === 0) return
+        const value = parseFloat(group.percentage)
+        if (!Number.isFinite(value) || value <= 0 || value > 100) {
+          errs[`group_pct_${index}`] = 'Entre 1 y 100'
+        }
+        group.categoryIds.forEach((categoryId) => {
+          if (seenCategories.has(categoryId)) {
+            errs.categoryGroups = 'No repitas la misma categoría en dos grupos'
+          }
+          seenCategories.add(categoryId)
+        })
+      })
+
+      const seenProducts = new Set()
+      form.productGroups.forEach((group, index) => {
+        if (group.productIds.length === 0) return
+        const value = parseFloat(group.percentage)
+        if (!Number.isFinite(value) || value <= 0 || value > 100) {
+          errs[`product_group_pct_${index}`] = 'Entre 1 y 100'
+        }
+        group.productIds.forEach((productId) => {
+          if (seenProducts.has(productId)) {
+            errs.productGroups = 'No repitas el mismo producto en dos grupos'
+          }
+          seenProducts.add(productId)
+        })
+      })
     } else {
       const value = parseFloat(form.discount_value)
       if (!Number.isFinite(value) || value <= 0) {
@@ -268,8 +332,19 @@ export default function DayDiscounts() {
       }
       groupsMap.get(key).categoryIds.push(row.category_id)
     }
+
+    const productGroupsMap = new Map()
+    for (const row of discount.day_discount_products || []) {
+      const key = String(Number(row.percentage))
+      if (!productGroupsMap.has(key)) {
+        productGroupsMap.set(key, { percentage: key, productIds: [] })
+      }
+      productGroupsMap.get(key).productIds.push(row.product_id)
+    }
+
     const categoryGroups = [...groupsMap.values()]
-    if (categoryGroups.length === 0) {
+    const productGroups = [...productGroupsMap.values()]
+    if (categoryGroups.length === 0 && productGroups.length === 0) {
       categoryGroups.push({ percentage: '20', categoryIds: [] })
     }
     setForm({
@@ -282,6 +357,7 @@ export default function DayDiscounts() {
       store_scope: discount.store_scope || 'ambos',
       discount_scope: discount.discount_scope || 'store',
       categoryGroups,
+      productGroups,
     })
     setMonth(dates.length ? monthStart(new Date(`${dates[0]}T12:00:00`)) : monthStart(new Date()))
     setError('')
@@ -300,13 +376,18 @@ export default function DayDiscounts() {
 
   const handleStoreScopeChange = (value) => {
     setForm((prev) => {
-      const allowed = new Set(categoriesForScope(value).map((category) => category.id))
+      const allowedCategories = new Set(categoriesForScope(value).map((category) => category.id))
+      const allowedProducts = new Set(productsForScope(value).map((product) => product.id))
       return {
         ...prev,
         store_scope: value,
         categoryGroups: prev.categoryGroups.map((group) => ({
           ...group,
-          categoryIds: group.categoryIds.filter((id) => allowed.has(id)),
+          categoryIds: group.categoryIds.filter((id) => allowedCategories.has(id)),
+        })),
+        productGroups: prev.productGroups.map((group) => ({
+          ...group,
+          productIds: group.productIds.filter((id) => allowedProducts.has(id)),
         })),
       }
     })
@@ -390,6 +471,84 @@ export default function DayDiscounts() {
     }))
   }
 
+  const addProductGroup = () => {
+    setForm((prev) => ({
+      ...prev,
+      productGroups: [
+        ...prev.productGroups,
+        { percentage: '20', productIds: [] },
+      ],
+    }))
+  }
+
+  const updateProductGroupPercentage = (index, value) => {
+    setForm((prev) => ({
+      ...prev,
+      productGroups: prev.productGroups.map((group, groupIndex) =>
+        groupIndex === index ? { ...group, percentage: value } : group
+      ),
+    }))
+  }
+
+  const removeProductGroup = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      productGroups: prev.productGroups.filter((_, groupIndex) => groupIndex !== index),
+    }))
+  }
+
+  const usedProductsElsewhereFor = (index) => {
+    const used = new Set()
+    form.productGroups.forEach((group, groupIndex) => {
+      if (groupIndex === index) return
+      group.productIds.forEach((id) => used.add(id))
+    })
+    return used
+  }
+
+  const toggleGroupProduct = (index, productId) => {
+    const usedElsewhere = usedProductsElsewhereFor(index)
+    if (usedElsewhere.has(productId)) return
+    setForm((prev) => ({
+      ...prev,
+      productGroups: prev.productGroups.map((group, groupIndex) => {
+        if (groupIndex !== index) return group
+        const exists = group.productIds.includes(productId)
+        return {
+          ...group,
+          productIds: exists
+            ? group.productIds.filter((id) => id !== productId)
+            : [...group.productIds, productId],
+        }
+      }),
+    }))
+  }
+
+  const selectAllProductsInGroup = (index) => {
+    const usedElsewhere = usedProductsElsewhereFor(index)
+    setForm((prev) => ({
+      ...prev,
+      productGroups: prev.productGroups.map((group, groupIndex) => {
+        if (groupIndex !== index) return group
+        return {
+          ...group,
+          productIds: scopeProducts
+            .filter((product) => !usedElsewhere.has(product.id))
+            .map((product) => product.id),
+        }
+      }),
+    }))
+  }
+
+  const clearProductGroup = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      productGroups: prev.productGroups.map((group, groupIndex) =>
+        groupIndex === index ? { ...group, productIds: [] } : group
+      ),
+    }))
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     setError('')
@@ -402,7 +561,7 @@ export default function DayDiscounts() {
     setError('')
     try {
       const isCategoryScope = form.discount_scope === 'categories'
-      const cleanRows = isCategoryScope
+      const cleanCategoryRows = isCategoryScope
         ? form.categoryGroups.flatMap((group) =>
             group.categoryIds.map((categoryId) => ({
               category_id: categoryId,
@@ -410,9 +569,16 @@ export default function DayDiscounts() {
             }))
           )
         : []
-      const maxPercentage = cleanRows.length
-        ? Math.max(...cleanRows.map((row) => row.percentage))
-        : 0
+      const cleanProductRows = isCategoryScope
+        ? form.productGroups.flatMap((group) =>
+            group.productIds.map((productId) => ({
+              product_id: productId,
+              percentage: parseFloat(group.percentage),
+            }))
+          )
+        : []
+      const allPercentages = [...cleanCategoryRows, ...cleanProductRows].map((row) => row.percentage)
+      const maxPercentage = allPercentages.length ? Math.max(...allPercentages) : 0
 
       const payload = {
         name: form.name.trim(),
@@ -448,15 +614,32 @@ export default function DayDiscounts() {
           .eq('discount_id', discountId)
         if (deleteRowsError) throw deleteRowsError
 
-        if (isCategoryScope && cleanRows.length > 0) {
+        const { error: deleteProductsError } = await supabase
+          .from('day_discount_products')
+          .delete()
+          .eq('discount_id', discountId)
+        if (deleteProductsError) throw deleteProductsError
+
+        if (isCategoryScope && cleanCategoryRows.length > 0) {
           const { error: rowsError } = await supabase
             .from('day_discount_categories')
-            .insert(cleanRows.map((row) => ({
+            .insert(cleanCategoryRows.map((row) => ({
               discount_id: discountId,
               category_id: row.category_id,
               percentage: row.percentage,
             })))
           if (rowsError) throw rowsError
+        }
+
+        if (isCategoryScope && cleanProductRows.length > 0) {
+          const { error: productsError } = await supabase
+            .from('day_discount_products')
+            .insert(cleanProductRows.map((row) => ({
+              discount_id: discountId,
+              product_id: row.product_id,
+              percentage: row.percentage,
+            })))
+          if (productsError) throw productsError
         }
       }
 
@@ -529,6 +712,8 @@ export default function DayDiscounts() {
             const today = dates.includes(todayISO)
             const isCategoryScope = discount.discount_scope === 'categories'
             const categoryRows = discount.day_discount_categories || []
+            const productRows = discount.day_discount_products || []
+            const itemCount = categoryRows.length + productRows.length
             return (
               <div key={discount.id} className={`${styles.dayCard} ${!discount.is_active || past ? styles.dayCardInactive : ''}`}>
                 <div className={styles.dayCardTop}>
@@ -541,7 +726,7 @@ export default function DayDiscounts() {
                           ? <Percent size={14} />
                           : <DollarSign size={14} />}
                       {isCategoryScope
-                        ? `${categoryRows.length} ${categoryRows.length === 1 ? 'categoría' : 'categorías'}`
+                        ? `${itemCount} ${itemCount === 1 ? 'artículo' : 'artículos'}`
                         : `${dayDiscountValueLabel(discount)} de descuento`}
                     </p>
                   </div>
@@ -571,10 +756,15 @@ export default function DayDiscounts() {
                   {dates.length > 4 && <span className={styles.dayDateMore}>+{dates.length - 4}</span>}
                 </div>
 
-                {isCategoryScope && categoryRows.length > 0 && (
+                {isCategoryScope && itemCount > 0 && (
                   <div className={styles.dayCategoryList}>
                     {groupDiscountRows(categoryRows).map((group) => (
-                      <span key={group.percentage} className={styles.dayCategoryChip}>
+                      <span key={`cat-${group.percentage}`} className={styles.dayCategoryChip}>
+                        {formatPercent(group.percentage)}: {group.names.join(', ')}
+                      </span>
+                    ))}
+                    {groupProductRows(productRows).map((group) => (
+                      <span key={`prod-${group.percentage}`} className={styles.dayCategoryChip}>
                         {formatPercent(group.percentage)}: {group.names.join(', ')}
                       </span>
                     ))}
@@ -662,7 +852,7 @@ export default function DayDiscounts() {
                       className={`${styles.scopeBtn} ${form.discount_scope === 'categories' ? styles.scopeBtnActive : ''}`}
                       onClick={() => setForm({ ...form, discount_scope: 'categories' })}
                     >
-                      Por categorías
+                      Por categorías o productos
                     </button>
                   </div>
                 </div>
@@ -696,35 +886,73 @@ export default function DayDiscounts() {
                   </div>
                 ) : (
                   <div className={styles.field}>
-                    <label>Grupos de descuento</label>
+                    <label>Categorías y productos</label>
                     <div className={styles.categoryGroups}>
                       {form.categoryGroups.map((group, index) => (
-                        <CategoryGroup
-                          key={index}
-                          group={group}
+                        <SelectionGroup
+                          key={`cat-${index}`}
+                          title="Categorías"
                           index={index}
-                          categories={scopeCategories}
+                          group={group}
+                          items={scopeCategories}
                           usedElsewhere={usedElsewhereFor(index)}
                           onChangePercentage={(value) => updateGroupPercentage(index, value)}
-                          onToggleCategory={(categoryId) => toggleGroupCategory(index, categoryId)}
+                          onToggleItem={(categoryId) => toggleGroupCategory(index, categoryId)}
                           onSelectAll={() => selectAllInGroup(index)}
                           onClear={() => clearGroup(index)}
                           onRemove={() => removeCategoryGroup(index)}
                           errors={{
                             percentage: validationErrors[`group_pct_${index}`],
-                            categories: validationErrors[`group_categories_${index}`],
                           }}
+                          percentageLabel={`Porcentaje del grupo ${index + 1}`}
+                          searchLabel={`Buscar categoría para el grupo ${index + 1}`}
+                          searchPlaceholder="Buscar categoría..."
+                          emptyText="No hay categorías con esa búsqueda."
+                          removeLabel={`Eliminar grupo ${index + 1}`}
+                          countLabel={group.categoryIds.length === 1 ? 'seleccionada' : 'seleccionadas'}
                         />
                       ))}
                       <button type="button" className="btn btn-outline" onClick={addCategoryGroup}>
-                        <Plus size={14} /> Agregar grupo de descuento
+                        <Plus size={14} /> Agregar grupo de categorías
                       </button>
+
+                      {form.productGroups.map((group, index) => (
+                        <SelectionGroup
+                          key={`prod-${index}`}
+                          title="Productos"
+                          index={index}
+                          group={group}
+                          items={scopeProducts}
+                          usedElsewhere={usedProductsElsewhereFor(index)}
+                          onChangePercentage={(value) => updateProductGroupPercentage(index, value)}
+                          onToggleItem={(productId) => toggleGroupProduct(index, productId)}
+                          onSelectAll={() => selectAllProductsInGroup(index)}
+                          onClear={() => clearProductGroup(index)}
+                          onRemove={() => removeProductGroup(index)}
+                          errors={{
+                            percentage: validationErrors[`product_group_pct_${index}`],
+                          }}
+                          percentageLabel={`Porcentaje del grupo de productos ${index + 1}`}
+                          searchLabel={`Buscar producto para el grupo ${index + 1}`}
+                          searchPlaceholder="Buscar producto por nombre o ID..."
+                          emptyText="No hay productos con esa búsqueda."
+                          removeLabel={`Eliminar grupo de productos ${index + 1}`}
+                          countLabel={group.productIds.length === 1 ? 'producto' : 'productos'}
+                        />
+                      ))}
+                      <button type="button" className="btn btn-outline" onClick={addProductGroup}>
+                        <Plus size={14} /> Agregar grupo de productos
+                      </button>
+
                       {validationErrors.categoryGroups && (
                         <span className={styles.fieldError}>{validationErrors.categoryGroups}</span>
                       )}
+                      {validationErrors.productGroups && (
+                        <span className={styles.fieldError}>{validationErrors.productGroups}</span>
+                      )}
                       <p className={styles.dayScopeHint}>
-                        Selecciona varias categorías por grupo: todas tendrán el mismo porcentaje.
-                        Puedes crear otro grupo con otro porcentaje.
+                        Cada grupo aplica el mismo porcentaje a las categorías o productos que selecciones.
+                        Si un producto coincide en varios descuentos, se aplica el mayor.
                       </p>
                     </div>
                   </div>
@@ -780,24 +1008,46 @@ export default function DayDiscounts() {
                   <li>
                     <span className={styles.summaryLabel}>Alcance</span>
                     <span className={styles.summaryValue}>
-                      {form.discount_scope === 'categories' ? 'Por categorías' : 'Toda la tienda'}
+                      {form.discount_scope === 'categories' ? 'Por categorías o productos' : 'Toda la tienda'}
                     </span>
                   </li>
                   {form.discount_scope === 'categories' ? (
-                    <li>
-                      <span className={styles.summaryLabel}>Categorías</span>
-                      <span className={styles.summaryValue}>
-                        {form.categoryGroups
-                          .map((group) => {
-                            const names = group.categoryIds
-                              .map((id) => categories.find((item) => item.id === id)?.name)
-                              .filter(Boolean)
-                              .join(', ')
-                            return `${formatPercent(group.percentage)}: ${names || '—'}`
-                          })
-                          .join(' · ') || '—'}
-                      </span>
-                    </li>
+                    <>
+                      {form.categoryGroups.some((group) => group.categoryIds.length > 0) && (
+                        <li>
+                          <span className={styles.summaryLabel}>Categorías</span>
+                          <span className={styles.summaryValue}>
+                            {form.categoryGroups
+                              .filter((group) => group.categoryIds.length > 0)
+                              .map((group) => {
+                                const names = group.categoryIds
+                                  .map((id) => categories.find((item) => item.id === id)?.name)
+                                  .filter(Boolean)
+                                  .join(', ')
+                                return `${formatPercent(group.percentage)}: ${names || '—'}`
+                              })
+                              .join(' · ')}
+                          </span>
+                        </li>
+                      )}
+                      {form.productGroups.some((group) => group.productIds.length > 0) && (
+                        <li>
+                          <span className={styles.summaryLabel}>Productos</span>
+                          <span className={styles.summaryValue}>
+                            {form.productGroups
+                              .filter((group) => group.productIds.length > 0)
+                              .map((group) => {
+                                const names = group.productIds
+                                  .map((id) => products.find((item) => item.id === id)?.name)
+                                  .filter(Boolean)
+                                  .join(', ')
+                                return `${formatPercent(group.percentage)}: ${names || '—'}`
+                              })
+                              .join(' · ')}
+                          </span>
+                        </li>
+                      )}
+                    </>
                   ) : (
                     <li>
                       <span className={styles.summaryLabel}>Descuento</span>

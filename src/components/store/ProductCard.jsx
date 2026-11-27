@@ -20,7 +20,8 @@ function ProductCard({ product, index = 0 }) {
   const priceRange = useMemo(() => getProductPriceRange(product), [product])
   const discount = discountFor(
     storefront.id,
-    product.category_id || product.categories?.id
+    product.category_id || product.categories?.id,
+    product.id
   )
   const productPath = storefront.productPath
     ? storefront.productPath(product.id)

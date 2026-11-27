@@ -8,7 +8,7 @@ export function localISODate(date = new Date()) {
   return `${y}-${m}-${d}`
 }
 
-const DISCOUNT_SELECT = '*, day_discount_categories(category_id, percentage, categories(id, name, store_id))'
+const DISCOUNT_SELECT = '*, day_discount_categories(category_id, percentage, categories(id, name, store_id)), day_discount_products(product_id, percentage, products(id, name, store_id))'
 
 const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100
 
@@ -74,8 +74,8 @@ export async function fetchAllDayDiscounts() {
 export function dayDiscountValueLabel(discount) {
   if (!discount) return ''
   if (discount.discount_scope === 'categories') {
-    const rows = discountCategoryRows(discount)
-    return rows.length ? `${rows.length} categorías` : 'Por categorías'
+    const count = discountCategoryRows(discount).length + discountProductRows(discount).length
+    return count ? `${count} artículos` : 'Por categorías o productos'
   }
   const value = parseFloat(discount.discount_value) || 0
   return discount.discount_type === 'percentage' ? formatPercent(value) : `$${value.toFixed(2)}`
@@ -84,6 +84,12 @@ export function dayDiscountValueLabel(discount) {
 export function discountCategoryRows(discount) {
   return Array.isArray(discount?.day_discount_categories)
     ? discount.day_discount_categories
+    : []
+}
+
+export function discountProductRows(discount) {
+  return Array.isArray(discount?.day_discount_products)
+    ? discount.day_discount_products
     : []
 }
 
@@ -138,6 +144,23 @@ export function computeDayDiscountAllocations(items, discounts, isoDate) {
           if (!isRetail(item)) return
           if (!discountMatchesStore(discount, itemStore(item))) return
           if (itemCategory(item) !== row.category_id) return
+
+          const amount = round2(itemBase(item) * (percentage / 100))
+          if (amount > (best[index]?.amount || 0)) {
+            best[index] = { amount, label, discountId: discount.id }
+          }
+        })
+      }
+
+      for (const row of discountProductRows(discount)) {
+        const percentage = Number(row.percentage) || 0
+        if (percentage <= 0) continue
+        const label = `${prefix}${row.products?.name || row.product_id} ${formatPercent(percentage)}`
+
+        list.forEach((item, index) => {
+          if (!isRetail(item)) return
+          if (!discountMatchesStore(discount, itemStore(item))) return
+          if (item.product?.id !== row.product_id) return
 
           const amount = round2(itemBase(item) * (percentage / 100))
           if (amount > (best[index]?.amount || 0)) {
@@ -237,8 +260,11 @@ export function computeDayDiscountAllocations(items, discounts, isoDate) {
   }
 }
 
-/** Mejor porcentaje para una categoría/tienda en la tienda pública. */
-export function bestDiscountForCategory(discounts, storeId, categoryId, isoDate) {
+/**
+ * Mejor porcentaje para un producto/tienda en la tienda pública.
+ * Considera descuentos por categoría y por producto; gana el mayor.
+ */
+export function bestDiscountForCategory(discounts, storeId, categoryId, isoDate, productId = null) {
   let best = null
 
   for (const discount of discounts || []) {
@@ -247,16 +273,32 @@ export function bestDiscountForCategory(discounts, storeId, categoryId, isoDate)
     const prefix = storePrefix(discount)
 
     if (discount.discount_scope === 'categories') {
-      if (!categoryId) continue
-      for (const row of discountCategoryRows(discount)) {
-        if (row.category_id !== categoryId) continue
-        const percentage = Number(row.percentage) || 0
-        if (percentage <= 0) continue
-        if (!best || percentage > best.percentage) {
-          best = {
-            percentage,
-            label: `${prefix}${categoryLabel(row)} ${formatPercent(percentage)}`,
-            discount,
+      if (categoryId) {
+        for (const row of discountCategoryRows(discount)) {
+          if (row.category_id !== categoryId) continue
+          const percentage = Number(row.percentage) || 0
+          if (percentage <= 0) continue
+          if (!best || percentage > best.percentage) {
+            best = {
+              percentage,
+              label: `${prefix}${categoryLabel(row)} ${formatPercent(percentage)}`,
+              discount,
+            }
+          }
+        }
+      }
+
+      if (productId) {
+        for (const row of discountProductRows(discount)) {
+          if (row.product_id !== productId) continue
+          const percentage = Number(row.percentage) || 0
+          if (percentage <= 0) continue
+          if (!best || percentage > best.percentage) {
+            best = {
+              percentage,
+              label: `${prefix}${row.products?.name || productId} ${formatPercent(percentage)}`,
+              discount,
+            }
           }
         }
       }
@@ -292,6 +334,12 @@ export function promotionsForStore(discounts, storeId, isoDate) {
         const percentage = Number(row.percentage) || 0
         if (percentage > 0) {
           labels.add(`${prefix}${categoryLabel(row)} ${formatPercent(percentage)}`)
+        }
+      }
+      for (const row of discountProductRows(discount)) {
+        const percentage = Number(row.percentage) || 0
+        if (percentage > 0) {
+          labels.add(`${prefix}${row.products?.name || row.product_id} ${formatPercent(percentage)}`)
         }
       }
       continue

@@ -28,15 +28,15 @@ export function DayDiscountsProvider({ children }) {
   }, [refresh])
 
   const value = useMemo(() => {
-    const discountFor = (storeId, categoryId) =>
-      bestDiscountForCategory(discounts, storeId, categoryId, localISODate())
+    const discountFor = (storeId, categoryId, productId = null) =>
+      bestDiscountForCategory(discounts, storeId, categoryId, localISODate(), productId)
 
     return {
       discounts,
       refresh,
       discountFor,
-      percentageFor: (storeId, categoryId) =>
-        discountFor(storeId, categoryId)?.percentage || 0,
+      percentageFor: (storeId, categoryId, productId = null) =>
+        discountFor(storeId, categoryId, productId)?.percentage || 0,
       promotionsFor: (storeId) =>
         promotionsForStore(discounts, storeId, localISODate()),
     }

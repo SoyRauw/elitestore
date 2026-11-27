@@ -25,7 +25,11 @@ export default function ProductDetailPage() {
   const addItem = useCartStore((s) => s.addItem)
 
   const discountPercentage = product
-    ? discountFor(storefront.id, product.category_id || product.categories?.id)?.percentage || 0
+    ? discountFor(
+        storefront.id,
+        product.category_id || product.categories?.id,
+        product.id
+      )?.percentage || 0
     : 0
 
   const models = useMemo(() => getVariantModels(product || {}), [product])

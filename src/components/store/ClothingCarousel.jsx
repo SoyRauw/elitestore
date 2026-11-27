@@ -76,7 +76,7 @@ export default function ClothingCarousel() {
             const firstModel = models[0] || null
             const image = firstModel?.image || item.images?.[0] || null
             const priceRange = getProductPriceRange(item)
-            const discount = discountFor(storefront.id, item.category_id || item.categories?.id)
+            const discount = discountFor(storefront.id, item.category_id || item.categories?.id, item.id)
             const discountPercentage = discount?.percentage || 0
             const basePrice = priceRange.min
             const displayPrice = discountPercentage > 0
