@@ -162,15 +162,8 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
-}
-
-.index {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  color: rgba(255, 255, 255, 0.7);
 }
 
 .badge {
@@ -227,6 +220,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
+  margin-top: 0.5rem;
 }
 
 .label {
@@ -330,10 +324,6 @@
     min-height: 1rem;
   }
 
-  .index {
-    font-size: 0.58rem;
-  }
-
   .badge {
     padding: 0.25rem 0.55rem;
     font-size: 0.52rem;
@@ -346,7 +336,7 @@
 
   .logo {
     max-width: min(30%, 120px);
-    max-height: 12svh;
+    max-height: 11svh;
   }
 
   .men .logo {

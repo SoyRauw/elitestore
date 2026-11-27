@@ -77,12 +77,11 @@ export default function StorePortal() {
             <span className={styles.grain} aria-hidden="true" />
 
             <div className={styles.content}>
-              <div className={styles.topRow}>
-                <span className={styles.index}>{store.portalIndex}</span>
-                {store.portalBadge && (
+              {store.portalBadge && (
+                <div className={styles.topRow}>
                   <span className={styles.badge} style={GLASS_BLUR}>{store.portalBadge}</span>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className={styles.logoWrap}>
                 <img

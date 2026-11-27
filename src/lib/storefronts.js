@@ -123,7 +123,6 @@ export const PORTAL_STORES = [
     portalLabel: 'WOMEN',
     portalTagline: 'Elegancia en tu día a día',
     portalCta: 'Entrar',
-    portalIndex: '01',
     portalLogo: STOREFRONTS.elite.logoLight,
   },
   {
@@ -131,7 +130,6 @@ export const PORTAL_STORES = [
     portalLabel: 'MEN',
     portalTagline: 'Explora tu estilo',
     portalCta: 'Ver más',
-    portalIndex: '02',
     portalLogo: STOREFRONTS.men.markLight,
     portalBadge: 'PRÓXIMAMENTE',
   },
@@ -140,7 +138,6 @@ export const PORTAL_STORES = [
     portalLabel: 'USA SUPER STORE',
     portalTagline: 'Compra online y pide por WhatsApp',
     portalCta: 'Entrar',
-    portalIndex: '03',
     portalLogo: STOREFRONTS.usa.logo,
     portalBadge: 'NUEVO · ONLINE',
   },
